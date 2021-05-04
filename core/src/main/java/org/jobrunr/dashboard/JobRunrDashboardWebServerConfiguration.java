@@ -1,19 +1,28 @@
 package org.jobrunr.dashboard;
 
+import java.nio.file.Path;
+
 /**
  * This class allows to configure the JobRunrDashboard
  */
 public class JobRunrDashboardWebServerConfiguration {
+    boolean enableHttp = true;
     int port = 8000;
     String username = null;
     String password = null;
+
+    boolean enableHttps = false;
+    int portHttps = 8001;
+    Path keyStorePathHttps = null;
+    String keyStorePasswordHttps = null;
 
     private JobRunrDashboardWebServerConfiguration() {
 
     }
 
     /**
-     * This returns the default configuration with the JobRunrDashboard running on port 8000
+     * This returns the default configuration with the JobRunrDashboard running on port 8000,
+     * using HTTP only and no authentication
      *
      * @return the default JobRunrDashboard configuration
      */
@@ -22,9 +31,20 @@ public class JobRunrDashboardWebServerConfiguration {
     }
 
     /**
-     * Specifies the port on which the JobRunrDashboard will run
+     * Specifies whether the HTTP JobRunrDashboard will run
      *
-     * @param port the port on which the JobRunrDashboard will run
+     * @param enableHttp whether the HTTP JobRunrDashboard will run
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andEnableHttp(boolean enableHttp) {
+        this.enableHttp = enableHttp;
+        return this;
+    }
+
+    /**
+     * Specifies the port on which the HTTP JobRunrDashboard will run
+     *
+     * @param port the port on which the HTTP JobRunrDashboard will run
      * @return the same configuration instance which provides a fluent api
      */
     public JobRunrDashboardWebServerConfiguration andPort(int port) {
@@ -43,6 +63,41 @@ public class JobRunrDashboardWebServerConfiguration {
     public JobRunrDashboardWebServerConfiguration andBasicAuthentication(String username, String password) {
         this.username = username;
         this.password = password;
+        return this;
+    }
+
+    /**
+     * Specifies whether the HTTPS JobRunrDashboard will run
+     *
+     * @param enableHttps whether the HTTPS JobRunrDashboard will run
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andEnableHttps(boolean enableHttps) {
+        this.enableHttps = enableHttps;
+        return this;
+    }
+
+    /**
+     * Specifies the port on which the HTTPS JobRunrDashboard will run
+     *
+     * @param portHttps the port on which the HTTPS JobRunrDashboard will run
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andPortHttps(int portHttps) {
+        this.portHttps = portHttps;
+        return this;
+    }
+
+    /**
+     * Specifies the keystore containing the certificate the JobRunrDashboard will use for HTTPS.
+     *
+     * @param keyStorePathHttps the keystore containing the certificate the JobRunrDashboard will use for HTTPS
+     * @param keyStorePasswordHttps the keystore password (or null if no password is required)
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andKeyStoreHttps(Path keyStorePathHttps, String keyStorePasswordHttps) {
+        this.keyStorePathHttps = keyStorePathHttps;
+        this.keyStorePasswordHttps = keyStorePasswordHttps;
         return this;
     }
 }

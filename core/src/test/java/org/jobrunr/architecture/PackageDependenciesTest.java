@@ -35,7 +35,7 @@ class PackageDependenciesTest {
     @ArchTest
     ArchRule jobRunrDashboardClassesDependenciesTest = classes()
                 .that().resideInAPackage("org.jobrunr.dashboard..")
-                .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "com.sun..", "org.slf4j..", "java..");
+                .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "com.sun..", "org.slf4j..", "java..", "javax.net.ssl..", "org.bouncycastle..", "");
 
     @ArchTest
     ArchRule jobRunrJobsClassesDependenciesTest = classes()

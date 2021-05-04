@@ -25,6 +25,7 @@ dependencies {
 
     api 'org.slf4j:slf4j-api'
     api 'org.ow2.asm:asm'
+    api 'org.bouncycastle:bcpkix-jdk15on:1.68'
 
     compileOnly 'com.fasterxml.jackson.core:jackson-databind'
     compileOnly 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'

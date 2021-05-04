@@ -39,19 +39,23 @@ abstract class JobRunrDashboardWebServerTest {
     private TeenyHttpClient http;
 
     abstract JsonMapper getJsonMapper();
+    abstract JobRunrDashboardWebServerConfiguration getDashboardConfiguration();
 
     @BeforeEach
     void setUpWebServer() {
         final JsonMapper jsonMapper = getJsonMapper();
+        final JobRunrDashboardWebServerConfiguration configuration = getDashboardConfiguration();
 
         storageProvider = new InMemoryStorageProvider();
         storageProvider.setJobMapper(new JobMapper(jsonMapper));
 
-        int port = FreePortFinder.nextFreePort(8000);
-        dashboardWebServer = new JobRunrDashboardWebServer(storageProvider, jsonMapper, port);
+        dashboardWebServer = new JobRunrDashboardWebServer(storageProvider, jsonMapper, configuration);
         dashboardWebServer.start();
 
-        http = new TeenyHttpClient("http://localhost:" + port);
+        if (configuration.enableHttps)
+            http = new TeenyHttpClient("https://localhost:" + configuration.portHttps);
+        else
+            http = new TeenyHttpClient("http://localhost:" + configuration.port);
     }
 
     @AfterEach

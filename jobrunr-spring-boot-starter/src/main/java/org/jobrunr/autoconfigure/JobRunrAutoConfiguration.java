@@ -85,8 +85,12 @@ public class JobRunrAutoConfiguration {
     @ConditionalOnProperty(prefix = "org.jobrunr.dashboard", name = "enabled", havingValue = "true")
     public JobRunrDashboardWebServerConfiguration dashboardWebServerConfiguration(JobRunrProperties properties) {
         return usingStandardDashboardConfiguration()
+                .andEnableHttp(properties.getDashboard().isHttpEnabled())
                 .andPort(properties.getDashboard().getPort())
-                .andBasicAuthentication(properties.getDashboard().getUsername(), properties.getDashboard().getPassword());
+                .andBasicAuthentication(properties.getDashboard().getUsername(), properties.getDashboard().getPassword())
+                .andEnableHttps(properties.getDashboard().isHttpsEnabled())
+                .andPortHttps(properties.getDashboard().getPortHttps())
+                .andKeyStoreHttps(properties.getDashboard().getKeyStorePathHttps(), properties.getDashboard().getKeyStorePasswordHttps());
     }
 
     @Bean
