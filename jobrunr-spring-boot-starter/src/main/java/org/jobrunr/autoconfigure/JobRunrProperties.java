@@ -82,14 +82,21 @@ public class JobRunrProperties {
 
         /**
          * Sets the duration to wait before changing jobs that are in the SUCCEEDED state to the DELETED state. If a duration suffix
-         * is not specified, hours will be used.
+         * is not specified, hours will be used. A value of 0 disables the option. The default is 36 hours.
          */
         @DurationUnit(ChronoUnit.HOURS)
         private Duration deleteSucceededJobsAfter = Duration.ofHours(36);
 
         /**
+         * Sets the duration to wait before changing jobs that are in the FAILED state to the DELETED state. If a duration suffix
+         * is not specified, hours will be used. A value of 0 disables the option. The default is disabled.
+         */
+        @DurationUnit(ChronoUnit.HOURS)
+        private Duration deleteFailedJobsAfter = Duration.ofHours(0);
+
+        /**
          * Sets the duration to wait before permanently deleting jobs that are in the DELETED state. If a duration suffix
-         * is not specified, hours will be used.
+         * is not specified, hours will be used. A value of 0 disables the option. The default is 72 hours.
          */
         @DurationUnit(ChronoUnit.HOURS)
         private Duration permanentlyDeleteDeletedJobsAfter = Duration.ofHours(72);
@@ -124,6 +131,14 @@ public class JobRunrProperties {
 
         public void setDeleteSucceededJobsAfter(Duration deleteSucceededJobsAfter) {
             this.deleteSucceededJobsAfter = deleteSucceededJobsAfter;
+        }
+
+        public Duration getDeleteFailedJobsAfter() {
+            return deleteFailedJobsAfter;
+        }
+
+        public void setDeleteFailedJobsAfter(Duration deleteFailedJobsAfter) {
+            this.deleteFailedJobsAfter = deleteFailedJobsAfter;
         }
 
         public Duration getPermanentlyDeleteDeletedJobsAfter() {

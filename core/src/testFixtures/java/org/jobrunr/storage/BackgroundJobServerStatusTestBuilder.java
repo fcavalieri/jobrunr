@@ -9,6 +9,7 @@ public class BackgroundJobServerStatusTestBuilder {
     private int workerPoolSize = 10;
     private int pollIntervalInSeconds = BackgroundJobServerConfiguration.DEFAULT_POLL_INTERVAL_IN_SECONDS;
     private Duration deleteSucceededJobsAfter = BackgroundJobServerConfiguration.DEFAULT_DELETE_SUCCEEDED_JOBS_DURATION;
+    private Duration deleteFailedJobsAfter = BackgroundJobServerConfiguration.DEFAULT_DELETE_FAILED_JOBS_DURATION;
     private Duration permanentlyDeleteDeletedJobsAfter = BackgroundJobServerConfiguration.DEFAULT_PERMANENTLY_DELETE_JOBS_DURATION;
     private boolean started;
 
@@ -41,7 +42,7 @@ public class BackgroundJobServerStatusTestBuilder {
     }
 
     public BackgroundJobServerStatus build() {
-        BackgroundJobServerStatus backgroundJobServerStatus = new BackgroundJobServerStatus(workerPoolSize, pollIntervalInSeconds, deleteSucceededJobsAfter, permanentlyDeleteDeletedJobsAfter);
+        BackgroundJobServerStatus backgroundJobServerStatus = new BackgroundJobServerStatus(workerPoolSize, pollIntervalInSeconds, deleteSucceededJobsAfter, deleteFailedJobsAfter, permanentlyDeleteDeletedJobsAfter);
         if (started) {
             backgroundJobServerStatus.start();
         }

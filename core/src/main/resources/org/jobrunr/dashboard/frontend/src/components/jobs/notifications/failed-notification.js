@@ -15,21 +15,21 @@ const useStyles = makeStyles(() => ({
 }));
 
 
-const SucceededNotification = (props) => {
+const FailedNotification = (props) => {
     const classes = useStyles();
 
     const job = props.job;
-    const serverStats = serversState.useServersState(SucceededNotification);
+    const serverStats = serversState.useServersState(FailedNotification);
 
     var automaticStateChangeMessage = "";
     if (!(serverStats === undefined || serverStats[0] === undefined)) {
-        const deleteDuration = serverStats[0].deleteSucceededJobsAfter;
+        const deleteDuration = serverStats[0].deleteFailedJobsAfter;
         const deleteDurationInSec = deleteDuration.toString().startsWith('PT') ? convertISO8601DurationToSeconds(deleteDuration) : deleteDuration;
         if (deleteDurationInSec > 0) {
-            const succeededState = job.jobHistory[job.jobHistory.length - 1]
-            const succeededDate = new Date(succeededState.createdAt);
-            const deleteDate = new Date(succeededDate.getTime() + (deleteDurationInSec * 1000));
-            automaticStateChangeMessage = (<span>It will automatically go to the deleted state <TimeAgo date={deleteDate} title={deleteDate.toString()}/>.</span>);
+            const deletedState = job.jobHistory[job.jobHistory.length - 1]
+            const deletedDate = new Date(deletedState.createdAt);
+            const deleteDate = new Date(deletedDate.getTime() + (deleteDurationInSec * 1000));
+            automaticStateChangeMessage = (<span>It will automatically be removed <TimeAgo date={deleteDate} title={deleteDate.toString()}/>.</span>);
         }
     }
 
@@ -37,11 +37,11 @@ const SucceededNotification = (props) => {
         <Grid item xs={12}>
             <Paper>
                 <Alert severity="info" className={classes.alert}>
-                    <strong>This job has succeeded.</strong> {automaticStateChangeMessage}
+                    <strong>This job has failed.</strong> {automaticStateChangeMessage}
                 </Alert>
             </Paper>
         </Grid>
     );
 };
 
-export default SucceededNotification;
+export default FailedNotification;
