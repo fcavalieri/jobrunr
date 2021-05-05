@@ -191,6 +191,13 @@ public class BackgroundJobTest {
     }
 
     @Test
+    void testFailedJobWithProblematicExceptionIsNotRescheduled() {
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatFailsWithProblematicException());
+        await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED));
+        assertThat(storageProvider.getJobById(jobId).getLastJobStateOfType(FailedState.class).get().mustNotRetry());
+    }
+
+    @Test
     void testScheduleWithId() {
         UUID id = UUID.randomUUID();
         JobId jobId1 = BackgroundJob.schedule(id, now(), () -> testService.doWork());
