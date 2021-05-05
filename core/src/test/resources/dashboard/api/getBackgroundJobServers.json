@@ -5,6 +5,7 @@
     "workerPoolSize": 10,
     "pollIntervalInSeconds": 15,
     "deleteSucceededJobsAfter": 129600.0,
+    "deleteFailedJobsAfter": 0.0,
     "permanentlyDeleteDeletedJobsAfter": 259200.0,
     "firstHeartbeat": "${json-unit.ignore}",
     "lastHeartbeat": "${json-unit.ignore}",

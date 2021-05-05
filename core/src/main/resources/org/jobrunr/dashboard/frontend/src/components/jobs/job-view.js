@@ -26,6 +26,7 @@ import Box from "@material-ui/core/Box";
 import LoadingIndicator from "../LoadingIndicator";
 import {jobStateToHumanReadableName} from "../utils/job-utils";
 import SucceededNotification from "./notifications/succeeded-notification";
+import FailedNotification from "./notifications/failed-notification";
 import DeletedNotification from "./notifications/deleted-notification";
 
 const useStyles = makeStyles(() => ({
@@ -212,6 +213,7 @@ const JobView = (props) => {
                             <JobCode job={job}/>
 
                             {stateBreadcrumb.state === 'SUCCEEDED' && <SucceededNotification job={job}/>}
+                            {stateBreadcrumb.state === 'FAILED' && <FailedNotification job={job}/>}
                             {stateBreadcrumb.state === 'DELETED' && <DeletedNotification job={job}/>}
 
                             <Grid item xs={12}>

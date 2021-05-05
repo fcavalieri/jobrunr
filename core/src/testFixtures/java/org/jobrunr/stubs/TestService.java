@@ -132,6 +132,11 @@ public class TestService implements TestServiceInterface {
         throw new RuntimeException("Whoopsie, an error occcured");
     }
 
+    @Job(name = "Doing some work that fails without retries", retries = 0)
+    public void doWorkThatFailsWithoutRetries() {
+        throw new RuntimeException("Whoopsie, an error occcured");
+    }
+
     public void doWorkThatTakesLong(JobContext jobContext) throws InterruptedException {
         final JobDashboardProgressBar progressBar = jobContext.progressBar(9);
         for (int i = 0; i < 10; i++) {

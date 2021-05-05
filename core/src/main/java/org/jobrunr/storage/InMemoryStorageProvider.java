@@ -63,6 +63,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 serverStatus.getWorkerPoolSize(),
                 serverStatus.getPollIntervalInSeconds(),
                 serverStatus.getDeleteSucceededJobsAfter(),
+                serverStatus.getDeleteFailedJobsAfter(),
                 serverStatus.getPermanentlyDeleteDeletedJobsAfter(),
                 serverStatus.getFirstHeartbeat(),
                 serverStatus.getLastHeartbeat(),
