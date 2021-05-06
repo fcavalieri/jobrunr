@@ -285,6 +285,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
             transaction.del(jobVersionKey(keyPrefix, job));
             deleteJobMetadata(transaction, job);
             final List<Object> result = transaction.exec();
+            disposeJobResources(job.getMetadata());
             int amount = result == null || result.isEmpty() ? 0 : 1;
             notifyJobStatsOnChangeListenersIf(amount > 0);
             return amount;
@@ -414,6 +415,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
                         deleteJobMetadata(transaction, job);
 
                         final List<Object> exec = transaction.exec();
+                        disposeJobResources(job.getMetadata());
                         if (exec != null && !exec.isEmpty()) amount++;
                     }
                 }

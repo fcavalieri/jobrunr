@@ -5,6 +5,7 @@ import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.context.JobContext;
 import org.jobrunr.jobs.lambdas.JobLambda;
+import org.jobrunr.jobs.metadata.DisposableResource;
 import org.jobrunr.jobs.states.FailedState;
 import org.jobrunr.jobs.states.ProcessingState;
 import org.jobrunr.scheduling.cron.Cron;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -26,6 +29,7 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -108,5 +112,71 @@ public class JobStateChangeTest {
         assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED, DELETED);
 
         await().atMost(TEN_SECONDS).until(() -> { try { storageProvider.getJobById(jobId); return false; } catch (JobNotFoundException e){ return true; }});
+    }
+
+    class DisposableTemporaryFile implements DisposableResource {
+        private File disposableFile;
+
+        public DisposableTemporaryFile() {
+            try {
+                disposableFile = File.createTempFile("jobrunr", "gc");
+                disposableFile.deleteOnExit();
+            } catch (IOException e) {
+                throw new IllegalStateException("Unexpected failure creating garbage collecting test file", e);
+            }
+        }
+
+
+        @Override
+        public void dispose() throws Exception {
+            if (!disposableFile.delete())
+                throw new IllegalStateException("Unexpected failure garbage collecting test file");
+        }
+
+        public boolean exists() {
+            return disposableFile.exists();
+        }
+    }
+
+    @Test
+    void testSucceededFinallyRemovedAndGCed() {
+        ConcurrentHashMap<String, Object> metadata = new ConcurrentHashMap<>();
+        DisposableTemporaryFile disposableResource = new DisposableTemporaryFile();
+        metadata.put("disposableResource", disposableResource);
+
+        JobId jobId = BackgroundJob.enqueue(null, () -> System.out.println("this is a test"), metadata);
+        await().atMost(FIVE_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == SUCCEEDED);
+        assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, SUCCEEDED);
+
+        await().atMost(TEN_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == DELETED);
+        assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, SUCCEEDED, DELETED);
+
+        assertThat(disposableResource.exists());
+
+        await().atMost(TEN_SECONDS).until(() -> { try { storageProvider.getJobById(jobId); return false; } catch (JobNotFoundException e){ return true; }});
+
+        assertThat(!disposableResource.exists());
+    }
+
+    @Test
+    void testFailedFinallyRemovedAndGCed() {
+        ConcurrentHashMap<String, Object> metadata = new ConcurrentHashMap<>();
+        DisposableTemporaryFile disposableResource = new DisposableTemporaryFile();
+        metadata.put("disposableResource", disposableResource);
+
+        JobId jobId = BackgroundJob.enqueue(null, () -> testService.doWorkThatFailsWithoutRetries(), metadata);
+        await().atMost(FIVE_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == FAILED);
+        assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED);
+
+        await().atMost(TEN_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == DELETED);
+        assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED, DELETED);
+
+        await().atMost(TEN_SECONDS).until(() -> { try { storageProvider.getJobById(jobId); return false; } catch (JobNotFoundException e){ return true; }});
+
+        assertThat(disposableResource.exists());
+
+        await().atMost(TEN_SECONDS).until(() -> { try { storageProvider.getJobById(jobId); return false; } catch (JobNotFoundException e){ return true; }});
+
+        assertThat(!disposableResource.exists());
     }
 }

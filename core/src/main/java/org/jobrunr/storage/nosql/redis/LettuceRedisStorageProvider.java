@@ -306,6 +306,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
             commands.del(jobVersionKey(keyPrefix, job));
             deleteJobMetadata(commands, job);
             final TransactionResult result = commands.exec();
+            disposeJobResources(job.getMetadata());
             int amount = result == null || result.isEmpty() ? 0 : 1;
             notifyJobStatsOnChangeListenersIf(amount > 0);
             return amount;
@@ -443,6 +444,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
                     deleteJobMetadata(commands, job);
 
                     final TransactionResult exec = commands.exec();
+                    disposeJobResources(job.getMetadata());
                     if (exec != null && !exec.isEmpty()) amount++;
                 }
                 zrangeToInspect = commands.zrange(jobQueueForStateKey(keyPrefix, state), 0, 1000);
