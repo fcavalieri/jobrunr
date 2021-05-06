@@ -178,6 +178,13 @@ public class JobTable extends Sql<Job> {
         return delete("from jobrunr_jobs where id in (" + stream(ids).map(uuid -> "'" + uuid.toString() + "'").collect(joining(",")) + ")");
     }
 
+    public List<Job> getJobsByStateAndUpdatedBefore(StateName state, Instant updatedBefore) {
+        return withState(state)
+                .withUpdatedBefore(updatedBefore)
+                .selectJobs("jobAsJson from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore")
+                .collect(toList());
+    }
+
     public int deleteJobsByStateAndUpdatedBefore(StateName state, Instant updatedBefore) {
         return withState(state)
                 .withUpdatedBefore(updatedBefore)
