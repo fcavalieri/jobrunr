@@ -194,7 +194,7 @@ public class BackgroundJobTest {
     void testFailedJobWithProblematicExceptionIsNotRescheduled() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatFailsWithProblematicException());
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED));
-        assertThat(storageProvider.getJobById(jobId).getLastJobStateOfType(FailedState.class).get().mustNotRetry());
+        assertThat(storageProvider.getJobById(jobId).getLastJobStateOfType(FailedState.class).get().mustNotRetry()).isTrue();
     }
 
     @Test
