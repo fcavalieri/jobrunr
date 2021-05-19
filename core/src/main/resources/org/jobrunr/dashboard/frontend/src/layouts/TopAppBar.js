@@ -76,7 +76,7 @@ const TopAppBar = () => {
                     </Button>
                 </div>
                 <IconButton edge="start" className={classes.menuButton} color="inherit" aria-label="menu"
-                            target="_blank" href="https://github.com/jobrunr/jobrunr">
+                            target="_blank" href={process.env.REACT_APP_GITHUB_URL}>
                     <GitHubIcon/>
                 </IconButton>
             </Toolbar>

@@ -210,7 +210,10 @@ const JobView = (props) => {
                         </Box>
 
                         <Grid container spacing={3}>
-                            <JobCode job={job}/>
+                            { (process.env.REACT_APP_DISPLAY_JOB_CODE === 'true')
+                              ? <JobCode job={job}/>
+                              : <Grid item xs={12}/>
+                            }
 
                             {stateBreadcrumb.state === 'SUCCEEDED' && <SucceededNotification job={job}/>}
                             {stateBreadcrumb.state === 'FAILED' && <FailedNotification job={job}/>}
