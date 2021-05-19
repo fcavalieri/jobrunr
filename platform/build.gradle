@@ -36,6 +36,7 @@ dependencies {
         api 'io.lettuce:lettuce-core:6.1.0.RELEASE'
         api 'org.mongodb:mongodb-driver-sync:4.2.0'
         api 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.11.2'
+        api 'com.marklogic:marklogic-client-api:5.3.0'
 
         api 'org.junit.jupiter:junit-jupiter:5.7.0'
         api 'org.awaitility:awaitility:4.0.3'
