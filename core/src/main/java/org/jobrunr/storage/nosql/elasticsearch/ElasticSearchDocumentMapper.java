@@ -176,4 +176,8 @@ public class ElasticSearchDocumentMapper {
         String jobAsJson = hit.getFields().get(RecurringJobs.FIELD_JOB_AS_JSON).getValue().toString();
         return jobMapper.deserializeRecurringJob(jobAsJson);
     }
+
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
 }

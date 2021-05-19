@@ -6,9 +6,9 @@ import org.jobrunr.utils.mapper.JsonMapper;
 
 public class JobMapper {
 
-     private final JsonMapper jsonMapper;
+    private final JsonMapper jsonMapper;
 
-     public JobMapper(JsonMapper jsonMapper) {
+    public JobMapper(JsonMapper jsonMapper) {
           this.jsonMapper = jsonMapper;
      }
 
@@ -28,4 +28,7 @@ public class JobMapper {
         return jsonMapper.deserialize(serializedJobAsString, RecurringJob.class);
     }
 
+    public JsonMapper getJsonMapper() {
+       return jsonMapper;
+    }
 }

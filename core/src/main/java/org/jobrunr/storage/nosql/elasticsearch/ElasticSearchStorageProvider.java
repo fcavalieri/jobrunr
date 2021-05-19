@@ -101,6 +101,11 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return elasticSearchDocumentMapper != null ? elasticSearchDocumentMapper.getJobMapper() : null;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.elasticSearchDocumentMapper = new ElasticSearchDocumentMapper(jobMapper);
     }
