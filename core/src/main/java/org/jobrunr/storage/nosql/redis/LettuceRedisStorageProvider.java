@@ -88,6 +88,11 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobMapper = jobMapper;
     }

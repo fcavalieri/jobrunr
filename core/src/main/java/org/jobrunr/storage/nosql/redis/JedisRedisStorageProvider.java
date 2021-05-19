@@ -83,6 +83,11 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobMapper = jobMapper;
     }

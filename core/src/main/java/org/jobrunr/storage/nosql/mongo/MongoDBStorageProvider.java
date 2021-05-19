@@ -130,6 +130,11 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobDocumentMapper != null ? jobDocumentMapper.getJobMapper() : null;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobDocumentMapper = new JobDocumentMapper(jobMapper);
         this.backgroundJobServerStatusDocumentMapper = new BackgroundJobServerStatusDocumentMapper();

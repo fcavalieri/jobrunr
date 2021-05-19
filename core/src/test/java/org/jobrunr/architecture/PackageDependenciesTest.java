@@ -29,7 +29,7 @@ class PackageDependenciesTest {
 
     @ArchTest
     ArchRule jobRunrConfigurationDependenciesTest = classes()
-                .that().resideInAPackage("org.jobrunr.configuration..")
+                .that().resideInAPackage("org.jobrunr.configuration..").and().resideOutsideOfPackage("org.jobrunr.configuration..")
                 .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "java..");
 
     @ArchTest

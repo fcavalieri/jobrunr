@@ -2,6 +2,7 @@ package org.jobrunr.tests.e2e;
 
 import org.awaitility.core.ConditionTimeoutException;
 import org.jobrunr.configuration.JobRunr;
+import org.jobrunr.configuration.JobRunrConfiguration;
 import org.jobrunr.jobs.JobId;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.storage.StorageProvider;
@@ -24,19 +25,29 @@ import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
 
 public abstract class AbstractE2ETest {
 
-    private StorageProvider storageProvider;
+    protected StorageProvider storageProvider;
 
     protected abstract StorageProvider getStorageProviderForClient();
 
     protected abstract AbstractBackgroundJobContainer backgroundJobServer();
 
+    public JobRunrConfiguration.JsonMapperKind overrideJsonMapperKind() {
+        return null;
+    }
+
     @BeforeEach
     public void setUpJobRunr() {
         storageProvider = getStorageProviderForClient();
 
-        JobRunr.configure()
-                .useStorageProvider(storageProvider)
-                .initialize();
+        if (overrideJsonMapperKind() != null) {
+            JobRunr.configure(overrideJsonMapperKind())
+                    .useStorageProvider(storageProvider)
+                    .initialize();
+        } else {
+            JobRunr.configure()
+                    .useStorageProvider(storageProvider)
+                    .initialize();
+        }
     }
 
     @Test
