@@ -49,6 +49,7 @@ dependencies {
     compileOnly 'io.lettuce:lettuce-core'
     compileOnly 'org.mongodb:mongodb-driver-sync'
     compileOnly 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    compileOnly 'com.marklogic:marklogic-client-api'
 
     testImplementation 'org.ow2.asm:asm-util'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
@@ -81,6 +82,7 @@ dependencies {
     testImplementation 'io.lettuce:lettuce-core'
     testImplementation 'org.mongodb:mongodb-driver-sync'
     testImplementation 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    testImplementation 'com.marklogic:marklogic-client-api'
 
     testFixturesApi 'org.assertj:assertj-core'
     testFixturesApi 'org.junit.jupiter:junit-jupiter'

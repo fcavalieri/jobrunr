@@ -28,6 +28,7 @@ configure(subprojects.findAll {it.name != 'platform'}) {
     repositories {
         mavenCentral()
         mavenLocal()
+        jcenter()
     }
 
 
