@@ -181,6 +181,7 @@ public class ElasticSearchDocumentMapper {
         public ShouldNotHappenException(Exception e) {
             super("Should never happen", e);
         }
+    }
 
     public JobMapper getJobMapper() {
         return jobMapper;
