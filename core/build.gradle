@@ -118,11 +118,11 @@ publishing {
             pom {
                 name = 'JobRunr'
                 description = 'An easy way to perform background processing on the JVM. Backed by persistent storage. Open and free for commercial use.'
-                url = 'https://github.com/jobrunr/jobrunr'
+                url = 'https://github.com/fcavalieri/jobrunr'
                 licenses {
                     license {
                         name = 'Multi licensed'
-                        url = 'https://github.com/jobrunr/jobrunr/blob/master/License.md'
+                        url = 'https://github.com/fcavalieri/jobrunr/blob/master/License.md'
                     }
                 }
                 developers {
@@ -133,9 +133,9 @@ publishing {
                     }
                 }
                 scm {
-                    connection = 'scm:git:https://github.com/jobrunr/jobrunr.git'
-                    developerConnection = 'scm:git@github.com:jobrunr/jobrunr.git'
-                    url = 'https://github.com/jobrunr/jobrunr.git'
+                    connection = 'scm:git:https://github.com/fcavalieri/jobrunr.git'
+                    developerConnection = 'scm:git@github.com:fcavalieri/jobrunr.git'
+                    url = 'https://github.com/fcavalieri/jobrunr.git'
                 }
 
                 versionMapping {
