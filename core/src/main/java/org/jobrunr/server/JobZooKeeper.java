@@ -17,6 +17,7 @@ import org.jobrunr.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,7 @@ import static java.time.Instant.now;
 import static org.jobrunr.JobRunrException.shouldNotHappenException;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
 
 public class JobZooKeeper implements Runnable {
@@ -95,6 +97,7 @@ public class JobZooKeeper implements Runnable {
         checkForScheduledJobs();
         checkForOrphanedJobs();
         checkForSucceededJobsThanCanGoToDeletedState();
+        checkForFailedJobsThanCanGoToDeletedState();
         checkForJobsThatCanBeDeleted();
     }
 
@@ -122,6 +125,8 @@ public class JobZooKeeper implements Runnable {
     }
 
     void checkForSucceededJobsThanCanGoToDeletedState() {
+        if (backgroundJobServer.getServerStatus().getDeleteSucceededJobsAfter() == Duration.ZERO)
+            return;
         LOGGER.debug("Looking for succeeded jobs that can go to the deleted state... ");
         AtomicInteger succeededJobsCounter = new AtomicInteger();
 
@@ -137,7 +142,22 @@ public class JobZooKeeper implements Runnable {
         }
     }
 
+    void checkForFailedJobsThanCanGoToDeletedState() {
+        if (backgroundJobServer.getServerStatus().getDeleteFailedJobsAfter() == Duration.ZERO)
+            return;
+        LOGGER.debug("Looking for failed jobs that can go to the deleted state... ");
+
+        final Instant updatedBefore = now().minus(backgroundJobServer.getServerStatus().getDeleteFailedJobsAfter());
+        Supplier<List<Job>> failedJobsSupplier = () -> storageProvider.getJobs(FAILED, updatedBefore, ascOnUpdatedAt(1000));
+        processJobList(failedJobsSupplier, job -> {
+            job.delete();
+        });
+    }
+
     void checkForJobsThatCanBeDeleted() {
+        if (backgroundJobServer.getServerStatus().getPermanentlyDeleteDeletedJobsAfter() == Duration.ZERO)
+            return;
+
         LOGGER.debug("Looking for deleted jobs that can be deleted permanently... ");
         storageProvider.deleteJobsPermanently(StateName.DELETED, now().minus(backgroundJobServer.getServerStatus().getPermanentlyDeleteDeletedJobsAfter()));
     }

@@ -13,6 +13,9 @@ import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
+import java.nio.file.Path;
+
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.utils.StringUtils.isNotNullOrEmpty;
 
@@ -28,10 +31,19 @@ public class JobRunrDashboardWebServer {
 
     private final StorageProvider storageProvider;
     private final JsonMapper jsonMapper;
-    private final int port;
+
     private final BasicAuthenticator basicAuthenticator;
 
-    private TeenyWebServer teenyWebServer;
+    private final boolean enableHttp;
+    private final int portHttp;
+
+    private final boolean enableHttps;
+    private final int portHttps;
+    private final Path keyStorePathHttps;
+    private final String keyStorePasswordHttps;
+
+    private TeenyWebServer teenyWebServerHttp;
+    private TeenyWebServer teenyWebServerHttps;
 
     public static void main(String[] args) {
         new JobRunrDashboardWebServer(null, new JacksonJsonMapper());
@@ -41,52 +53,77 @@ public class JobRunrDashboardWebServer {
         this(storageProvider, jsonMapper, 8000);
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp));
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port, String username, String password) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port).andBasicAuthentication(username, password));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp, String username, String password) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp).andBasicAuthentication(username, password));
     }
 
     public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, JobRunrDashboardWebServerConfiguration configuration) {
         this.storageProvider = new ThreadSafeStorageProvider(storageProvider);
         this.jsonMapper = jsonMapper;
-        this.port = configuration.port;
+
+        this.enableHttp = configuration.enableHttp;
+        this.portHttp = configuration.port;
+
         this.basicAuthenticator = createOptionalBasicAuthenticator(configuration.username, configuration.password);
+
+        this.enableHttps = configuration.enableHttps;
+        this.portHttps = configuration.portHttps;
+        this.keyStorePathHttps = configuration.keyStorePathHttps;
+        this.keyStorePasswordHttps = configuration.keyStorePasswordHttps;
     }
 
     public void start() {
+        if (enableHttp) {
+            teenyWebServerHttp = new TeenyWebServer(portHttp);
+            initWebServer(teenyWebServerHttp);
+        }
+        if (enableHttps) {
+            teenyWebServerHttps = new TeenyWebServer(portHttps, keyStorePathHttps, keyStorePasswordHttps);
+            initWebServer(teenyWebServerHttps);
+        }
+    }
+
+    private void initWebServer(TeenyWebServer teenyWebServer) {
         RedirectHttpHandler redirectHttpHandler = new RedirectHttpHandler("/", "/dashboard");
         JobRunrStaticFileHandler staticFileHandler = createStaticFileHandler();
         JobRunrApiHandler dashboardHandler = createApiHandler(storageProvider, jsonMapper);
         JobRunrSseHandler sseHandler = createSSeHandler(storageProvider, jsonMapper);
 
-        teenyWebServer = new TeenyWebServer(port);
-        registerContext(redirectHttpHandler);
-        registerSecuredContext(staticFileHandler);
-        registerSecuredContext(dashboardHandler);
-        registerSecuredContext(sseHandler);
-        teenyWebServer.start();
+        registerContext(teenyWebServer, redirectHttpHandler);
+        registerSecuredContext(teenyWebServer, staticFileHandler);
+        registerSecuredContext(teenyWebServer, dashboardHandler);
+        registerSecuredContext(teenyWebServer, sseHandler);
 
-        LOGGER.info("JobRunr Dashboard started at http://{}:{}/dashboard",
+        teenyWebServer.start();
+        LOGGER.info("JobRunr Dashboard started at {}://{}:{}",
+                teenyWebServer.getWebServerProtocol(),
                 teenyWebServer.getWebServerHostAddress(),
                 teenyWebServer.getWebServerHostPort());
     }
 
     public void stop() {
-        if (teenyWebServer == null) return;
-        teenyWebServer.stop();
-        LOGGER.info("JobRunr dashboard stopped");
-        teenyWebServer = null;
+        if (teenyWebServerHttp != null) {
+            teenyWebServerHttp.stop();
+            LOGGER.info("JobRunr HTTP dashboard stopped");
+            teenyWebServerHttp = null;
+        }
+        if (teenyWebServerHttps != null) {
+            teenyWebServerHttps.stop();
+            LOGGER.info("JobRunr HTTPS dashboard stopped");
+            teenyWebServerHttps = null;
+        }
     }
 
-    HttpContext registerContext(TeenyHttpHandler httpHandler) {
+    HttpContext registerContext(TeenyWebServer teenyWebServer, TeenyHttpHandler httpHandler) {
         return teenyWebServer.createContext(httpHandler);
     }
 
-    HttpContext registerSecuredContext(TeenyHttpHandler httpHandler) {
-        HttpContext httpContext = registerContext(httpHandler);
+    HttpContext registerSecuredContext(TeenyWebServer teenyWebServer, TeenyHttpHandler httpHandler) {
+        HttpContext httpContext = registerContext(teenyWebServer, httpHandler);
         if (basicAuthenticator != null) {
             httpContext.setAuthenticator(basicAuthenticator);
         }

@@ -25,23 +25,27 @@ const SucceededNotification = (props) => {
         return () => serversState.removeListener(this);
     }, [])
 
-    const deleteDuration = serverStats[0].deleteSucceededJobsAfter;
-    const deleteDurationInSec = deleteDuration.toString().startsWith('PT') ? convertISO8601DurationToSeconds(deleteDuration) : deleteDuration;
-
-    const succeededState = job.jobHistory[job.jobHistory.length - 1]
-    const succeededDate = new Date(succeededState.createdAt);
-    const deleteDate = new Date(succeededDate.getTime() + (deleteDurationInSec * 1000));
+    var automaticStateChangeMessage = "";
+    if (!(serverStats === undefined || serverStats[0] === undefined)) {
+        const deleteDuration = serverStats[0].deleteSucceededJobsAfter;
+        const deleteDurationInSec = deleteDuration.toString().startsWith('PT') ? convertISO8601DurationToSeconds(deleteDuration) : deleteDuration;
+        if (deleteDurationInSec > 0) {
+            const succeededState = job.jobHistory[job.jobHistory.length - 1]
+            const succeededDate = new Date(succeededState.createdAt);
+            const deleteDate = new Date(succeededDate.getTime() + (deleteDurationInSec * 1000));
+            automaticStateChangeMessage = (<span>It will automatically go to the deleted state <TimeAgo date={deleteDate} title={deleteDate.toString()}/>.</span>);
+        }
+    }
 
     return (
         <Grid item xs={12}>
             <Paper>
                 <Alert severity="info" className={classes.alert}>
-                    <strong>This job has succeeded.</strong> It will automatically go to the deleted state in <TimeAgo
-                    date={deleteDate} title={deleteDate.toString()}/>.
+                    <strong>This job has succeeded.</strong> {automaticStateChangeMessage}
                 </Alert>
             </Paper>
         </Grid>
-    )
+    );
 };
 
 export default SucceededNotification;

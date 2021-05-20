@@ -21,6 +21,7 @@ dependencies {
     compileOnly 'io.lettuce:lettuce-core'
     compileOnly 'org.mongodb:mongodb-driver-sync'
     compileOnly 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    compileOnly 'com.marklogic:marklogic-client-api'
 
     testCompile 'org.springframework.boot:spring-boot-starter-test:2.4.4'
     testCompile 'com.fasterxml.jackson.core:jackson-databind'
@@ -29,6 +30,7 @@ dependencies {
     testCompile 'io.lettuce:lettuce-core'
     testCompile 'org.mongodb:mongodb-driver-sync'
     testCompile 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    testCompile 'com.marklogic:marklogic-client-api'
 }
 
 java {

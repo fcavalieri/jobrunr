@@ -15,18 +15,43 @@ const useStyles = makeStyles(theme => ({
         flexGrow: 1,
     },
     menuButton: {
+        //paddingTop: "0px",
         marginRight: theme.spacing(2),
     },
     appBar: {
-        zIndex: theme.zIndex.drawer + 1
+        zIndex: theme.zIndex.drawer + 1,
+        background: `linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(2,0,36,1) 60%, rgb(0, 62, 126) 100%)`,
+        minHeight: `48px`,
+        maxHeight: `48px`
+    },
+    toolBar: {
+        //zIndex: theme.zIndex.drawer + 1,
+        //background: `linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(2,0,36,1) 60%, rgb(0, 62, 126) 100%)`,
+        minHeight: `48px`,
+        maxHeight: `48px`
+    },
+    titleLink: {
+        color: "inherit",
+        textTransform: "none",
+        fontSize: "1.25rem",
+        fontWeight: "300",
+        boxSizing: "content-box",
+
+        "&:hover": {
+            color: "inherit"
+        },
+        "&:visited": {
+            color: "#fff"
+        }
     },
     logo: {
         width: 'auto',
-        height: '35px'
+        height: '30px',
+        paddingRight: '12px'
     },
     buttons: {
         '& > *': {
-            margin: theme.spacing(2),
+            marginTop: "6px"
         },
         '& div.MuiChip-root': {
             height: 'initial',
@@ -37,6 +62,7 @@ const useStyles = makeStyles(theme => ({
             padding: '0 8px'
         },
         margin: "0 50px",
+        height: "48px",
         flexGrow: 1,
     },
     content: {
@@ -63,12 +89,12 @@ const TopAppBar = () => {
 
     return (
         <AppBar position="fixed" className={classes.appBar}>
-            <Toolbar>
+            <Toolbar className={classes.toolBar}>
                 <img className={classes.logo} src={logo} alt="JobRunr"/>
+                <Button className={classes.titleLink} id="dashboard-btn" color="inherit" component={RouterLink} to="/dashboard/overview">
+                    {process.env.REACT_APP_TITLE}
+                </Button>
                 <div className={classes.buttons}>
-                    <Button id="dashboard-btn" color="inherit" component={RouterLink} to="/dashboard/overview">
-                        Dashboard
-                    </Button>
                     <Button id="jobs-btn" color="inherit" component={RouterLink} to="/dashboard/jobs">
                         Jobs <Chip color="secondary" label={stats.enqueued}/>
                     </Button>
@@ -81,7 +107,7 @@ const TopAppBar = () => {
                     </Button>
                 </div>
                 <IconButton edge="start" className={classes.menuButton} color="inherit" aria-label="menu"
-                            target="_blank" href="https://github.com/jobrunr/jobrunr">
+                            target="_blank" href={process.env.REACT_APP_GITHUB_URL}>
                     <GitHubIcon/>
                 </IconButton>
             </Toolbar>

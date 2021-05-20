@@ -60,7 +60,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         if (storageProvider == null)
             throw new IllegalArgumentException("A JobStorageProvider is required to use the JobScheduler. Please see the documentation on how to setup a JobStorageProvider");
 
-        this.serverStatus = new BackgroundJobServerStatus(configuration.backgroundJobServerWorkerPolicy.getWorkerCount(), configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter);
+        this.serverStatus = new BackgroundJobServerStatus(configuration.backgroundJobServerWorkerPolicy.getWorkerCount(), configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.deleteFailedJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter);
         this.storageProvider = new ThreadSafeStorageProvider(storageProvider);
         this.backgroundJobRunners = initializeBackgroundJobRunners(jobActivator);
         this.jobDefaultFilters = new JobDefaultFilters();

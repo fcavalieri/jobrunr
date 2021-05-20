@@ -34,6 +34,11 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return storageProvider.getJobMapper();
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         storageProvider.setJobMapper(jobMapper);
     }
