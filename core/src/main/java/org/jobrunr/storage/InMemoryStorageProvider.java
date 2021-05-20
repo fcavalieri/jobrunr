@@ -29,6 +29,9 @@ import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_ID;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_NAME;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_OWNER;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
 import static org.jobrunr.utils.reflection.ReflectionUtils.getValueFromFieldOrProperty;
 import static org.jobrunr.utils.reflection.ReflectionUtils.setFieldUsingAutoboxing;
@@ -293,7 +296,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 getJobsStream(ENQUEUED).count(),
                 getJobsStream(PROCESSING).count(),
                 getJobsStream(FAILED).count(),
-                getJobsStream(SUCCEEDED).count() + getMetadata("succeeded-jobs-counter", "cluster").getValueAsLong(),
+                getJobsStream(SUCCEEDED).count() + getMetadata(STATS_NAME, STATS_OWNER).getValueAsLong(),
                 getJobsStream(DELETED).count(),
                 recurringJobs.size(),
                 backgroundJobServers.size()
@@ -302,8 +305,8 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public void publishTotalAmountOfSucceededJobs(int amount) {
-        this.metadata.computeIfAbsent("succeeded-jobs-counter-cluster", input -> new JobRunrMetadata("succeeded-jobs-counter", "cluster", new AtomicLong(0).toString()));
-        JobRunrMetadata metadata = getMetadata("succeeded-jobs-counter", "cluster");
+        this.metadata.computeIfAbsent(STATS_ID, input -> new JobRunrMetadata(STATS_NAME, STATS_OWNER, new AtomicLong(0).toString()));
+        JobRunrMetadata metadata = getMetadata(STATS_NAME, STATS_OWNER);
         metadata.setValue(new AtomicLong(parseLong(metadata.getValue()) + amount).toString());
     }
 

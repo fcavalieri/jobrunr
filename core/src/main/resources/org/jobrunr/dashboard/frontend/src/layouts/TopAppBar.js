@@ -80,7 +80,12 @@ const useStyles = makeStyles(theme => ({
 const TopAppBar = () => {
     const classes = useStyles();
 
-    const stats = statsState.useStatsState(TopAppBar);
+
+    const [stats, setStats] = React.useState(statsState.getStats());
+    React.useEffect(() => {
+        statsState.addListener(setStats);
+        return () => statsState.removeListener(this);
+    }, [])
 
     return (
         <AppBar position="fixed" className={classes.appBar}>

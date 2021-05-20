@@ -19,7 +19,11 @@ const DeletedNotification = (props) => {
     const classes = useStyles();
 
     const job = props.job;
-    const serverStats = serversState.useServersState(DeletedNotification);
+    const [serverStats, setServerStats] = React.useState(serversState.getServers());
+    React.useEffect(() => {
+        serversState.addListener(setServerStats);
+        return () => serversState.removeListener(this);
+    }, [])
 
     var automaticRemovalMessage = "";
     if (!(serverStats === undefined || serverStats[0] === undefined)) {

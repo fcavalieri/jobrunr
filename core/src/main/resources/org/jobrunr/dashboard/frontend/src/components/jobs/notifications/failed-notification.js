@@ -19,7 +19,11 @@ const FailedNotification = (props) => {
     const classes = useStyles();
 
     const job = props.job;
-    const serverStats = serversState.useServersState(FailedNotification);
+    const [serverStats, setServerStats] = React.useState(serversState.getServers());
+    React.useEffect(() => {
+        serversState.addListener(setServerStats);
+        return () => serversState.removeListener(this);
+    }, [])
 
     var automaticStateChangeMessage = "";
     if (!(serverStats === undefined || serverStats[0] === undefined)) {
