@@ -22,6 +22,8 @@ public interface StorageProvider extends AutoCloseable {
 
     void removeJobStorageOnChangeListener(StorageProviderChangeListener listener);
 
+    JobMapper getJobMapper();
+
     void setJobMapper(JobMapper jobMapper);
 
     void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus);

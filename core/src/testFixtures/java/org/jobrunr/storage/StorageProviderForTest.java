@@ -39,6 +39,9 @@ public class StorageProviderForTest implements StorageProvider {
     }
 
     @Override
+    public JobMapper getJobMapper() { return storageProvider.getJobMapper(); }
+
+    @Override
     public void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus) {
         storageProvider.announceBackgroundJobServer(serverStatus);
     }

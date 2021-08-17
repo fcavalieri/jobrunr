@@ -172,6 +172,12 @@ public class JobTable extends Sql<Job> {
                 .delete("from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore");
     }
 
+    public List<Job> getJobsByStateAndUpdatedBefore(StateName state, Instant updatedBefore) {
+        return withState(state)
+                .withUpdatedBefore(updatedBefore)
+                .selectJobs("jobAsJson from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore")
+                .collect(toList());
+    }
     @Override
     public JobTable withOrderLimitAndOffset(String order, int limit, long offset) {
         super.withOrderLimitAndOffset(order, limit, offset);

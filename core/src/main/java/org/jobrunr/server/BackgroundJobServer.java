@@ -174,7 +174,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     public BackgroundJobServerStatus getServerStatus() {
         return new BackgroundJobServerStatus(
                 backgroundJobServerId, workDistributionStrategy.getWorkerCount(),
-                configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
+                configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.deleteFailedJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
                 firstHeartbeat, Instant.now(), isRunning, jobServerStats.getSystemTotalMemory(), jobServerStats.getSystemFreeMemory(),
                 jobServerStats.getSystemCpuLoad(), jobServerStats.getProcessMaxMemory(), jobServerStats.getProcessFreeMemory(),
                 jobServerStats.getProcessAllocatedMemory(), jobServerStats.getProcessCpuLoad()

@@ -2,6 +2,7 @@ package org.jobrunr.storage;
 
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
+import org.jobrunr.jobs.metadata.DisposableResource;
 import org.jobrunr.storage.listeners.*;
 import org.jobrunr.utils.resilience.RateLimiter;
 import org.jobrunr.utils.streams.StreamUtils;
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static java.util.stream.Collectors.groupingBy;
@@ -172,6 +174,20 @@ public abstract class AbstractStorageProvider implements StorageProvider, AutoCl
     private void logError(Exception e) {
         if (reentrantLock.isLocked() || timer == null) return; // timer is being stopped so not interested in it
         LOGGER.warn("Error notifying JobStorageChangeListeners", e);
+    }
+
+    protected void disposeJobResources(Map<String, Object> jobMetadata) {
+        if (jobMetadata != null) {
+            for (Object value: jobMetadata.values()) {
+                if (value instanceof DisposableResource) {
+                    try {
+                        ((DisposableResource)value).dispose();
+                    } catch (Exception e) {
+                        logError(e);
+                    }
+                }
+            }
+        }
     }
 
     class NotifyOnChangeListeners extends TimerTask {

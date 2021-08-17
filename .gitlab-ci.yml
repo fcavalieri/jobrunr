@@ -1,0 +1,35 @@
+image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.3
+
+before_script:
+  - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  - export GRADLE_USER_HOME=`pwd`/.gradle
+
+cache:
+  paths:
+    - .gradle
+    - .npm
+
+build:
+  stage: build
+  script:
+    - echo $CI_PIPELINE_SOURCE
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
+    - ./gradlew --no-daemon --info clean assemble
+
+test:
+  stage: test
+  script:
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
+    - ./gradlew --no-daemon -info build
+    
+stages:
+  - build
+  - test
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: never  # Prevent pipeline run for push event
+    - when: always # Run pipeline for all other cases

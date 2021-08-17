@@ -88,6 +88,11 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobMapper = jobMapper;
     }
@@ -101,6 +106,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_WORKER_POOL_SIZE, String.valueOf(serverStatus.getWorkerPoolSize()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, String.valueOf(serverStatus.getPollIntervalInSeconds()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteSucceededJobsAfter()));
+            commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteFailedJobsAfter()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, String.valueOf(serverStatus.getPermanentlyDeleteDeletedJobsAfter()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_FIRST_HEARTBEAT, String.valueOf(serverStatus.getFirstHeartbeat()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_LAST_HEARTBEAT, String.valueOf(serverStatus.getLastHeartbeat()));
@@ -166,6 +172,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE)),
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER)),
+                            Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER)),
                             Instant.parse(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT)),
                             Instant.parse(fieldMap.get(BackgroundJobServers.FIELD_LAST_HEARTBEAT)),
@@ -304,6 +311,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
             commands.del(jobVersionKey(keyPrefix, job));
             deleteJobMetadata(commands, job);
             final TransactionResult result = commands.exec();
+            disposeJobResources(job.getMetadata());
             int amount = result == null || result.isEmpty() ? 0 : 1;
             notifyJobStatsOnChangeListenersIf(amount > 0);
             return amount;
@@ -434,6 +442,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
                     deleteJobMetadata(commands, job);
 
                     final TransactionResult exec = commands.exec();
+                    disposeJobResources(job.getMetadata());
                     if (exec != null && !exec.isEmpty()) amount++;
                 }
                 zrangeToInspect = commands.zrange(jobQueueForStateKey(keyPrefix, state), 0, 1000);

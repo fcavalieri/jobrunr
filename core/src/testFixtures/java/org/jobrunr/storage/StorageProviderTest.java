@@ -5,6 +5,7 @@ import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobDetails;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
+import org.jobrunr.jobs.metadata.DisposableResource;
 import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.scheduling.cron.CronExpression;
@@ -20,6 +21,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -546,6 +551,36 @@ public abstract class StorageProviderTest {
     }
 
     @Test
+    void testDeleteJobsWithGC() {
+        DisposableTemporaryFile res4 = new DisposableTemporaryFile();
+        DisposableTemporaryFile res3 = new DisposableTemporaryFile();
+        DisposableTemporaryFile res2 = new DisposableTemporaryFile();
+        DisposableTemporaryFile res1 = new DisposableTemporaryFile();
+        UUID jobUUID = UUID.randomUUID();
+
+        final List<Job> jobs = asList(
+                aJob().withMetadata("resource", res4).withEnqueuedState(now().minus(4, HOURS)).build(),
+                aJob().withMetadata("resource", res3).withEnqueuedState(now().minus(3, HOURS)).build(),
+                aJob().withMetadata("resource", res2).withEnqueuedState(now().minus(2, HOURS)).build(),
+                aJob().withId(jobUUID).withMetadata("resource", res1).withEnqueuedState(now()).build()
+        );
+
+        storageProvider.save(jobs);
+
+        storageProvider.deleteJobsPermanently(ENQUEUED, now().minus(1, HOURS));
+
+        List<Job> fetchedJobs = storageProvider.getJobs(ENQUEUED, ascOnUpdatedAt(100));
+
+        assertThat(fetchedJobs).hasSize(1);
+        assertThat(res4.exists()).isFalse();
+        assertThat(res3.exists()).isFalse();
+        assertThat(res2.exists()).isFalse();
+        assertThat(res1.exists()).isTrue();
+        storageProvider.deletePermanently(jobUUID);
+        assertThat(res1.exists()).isFalse();
+    }
+
+    @Test
     void testScheduledJobs() {
         Job job1 = anEnqueuedJob().withState(new ScheduledState(now())).build();
         Job job2 = anEnqueuedJob().withState(new ScheduledState(now().plus(20, HOURS))).build();
@@ -700,4 +735,6 @@ public abstract class StorageProviderTest {
             this.changes.add(metadata);
         }
     }
+
+
 }
