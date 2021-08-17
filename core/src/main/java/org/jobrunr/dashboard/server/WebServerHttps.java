@@ -1,11 +1,8 @@
 package org.jobrunr.dashboard.server;
 
-import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
-
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -13,22 +10,16 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
-
 import java.security.KeyManagementException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -39,40 +30,17 @@ import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.UnrecoverableKeyException;
-
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
-public class WebServer {
+public class WebServerHttps extends AbstractWebServer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebServer.class);
-
-    private final HttpServer httpServer;
-    private final ExecutorService executorService;
-    private final Set<HttpExchangeHandler> httpHandlers;
-
-    public WebServer(int port) {
-        try {
-            httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-            executorService = Executors.newCachedThreadPool();
-            httpServer.setExecutor(executorService);
-            httpHandlers = new HashSet<>();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public WebServer(int tlsPort, Path keyStorePath, String keyStorePass) {
+    public WebServerHttps(int tlsPort, Path keyStorePath, String keyStorePass) {
         try {
             httpServer = HttpsServer.create(new InetSocketAddress(tlsPort), 0);
             SSLContext sslContext = initializeSslContext(keyStorePath, keyStorePass);
@@ -87,7 +55,7 @@ public class WebServer {
                         params.setProtocols(engine.getEnabledProtocols());
                         SSLParameters defaultSSLParameters = c.getDefaultSSLParameters();
                         params.setSSLParameters(defaultSSLParameters);
-                    } catch (java.security.NoSuchAlgorithmException e) {
+                    } catch (NoSuchAlgorithmException e) {
                         throw new RuntimeException(e);
                     }
                 }
@@ -98,54 +66,6 @@ public class WebServer {
             httpHandlers = new HashSet<>();
         } catch (IOException e) {
             throw new IllegalStateException(e);
-        }
-    }
-
-    public HttpContext createContext(HttpExchangeHandler httpHandler) {
-        httpHandlers.add(httpHandler);
-        return httpServer.createContext(httpHandler.getContextPath(), httpHandler);
-    }
-
-    public void start() {
-        httpServer.start();
-    }
-
-    public void stop() {
-        httpHandlers.forEach(this::closeHttpHandler);
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(2, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-        httpServer.stop(0);
-    }
-
-    public String getWebServerProtocol() {
-        if (httpServer instanceof HttpsServer)
-            return "https";
-        return "http";
-    }
-
-    public String getWebServerHostAddress() {
-        if (httpServer.getAddress().getAddress().isAnyLocalAddress()) {
-            return "localhost";
-        }
-        return httpServer.getAddress().getAddress().getHostAddress();
-    }
-
-    public int getWebServerHostPort() {
-        return httpServer.getAddress().getPort();
-    }
-
-    private void closeHttpHandler(HttpExchangeHandler httpHandler) {
-        try {
-            httpHandler.close();
-        } catch (Exception shouldNotHappen) {
-            LOGGER.warn("Error closing HttpHandler", shouldNotHappen);
         }
     }
 

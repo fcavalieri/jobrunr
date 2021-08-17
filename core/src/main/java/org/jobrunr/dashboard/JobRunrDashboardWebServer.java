@@ -2,8 +2,10 @@ package org.jobrunr.dashboard;
 
 import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
+import org.jobrunr.dashboard.server.AbstractWebServer;
 import org.jobrunr.dashboard.server.HttpExchangeHandler;
-import org.jobrunr.dashboard.server.WebServer;
+import org.jobrunr.dashboard.server.WebServerHttp;
+import org.jobrunr.dashboard.server.WebServerHttps;
 import org.jobrunr.dashboard.server.http.RedirectHttpHandler;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.ThreadSafeStorageProvider;
@@ -42,8 +44,8 @@ public class JobRunrDashboardWebServer {
     private final Path keyStorePathHttps;
     private final String keyStorePasswordHttps;
 
-    private WebServer webServerHttp;
-    private WebServer webServerHttps;
+    private WebServerHttp webServerHttp;
+    private WebServerHttps webServerHttps;
 
     public static void main(String[] args) {
         new JobRunrDashboardWebServer(null, new JacksonJsonMapper());
@@ -78,16 +80,16 @@ public class JobRunrDashboardWebServer {
 
     public void start() {
         if (enableHttp) {
-            webServerHttp = new WebServer(portHttp);
+            webServerHttp = new WebServerHttp(portHttp);
             initWebServer(webServerHttp);
         }
         if (enableHttps) {
-            webServerHttps = new WebServer(portHttps, keyStorePathHttps, keyStorePasswordHttps);
+            webServerHttps = new WebServerHttps(portHttps, keyStorePathHttps, keyStorePasswordHttps);
             initWebServer(webServerHttps);
         }
     }
 
-    private void initWebServer(WebServer webServer) {
+    private void initWebServer(AbstractWebServer webServer) {
         RedirectHttpHandler redirectHttpHandler = new RedirectHttpHandler("/", "/dashboard");
         JobRunrStaticFileHandler staticFileHandler = createStaticFileHandler();
         JobRunrApiHandler dashboardHandler = createApiHandler(storageProvider, jsonMapper);
@@ -118,11 +120,11 @@ public class JobRunrDashboardWebServer {
         }
     }
 
-    HttpContext registerContext(WebServer webServer, HttpExchangeHandler httpHandler) {
+    HttpContext registerContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
         return webServer.createContext(httpHandler);
     }
 
-    HttpContext registerSecuredContext(WebServer webServer, HttpExchangeHandler httpHandler) {
+    HttpContext registerSecuredContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
         HttpContext httpContext = registerContext(webServer, httpHandler);
         if (basicAuthenticator != null) {
             httpContext.setAuthenticator(basicAuthenticator);

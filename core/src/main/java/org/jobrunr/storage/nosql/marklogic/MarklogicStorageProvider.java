@@ -216,8 +216,6 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
         try
         {
             if (isNew(job)) {
-                job.increaseVersion();
-
                 if (marklogicWrapper.existsDocument(
                         StorageProviderUtils.Jobs.NAME,
                         job.getId().toString(),
@@ -238,14 +236,15 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
                                 job.getId().toString()),
                         queryBuilder.value(
                                 queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_VERSION),
-                                job.increaseVersion())
+                                job.getVersion())
                 );
                 String uriToUpdate = marklogicWrapper.queryDocumentURIs(query, transaction)
                         .stream()
                         .findFirst()
                         .orElse(null);
-                if (uriToUpdate == null)
+                if (uriToUpdate == null) {
                     throw new ConcurrentJobModificationException(job);
+                }
                 DocumentPatchBuilder patchBuilder = databaseClient.newJSONDocumentManager().newPatchBuilder();
                 marklogicWrapper.patchDocumentIfPresent(
                         StorageProviderUtils.Jobs.NAME,
