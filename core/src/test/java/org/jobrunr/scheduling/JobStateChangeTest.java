@@ -16,6 +16,7 @@ import org.jobrunr.server.BackgroundJobServerConfiguration;
 import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.JobNotFoundException;
 import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.storage.StorageProviderForTest;
 import org.jobrunr.stubs.TestService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,27 +64,25 @@ import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
 public class JobStateChangeTest {
 
     private TestService testService;
-    private StorageProvider storageProvider;
+    private StorageProviderForTest storageProvider;
     private BackgroundJobServer backgroundJobServer;
 
     @BeforeEach
     void setUpTests() {
         testService = new TestService();
         testService.reset();
-        storageProvider = new InMemoryStorageProvider();
+        storageProvider = new StorageProviderForTest(new InMemoryStorageProvider());
         BackgroundJobServerConfiguration backgroundJobServerConfiguration = usingStandardBackgroundJobServerConfiguration()
-                        .andPollIntervalInSeconds(1)
-                        .andDeleteFailedJobsAfter(Duration.ofSeconds(7))
-                        .andDeleteSucceededJobsAfter(Duration.ofSeconds(7))
-                        .andPermanentlyDeleteDeletedJobsAfter(Duration.ofSeconds(7)
-        );
+                .andPollIntervalInSeconds(2)
+                .andDeleteFailedJobsAfter(Duration.ofSeconds(3))
+                .andDeleteSucceededJobsAfter(Duration.ofSeconds(3))
+                .andPermanentlyDeleteDeletedJobsAfter(Duration.ofSeconds(3));
         JobRunr.configure()
                 .useStorageProvider(storageProvider)
                 .useBackgroundJobServer(backgroundJobServerConfiguration)
                 .initialize();
 
         backgroundJobServer = JobRunr.getBackgroundJobServer();
-        backgroundJobServer.start();
     }
 
     @AfterEach
@@ -181,3 +180,4 @@ public class JobStateChangeTest {
         assertThat(!disposableResource.exists());
     }
 }
+
