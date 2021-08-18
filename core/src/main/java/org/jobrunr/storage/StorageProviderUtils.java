@@ -1,9 +1,14 @@
 package org.jobrunr.storage;
 
 import org.jobrunr.jobs.Job;
+import org.jobrunr.utils.JobUtils;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
+import static java.util.stream.Collectors.toList;
 import static org.jobrunr.utils.JobUtils.isNew;
 
 public class StorageProviderUtils {
@@ -14,11 +19,11 @@ public class StorageProviderUtils {
     private static final String FIELD_ID = "id";
 
     public static boolean notAllJobsAreNew(List<Job> jobs) {
-        return jobs.stream().anyMatch(job -> !isNew(job));
+        return jobs.stream().noneMatch(JobUtils::isNew);
     }
 
     public static boolean notAllJobsAreExisting(List<Job> jobs) {
-        return jobs.stream().anyMatch(job -> isNew(job));
+        return jobs.stream().anyMatch(JobUtils::isNew);
     }
 
     public static boolean areNewJobs(List<Job> jobs) {
@@ -70,6 +75,7 @@ public class StorageProviderUtils {
         public static final String FIELD_WORKER_POOL_SIZE = "workerPoolSize";
         public static final String FIELD_POLL_INTERVAL_IN_SECONDS = "pollIntervalInSeconds";
         public static final String FIELD_DELETE_SUCCEEDED_JOBS_AFTER = "deleteSucceededJobsAfter";
+        public static final String FIELD_PERMANENTLY_DELETE_JOBS_AFTER = "permanentlyDeleteJobsAfter";
         public static final String FIELD_DELETE_FAILED_JOBS_AFTER = "deleteFailedJobsAfter";
         public static final String FIELD_DELETE_DELETED_JOBS_AFTER = "permanentlyDeleteDeletedJobsAfter";
         public static final String FIELD_FIRST_HEARTBEAT = "firstHeartbeat";
@@ -84,10 +90,10 @@ public class StorageProviderUtils {
         public static final String FIELD_PROCESS_CPU_LOAD = "processCpuLoad";
     }
 
-    @Deprecated
     /**
      * @deprecated Is not used anymore in StorageProviders and will be removed
      */
+    @Deprecated
     public static final class JobStats {
         private JobStats() {
         }
@@ -115,4 +121,23 @@ public class StorageProviderUtils {
 
     }
 
+    public static List<Job> returnConcurrentModifiedJobs(List<Job> jobs, Consumer<Job> consumer) {
+        return jobs.stream()
+                .map(toConcurrentJobModificationExceptionIfFailed(consumer))
+                .filter(Objects::nonNull)
+                .map(ConcurrentJobModificationException.class::cast)
+                .flatMap(ex -> ex.getConcurrentUpdatedJobs().stream())
+                .collect(toList());
+    }
+
+    public static Function<Job, Exception> toConcurrentJobModificationExceptionIfFailed(Consumer<Job> test) {
+        return job -> {
+            try {
+                test.accept(job);
+                return null;
+            } catch (ConcurrentJobModificationException e) {
+                return e;
+            }
+        };
+    }
 }

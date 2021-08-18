@@ -271,12 +271,25 @@ public class JobRunrProperties {
          */
         private boolean skipCreate = false;
 
+        /**
+         * Allows to set the table prefix used by JobRunr
+         */
+        private String tablePrefix;
+
         public void setSkipCreate(boolean skipCreate) {
             this.skipCreate = skipCreate;
         }
 
         public boolean isSkipCreate() {
             return skipCreate;
+        }
+
+        public String getTablePrefix() {
+            return tablePrefix;
+        }
+
+        public void setTablePrefix(String tablePrefix) {
+            this.tablePrefix = tablePrefix;
         }
     }
 }

@@ -23,14 +23,6 @@ public interface BackgroundJobServerStatusMBean {
 
     boolean isRunning();
 
-    void start();
-
-    void pause();
-
-    void resume();
-
-    void stop();
-
     Long getSystemTotalMemory();
 
     Long getSystemFreeMemory();

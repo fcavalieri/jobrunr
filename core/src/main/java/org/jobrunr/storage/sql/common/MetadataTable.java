@@ -3,8 +3,10 @@ package org.jobrunr.storage.sql.common;
 import org.jobrunr.storage.JobRunrMetadata;
 import org.jobrunr.storage.sql.common.db.Sql;
 import org.jobrunr.storage.sql.common.db.SqlResultSet;
+import org.jobrunr.storage.sql.common.db.dialect.Dialect;
 
-import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 
@@ -18,9 +20,9 @@ import static org.jobrunr.storage.StorageProviderUtils.Metadata.FIELD_VALUE;
 
 public class MetadataTable extends Sql<JobRunrMetadata> {
 
-    public MetadataTable(DataSource dataSource) {
+    public MetadataTable(Connection connection, Dialect dialect, String tablePrefix) {
         this
-                .using(dataSource)
+                .using(connection, dialect, tablePrefix, "jobrunr_metadata")
                 .with(FIELD_ID, JobRunrMetadata::getId)
                 .with(FIELD_NAME, JobRunrMetadata::getName)
                 .with(FIELD_OWNER, JobRunrMetadata::getOwner)
@@ -34,7 +36,7 @@ public class MetadataTable extends Sql<JobRunrMetadata> {
         return this;
     }
 
-    public JobRunrMetadata save(JobRunrMetadata metadata) {
+    public JobRunrMetadata save(JobRunrMetadata metadata) throws SQLException {
         withId(metadata.getId());
 
         if (selectExists("from jobrunr_metadata where id = :id")) {
@@ -62,7 +64,14 @@ public class MetadataTable extends Sql<JobRunrMetadata> {
                 .collect(toList());
     }
 
-    public int deleteByKey(String name) {
+    public void incrementCounter(String id, int amount) throws SQLException {
+        this
+                .with(FIELD_ID, id)
+                .with("amount", amount)
+                .update("jobrunr_metadata set value = cast((cast(cast(value as char(10)) as decimal) + :amount) as char(10)) where id = :id");
+    }
+
+    public int deleteByName(String name) throws SQLException {
         return with(FIELD_NAME, name)
                 .delete("from jobrunr_metadata where name = :name");
     }

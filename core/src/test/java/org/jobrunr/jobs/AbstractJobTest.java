@@ -14,18 +14,19 @@ class AbstractJobTest {
 
     @Test
     void increaseVersion() {
-        Job job = anEnqueuedJob().withId().build();
-
-        assertThat(job.increaseVersion()).isZero();
-        assertThat(job.getVersion()).isEqualTo(1);
+        Job job = anEnqueuedJob().build();
+        assertThat(job.getVersion()).isZero();
 
         assertThat(job.increaseVersion()).isEqualTo(1);
+        assertThat(job.getVersion()).isEqualTo(1);
+
+        assertThat(job.increaseVersion()).isEqualTo(2);
         assertThat(job.getVersion()).isEqualTo(2);
     }
 
     @Test
     void whileLockedJobCannotBeLockedForOtherSaveAction() {
-        Job job = anEnqueuedJob().withId().build();
+        Job job = anEnqueuedJob().build();
         final AtomicBoolean atomicBoolean = new AtomicBoolean();
 
         final Lock lock = job.lock();

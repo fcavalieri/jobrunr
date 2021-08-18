@@ -7,11 +7,13 @@ import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.storage.*;
 import org.jobrunr.storage.sql.SqlStorageProvider;
-import org.jobrunr.storage.sql.common.db.Sql;
-import org.jobrunr.storage.sql.common.db.SqlResultSet;
+import org.jobrunr.storage.sql.common.db.Transaction;
+import org.jobrunr.storage.sql.common.db.dialect.Dialect;
 import org.jobrunr.utils.resilience.RateLimiter;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,20 +34,28 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
     }
 
     protected final DataSource dataSource;
-    protected final DatabaseOptions databaseOptions;
-    protected JobMapper jobMapper;
+    protected final Dialect dialect;
+    protected final String tablePrefix;
+    private final DatabaseOptions databaseOptions;
+    private JobMapper jobMapper;
 
-    public DefaultSqlStorageProvider(DataSource dataSource) {
-        this(dataSource, CREATE, rateLimit().at1Request().per(SECOND));
+    public DefaultSqlStorageProvider(DataSource dataSource, Dialect dialect, DatabaseOptions databaseOptions) {
+        this(dataSource, dialect, databaseOptions, rateLimit().at1Request().per(SECOND));
     }
 
-    public DefaultSqlStorageProvider(DataSource dataSource, DatabaseOptions databaseOptions) {
-        this(dataSource, databaseOptions, rateLimit().at1Request().per(SECOND));
+    public DefaultSqlStorageProvider(DataSource dataSource, Dialect dialect, String tablePrefix, DatabaseOptions databaseOptions) {
+        this(dataSource, dialect, tablePrefix, databaseOptions, rateLimit().at1Request().per(SECOND));
     }
 
-    DefaultSqlStorageProvider(DataSource dataSource, DatabaseOptions databaseOptions, RateLimiter changeListenerNotificationRateLimit) {
+    public DefaultSqlStorageProvider(DataSource dataSource, Dialect dialect, DatabaseOptions databaseOptions, RateLimiter changeListenerNotificationRateLimit) {
+        this(dataSource, dialect, null, databaseOptions, changeListenerNotificationRateLimit);
+    }
+
+    DefaultSqlStorageProvider(DataSource dataSource, Dialect dialect, String tablePrefix, DatabaseOptions databaseOptions, RateLimiter changeListenerNotificationRateLimit) {
         super(changeListenerNotificationRateLimit);
         this.dataSource = dataSource;
+        this.dialect = dialect;
+        this.tablePrefix = tablePrefix;
         this.databaseOptions = databaseOptions;
         createDBIfNecessary();
     }
@@ -61,7 +71,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
     }
 
     protected DatabaseCreator getDatabaseCreator() {
-        return new DatabaseCreator(dataSource, getClass());
+        return new DatabaseCreator(dataSource, tablePrefix, getClass());
     }
 
     @Override
@@ -76,223 +86,311 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
 
     @Override
     public void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus) {
-        backgroundJobServerTable().announce(serverStatus);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            backgroundJobServerTable(conn).announce(serverStatus);
+            transaction.commit();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public boolean signalBackgroundJobServerAlive(BackgroundJobServerStatus serverStatus) {
-        return backgroundJobServerTable().signalServerAlive(serverStatus);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final boolean isServerAlive = backgroundJobServerTable(conn).signalServerAlive(serverStatus);
+            transaction.commit();
+            return isServerAlive;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public void signalBackgroundJobServerStopped(BackgroundJobServerStatus serverStatus) {
-        backgroundJobServerTable().signalServerStopped(serverStatus);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            backgroundJobServerTable(conn).signalServerStopped(serverStatus);
+            transaction.commit();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+
     }
 
     @Override
     public List<BackgroundJobServerStatus> getBackgroundJobServers() {
-        return backgroundJobServerTable().getAll();
+        try (final Connection conn = dataSource.getConnection()) {
+            return backgroundJobServerTable(conn).getAll();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public UUID getLongestRunningBackgroundJobServerId() {
-        return backgroundJobServerTable().getLongestRunningBackgroundJobServerId();
+        try (final Connection conn = dataSource.getConnection()) {
+            return backgroundJobServerTable(conn).getLongestRunningBackgroundJobServerId();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public int removeTimedOutBackgroundJobServers(Instant heartbeatOlderThan) {
-        return backgroundJobServerTable()
-                .removeAllWithLastHeartbeatOlderThan(heartbeatOlderThan);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final int deletedBackgroundJobServers = backgroundJobServerTable(conn).removeAllWithLastHeartbeatOlderThan(heartbeatOlderThan);
+            transaction.commit();
+            return deletedBackgroundJobServers;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public void saveMetadata(JobRunrMetadata metadata) {
-        metadataTable().save(metadata);
-        notifyMetadataChangeListeners();
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            metadataTable(conn).save(metadata);
+            transaction.commit();
+            notifyMetadataChangeListeners();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
-    public List<JobRunrMetadata> getMetadata(String key) {
-        return metadataTable().getAll(key);
+    public List<JobRunrMetadata> getMetadata(String name) {
+        try (final Connection conn = dataSource.getConnection()) {
+            return metadataTable(conn).getAll(name);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
-    public JobRunrMetadata getMetadata(String key, String owner) {
-        return metadataTable().get(key, owner);
+    public JobRunrMetadata getMetadata(String name, String owner) {
+        try (final Connection conn = dataSource.getConnection()) {
+            return metadataTable(conn).get(name, owner);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
-    public void deleteMetadata(String key) {
-        final int amountDeleted = metadataTable().deleteByKey(key);
-        notifyMetadataChangeListeners(amountDeleted > 0);
-    }
-
-    @Override
-    public Job getJobById(UUID id) {
-        return jobTable()
-                .selectJobById(id)
-                .orElseThrow(() -> new JobNotFoundException(id));
+    public void deleteMetadata(String name) {
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final int amountDeleted = metadataTable(conn).deleteByName(name);
+            transaction.commit();
+            notifyMetadataChangeListeners(amountDeleted > 0);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public Job save(Job jobToSave) {
-        final Job save = jobTable().save(jobToSave);
-        notifyJobStatsOnChangeListeners();
-        return save;
-    }
-
-    @Override
-    public int deletePermanently(UUID id) {
-        Optional<Job> jobToDelete = jobTable().selectJobById(id);
-        final int amountDeleted = jobTable().deletePermanently(id);
-        jobToDelete.ifPresent(job -> disposeJobResources(job.getMetadata()));
-        notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
-        return amountDeleted;
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final Job savedJob = jobTable(conn).save(jobToSave);
+            transaction.commit();
+            notifyJobStatsOnChangeListeners();
+            return savedJob;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public List<Job> save(List<Job> jobs) {
-        final List<Job> savedJobs = jobTable().save(jobs);
-        notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
-        return savedJobs;
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final List<Job> savedJobs = jobTable(conn).save(jobs);
+            transaction.commit();
+            notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
+            return savedJobs;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
-    public List<Job> getJobs(StateName state, PageRequest pageRequest) {
-        return jobTable()
-                .selectJobsByState(state, pageRequest);
-    }
-
-    @Override
-    public List<Job> getJobs(StateName state, Instant updatedBefore, PageRequest pageRequest) {
-        return jobTable()
-                .selectJobsByState(state, updatedBefore, pageRequest);
+    public Job getJobById(UUID id) {
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn)
+                    .selectJobById(id)
+                    .orElseThrow(() -> new JobNotFoundException(id));
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public List<Job> getScheduledJobs(Instant scheduledBefore, PageRequest pageRequest) {
-        return jobTable()
-                .selectJobsScheduledBefore(scheduledBefore, pageRequest);
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).selectJobsScheduledBefore(scheduledBefore, pageRequest);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
-    public Long countJobs(StateName state) {
-        return jobTable()
-                .countJobs(state);
+    public List<Job> getJobs(StateName state, PageRequest pageRequest) {
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).selectJobsByState(state, pageRequest);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+
+    }
+
+    @Override
+    public List<Job> getJobs(StateName state, Instant updatedBefore, PageRequest pageRequest) {
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).selectJobsByState(state, updatedBefore, pageRequest);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public Page<Job> getJobPage(StateName state, PageRequest pageRequest) {
-        long count = countJobs(state);
-        if (count > 0) {
-            List<Job> jobs = getJobs(state, pageRequest);
-            return new Page<>(count, jobs, pageRequest);
+        try (final Connection conn = dataSource.getConnection()) {
+            long count = jobTable(conn).countJobs(state);
+            if (count > 0 && pageRequest.getLimit() > 0) {
+                List<Job> jobs = jobTable(conn).selectJobsByState(state, pageRequest);
+                return new Page<>(count, jobs, pageRequest);
+            }
+            return new Page<>(count, new ArrayList<>(), pageRequest);
+        } catch (SQLException e) {
+            throw new StorageException(e);
         }
-        return new Page<>(0, new ArrayList<>(), pageRequest);
+    }
+
+    @Override
+    public int deletePermanently(UUID id) {
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            Optional<Job> jobToDelete = jobTable(conn).selectJobById(id);
+            final int amountDeleted = jobTable(conn).deletePermanently(id);
+            jobToDelete.ifPresent(job -> disposeJobResources(job.getMetadata()));
+            transaction.commit();
+            notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
+            return amountDeleted;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
-        List<Job> jobsToDelete = jobTable().getJobsByStateAndUpdatedBefore(state, updatedBefore);
-        if (jobsToDelete.size() > 0) {
-            UUID[] jobIdsToDelete = jobsToDelete.stream().map(j -> j.getId()).collect(Collectors.toList()).toArray(new UUID[0]);
-            final int amountDeleted = jobTable().deletePermanently(jobIdsToDelete);
-            jobsToDelete.forEach(j -> disposeJobResources(j.getMetadata()));
-            notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
-            return amountDeleted;
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            List<Job> jobsToDelete = jobTable(conn).getJobsByStateAndUpdatedBefore(state, updatedBefore);
+            if (jobsToDelete.size() > 0) {
+                UUID[] jobIdsToDelete = jobsToDelete.stream().map(j -> j.getId()).collect(Collectors.toList()).toArray(new UUID[0]);
+                final int amountDeleted = jobTable(conn).deletePermanently(jobIdsToDelete);
+                jobsToDelete.forEach(j -> disposeJobResources(j.getMetadata()));
+                transaction.commit();
+                notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
+                return amountDeleted;
+            }
+            return 0;
+        } catch (SQLException e) {
+            throw new StorageException(e);
         }
-        return 0;
     }
 
     @Override
     public Set<String> getDistinctJobSignatures(StateName... states) {
-        return jobTable()
-                .getDistinctJobSignatures(states);
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).getDistinctJobSignatures(states);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public boolean exists(JobDetails jobDetails, StateName... states) {
-        return jobTable()
-                .exists(jobDetails, states);
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).exists(jobDetails, states);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public boolean recurringJobExists(String recurringJobId, StateName... states) {
-        return jobTable()
-                .recurringJobExists(recurringJobId, states);
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobTable(conn).recurringJobExists(recurringJobId, states);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public RecurringJob saveRecurringJob(RecurringJob recurringJob) {
-        return recurringJobTable()
-                .save(recurringJob);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final RecurringJob savedRecurringJob = recurringJobTable(conn).save(recurringJob);
+            transaction.commit();
+            return savedRecurringJob;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+
     }
 
     @Override
     public List<RecurringJob> getRecurringJobs() {
-        return recurringJobTable()
-                .selectAll();
+        try (final Connection conn = dataSource.getConnection()) {
+            return recurringJobTable(conn).selectAll();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public int deleteRecurringJob(String id) {
-        return recurringJobTable()
-                .deleteById(id);
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            final int deletedRecurringJobCount = recurringJobTable(conn).deleteById(id);
+            transaction.commit();
+            return deletedRecurringJobCount;
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public JobStats getJobStats() {
-        Instant instant = Instant.now();
-        return Sql.forType(JobStats.class)
-                .using(dataSource)
-                .withOrderLimitAndOffset("total ASC", 1, 0)
-                .select("* from jobrunr_jobs_stats")
-                .map(resultSet -> toJobStats(resultSet, instant))
-                .findFirst()
-                .orElse(JobStats.empty()); //why: because oracle returns nothing
+        try (final Connection conn = dataSource.getConnection()) {
+            return jobStatsView(conn).getJobStats();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
     @Override
     public void publishTotalAmountOfSucceededJobs(int amount) {
-        Sql.withoutType()
-                .using(dataSource)
-                .with("id", "succeeded-jobs-counter-cluster")
-                .with("amount", amount)
-                .update("jobrunr_metadata set value = cast((cast(cast(value as char(10)) as decimal) + :amount) as char(10)) where id = :id");
-        //why the 3 casts: to be compliant with all DB servers
+        try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            metadataTable(conn).incrementCounter("succeeded-jobs-counter-cluster", amount);
+            transaction.commit();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
     }
 
-    private JobStats toJobStats(SqlResultSet resultSet, Instant instant) {
-        return new JobStats(
-                instant,
-                resultSet.asLong("total"),
-                resultSet.asLong("awaiting"),
-                resultSet.asLong("scheduled"),
-                resultSet.asLong("enqueued"),
-                resultSet.asLong("processing"),
-                resultSet.asLong("failed"),
-                resultSet.asLong("succeeded"),
-                resultSet.asLong("deleted"),
-                resultSet.asInt("nbrOfRecurringJobs"),
-                resultSet.asInt("nbrOfBackgroundJobServers")
 
-        );
+    protected JobTable jobTable(Connection connection) {
+        return new JobTable(connection, dialect, tablePrefix, jobMapper);
     }
 
-    protected JobTable jobTable() {
-        return new JobTable(dataSource, jobMapper);
+    protected RecurringJobTable recurringJobTable(Connection connection) {
+        return new RecurringJobTable(connection, dialect, tablePrefix, jobMapper);
     }
 
-    protected RecurringJobTable recurringJobTable() {
-        return new RecurringJobTable(dataSource, jobMapper);
+    protected BackgroundJobServerTable backgroundJobServerTable(Connection connection) {
+        return new BackgroundJobServerTable(connection, dialect, tablePrefix);
     }
 
-    protected BackgroundJobServerTable backgroundJobServerTable() {
-        return new BackgroundJobServerTable(dataSource);
+    protected MetadataTable metadataTable(Connection connection) {
+        return new MetadataTable(connection, dialect, tablePrefix);
     }
 
-    protected MetadataTable metadataTable() {
-        return new MetadataTable(dataSource);
+    protected JobStatsView jobStatsView(Connection connection) {
+        return new JobStatsView(connection, dialect, tablePrefix);
     }
 
 }

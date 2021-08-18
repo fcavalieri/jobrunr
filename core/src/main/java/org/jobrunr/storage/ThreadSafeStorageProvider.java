@@ -133,11 +133,6 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
-    public Long countJobs(StateName state) {
-        return storageProvider.countJobs(state);
-    }
-
-    @Override
     public List<Job> getJobs(StateName state, PageRequest pageRequest) {
         return storageProvider.getJobs(state, pageRequest);
     }

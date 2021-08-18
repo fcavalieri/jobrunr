@@ -216,8 +216,6 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
         try
         {
             if (isNew(job)) {
-                job.increaseVersion();
-
                 if (marklogicWrapper.existsDocument(
                         StorageProviderUtils.Jobs.NAME,
                         job.getId().toString(),
@@ -238,14 +236,15 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
                                 job.getId().toString()),
                         queryBuilder.value(
                                 queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_VERSION),
-                                job.increaseVersion())
+                                job.getVersion())
                 );
                 String uriToUpdate = marklogicWrapper.queryDocumentURIs(query, transaction)
                         .stream()
                         .findFirst()
                         .orElse(null);
-                if (uriToUpdate == null)
+                if (uriToUpdate == null) {
                     throw new ConcurrentJobModificationException(job);
+                }
                 DocumentPatchBuilder patchBuilder = databaseClient.newJSONDocumentManager().newPatchBuilder();
                 marklogicWrapper.patchDocumentIfPresent(
                         StorageProviderUtils.Jobs.NAME,
@@ -346,7 +345,6 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
         return findJobs(query, pageRequest);
     }
 
-    @Override
     public Long countJobs(StateName state) {
         StructuredQueryDefinition query = queryBuilder.and(
                 queryBuilder.directory(1, "/" + StorageProviderUtils.Jobs.NAME + "/"),
@@ -475,35 +473,34 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public JobStats getJobStats() {
-
         Instant instant = Instant.now();
         final MarklogicMetadata succeededJobStats = marklogicWrapper.loadDocumentIfPresent(
                 StorageProviderUtils.Metadata.NAME,
                 StorageProviderUtils.Metadata.STATS_ID,
                 MarklogicMetadata.class);
-        final long succeededCount = (succeededJobStats != null ? succeededJobStats.getValueAsLong() : 0L);
+        final long allTimeSucceededCount = (succeededJobStats != null ? succeededJobStats.getValueAsLong() : 0L);
 
-        Long awaiting = countJobs(StateName.AWAITING);
-        Long scheduled = countJobs(StateName.SCHEDULED);
-        Long enqueued = countJobs(StateName.ENQUEUED);
-        Long processing = countJobs(StateName.PROCESSING);
-        Long failed = countJobs(StateName.FAILED);
-        Long succeeded = countJobs(StateName.SUCCEEDED) + succeededCount;
-        Long deleted = countJobs(StateName.DELETED);
+        Long scheduledCount = countJobs(StateName.SCHEDULED);
+        Long enqueuedCount = countJobs(StateName.ENQUEUED);
+        Long processingCount = countJobs(StateName.PROCESSING);
+        Long succeededCount = countJobs(StateName.SUCCEEDED);
+        Long failedCount = countJobs(StateName.FAILED);
+        Long deletedCount = countJobs(StateName.DELETED);
 
+        final long total = scheduledCount + enqueuedCount + processingCount + succeededCount + failedCount;
         final int recurringJobCount = (int)marklogicWrapper.countAllDocumentsInDirectory(StorageProviderUtils.RecurringJobs.NAME);
         final int backgroundJobServerCount = (int)marklogicWrapper.countAllDocumentsInDirectory(StorageProviderUtils.BackgroundJobServers.NAME);
 
         return new JobStats(
                 instant,
-                7L,
-                awaiting,
-                scheduled,
-                enqueued,
-                processing,
-                failed,
-                succeeded,
-                deleted,
+                total,
+                scheduledCount,
+                enqueuedCount,
+                processingCount,
+                failedCount,
+                succeededCount,
+                allTimeSucceededCount,
+                deletedCount,
                 recurringJobCount,
                 backgroundJobServerCount
         );

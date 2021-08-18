@@ -24,17 +24,18 @@ import static java.time.Instant.now;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.jobrunr.jobs.states.StateName.AWAITING;
 import static org.jobrunr.jobs.states.StateName.DELETED;
 import static org.jobrunr.jobs.states.StateName.ENQUEUED;
 import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.storage.JobRunrMetadata.toId;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata;
 import static org.jobrunr.storage.StorageProviderUtils.areNewJobs;
 import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreExisting;
 import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreNew;
+import static org.jobrunr.storage.StorageProviderUtils.returnConcurrentModifiedJobs;
 import static org.jobrunr.storage.nosql.redis.RedisUtilities.backgroundJobServerKey;
 import static org.jobrunr.storage.nosql.redis.RedisUtilities.backgroundJobServersCreatedKey;
 import static org.jobrunr.storage.nosql.redis.RedisUtilities.backgroundJobServersUpdatedKey;
@@ -223,7 +224,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
         try (final Jedis jedis = getJedis()) {
             return jedis.smembers(metadatasKey(keyPrefix)).stream()
                     .filter(metadataName -> metadataName.startsWith(metadataKey(keyPrefix, name + "-")))
-                    .map(metadataName -> jedis.hgetAll(metadataName))
+                    .map(jedis::hgetAll)
                     .map(fieldMap -> new JobRunrMetadata(
                             fieldMap.get(Metadata.FIELD_NAME),
                             fieldMap.get(Metadata.FIELD_OWNER),
@@ -238,7 +239,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
     @Override
     public JobRunrMetadata getMetadata(String name, String owner) {
         try (final Jedis jedis = getJedis()) {
-            Map<String, String> fieldMap = jedis.hgetAll(metadataKey(keyPrefix, JobRunrMetadata.toId(name, owner)));
+            Map<String, String> fieldMap = jedis.hgetAll(metadataKey(keyPrefix, toId(name, owner)));
             return new JobRunrMetadata(
                     fieldMap.get(Metadata.FIELD_NAME),
                     fieldMap.get(Metadata.FIELD_OWNER),
@@ -316,10 +317,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
                 throw new IllegalArgumentException("All jobs must be either new (with id == null) or existing (with id != null)");
             }
             try (final Jedis jedis = getJedis(); Transaction p = jedis.multi()) {
-                for (Job jobToSave : jobs) {
-                    jobToSave.increaseVersion();
-                    saveJob(p, jobToSave);
-                }
+                jobs.forEach(jobToSave -> saveJob(p, jobToSave));
                 p.exec();
             }
         } else {
@@ -327,8 +325,9 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
                 throw new IllegalArgumentException("All jobs must be either new (with id == null) or existing (with id != null)");
             }
             try (final Jedis jedis = getJedis()) {
-                for (Job job : jobs) {
-                    updateJob(job, jedis);
+                final List<Job> concurrentModifiedJobs = returnConcurrentModifiedJobs(jobs, job -> updateJob(job, jedis));
+                if (!concurrentModifiedJobs.isEmpty()) {
+                    throw new ConcurrentJobModificationException(concurrentModifiedJobs);
                 }
             }
         }
@@ -367,13 +366,6 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
     }
 
     @Override
-    public Long countJobs(StateName state) {
-        try (final Jedis jedis = getJedis()) {
-            return jedis.zcount(jobQueueForStateKey(keyPrefix, state), 0, Long.MAX_VALUE);
-        }
-    }
-
-    @Override
     public List<Job> getJobs(StateName state, PageRequest pageRequest) {
         try (final Jedis jedis = getJedis()) {
             Set<String> jobsByState;
@@ -395,12 +387,14 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
 
     @Override
     public Page<Job> getJobPage(StateName state, PageRequest pageRequest) {
-        long count = countJobs(state);
-        if (count > 0) {
-            List<Job> jobs = getJobs(state, pageRequest);
-            return new Page<>(count, jobs, pageRequest);
+        try (final Jedis jedis = getJedis()) {
+            long count = jedis.zcount(jobQueueForStateKey(keyPrefix, state), 0, Long.MAX_VALUE);
+            if (count > 0) {
+                List<Job> jobs = getJobs(state, pageRequest);
+                return new Page<>(count, jobs, pageRequest);
+            }
+            return new Page<>(0, new ArrayList<>(), pageRequest);
         }
-        return new Page<>(0, new ArrayList<>(), pageRequest);
     }
 
     @Override
@@ -502,7 +496,6 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
         try (final Jedis jedis = getJedis(); final Pipeline p = jedis.pipelined()) {
             final Response<String> totalAmountSucceeded = p.hget(metadataKey(keyPrefix, Metadata.STATS_ID), Metadata.FIELD_VALUE);
 
-            final Response<Long> waitingResponse = p.zcount(jobQueueForStateKey(keyPrefix, AWAITING), 0, Long.MAX_VALUE);
             final Response<Long> scheduledResponse = p.zcount(jobQueueForStateKey(keyPrefix, SCHEDULED), 0, Long.MAX_VALUE);
             final Response<Long> enqueuedResponse = p.zcount(jobQueueForStateKey(keyPrefix, ENQUEUED), 0, Long.MAX_VALUE);
             final Response<Long> processingResponse = p.zcount(jobQueueForStateKey(keyPrefix, PROCESSING), 0, Long.MAX_VALUE);
@@ -515,11 +508,11 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
 
             p.sync();
 
-            final Long awaitingCount = waitingResponse.get();
             final Long scheduledCount = scheduledResponse.get();
             final Long enqueuedCount = enqueuedResponse.get();
             final Long processingCount = processingResponse.get();
-            final Long succeededCount = succeededResponse.get() + parseLong(totalAmountSucceeded.get() != null ? totalAmountSucceeded.get() : "0");
+            final Long succeededCount = succeededResponse.get();
+            final Long allTimeSucceededCount = parseLong(totalAmountSucceeded.get() != null ? totalAmountSucceeded.get() : "0");
             final Long failedCount = failedResponse.get();
             final Long deletedCount = deletedResponse.get();
             final Long total = scheduledCount + enqueuedCount + processingCount + succeededResponse.get() + failedCount;
@@ -528,12 +521,12 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
             return new JobStats(
                     instant,
                     total,
-                    awaitingCount,
                     scheduledCount,
                     enqueuedCount,
                     processingCount,
                     failedCount,
                     succeededCount,
+                    allTimeSucceededCount,
                     deletedCount,
                     recurringJobsCount.intValue(),
                     backgroundJobServerCount.intValue()
@@ -554,7 +547,6 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
 
     private void insertJob(Job jobToSave, Jedis jedis) {
         if (jedis.exists(jobKey(keyPrefix, jobToSave))) throw new ConcurrentJobModificationException(jobToSave);
-        jobToSave.increaseVersion();
         try (Transaction transaction = jedis.multi()) {
             saveJob(transaction, jobToSave);
             transaction.exec();
@@ -565,7 +557,6 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
         jedis.watch(jobVersionKey(keyPrefix, jobToSave));
         final int version = Integer.parseInt(jedis.get(jobVersionKey(keyPrefix, jobToSave)));
         if (version != jobToSave.getVersion()) throw new ConcurrentJobModificationException(jobToSave);
-        jobToSave.increaseVersion();
         try (Transaction transaction = jedis.multi()) {
             saveJob(transaction, jobToSave);
             List<Object> result = transaction.exec();
@@ -576,7 +567,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
 
     private void saveJob(Transaction transaction, Job jobToSave) {
         deleteJobMetadataForUpdate(transaction, jobToSave);
-        transaction.set(jobVersionKey(keyPrefix, jobToSave), String.valueOf(jobToSave.getVersion()));
+        transaction.set(jobVersionKey(keyPrefix, jobToSave), String.valueOf(jobToSave.increaseVersion()));
         transaction.set(jobKey(keyPrefix, jobToSave), jobMapper.serializeJob(jobToSave));
         transaction.zadd(jobQueueForStateKey(keyPrefix, jobToSave.getState()), toMicroSeconds(jobToSave.getUpdatedAt()), jobToSave.getId().toString());
         transaction.sadd(jobDetailsKey(keyPrefix, jobToSave.getState()), getJobSignature(jobToSave.getJobDetails()));

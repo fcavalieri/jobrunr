@@ -11,12 +11,16 @@ class VersionRetrieverTest {
 
     @Test
     void jobRunrVersion() {
-        assertThat(VersionRetriever.getVersion(JobRunr.class)).isEqualTo("Unable to determine version");
+        assertThat(VersionRetriever.getVersion(JobRunr.class))
+                .satisfiesAnyOf(
+                        val -> assertThat(val).isEqualTo("1.0.0-SNAPSHOT"),
+                        val -> assertThat(val).matches("(\\d)+.(\\d)+.(\\d)+")
+                );
     }
 
     @Test
     void gsonVersion() {
-        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.8.6");
+        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.8.7");
     }
 
     @Test

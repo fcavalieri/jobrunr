@@ -7,8 +7,8 @@ import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.cron.Cron;
-import org.jobrunr.server.BackgroundJobServer;
-import org.jobrunr.server.SevereExceptionManager;
+import org.jobrunr.server.dashboard.CpuAllocationIrregularityNotification;
+import org.jobrunr.server.dashboard.DashboardNotificationManager;
 import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.StubDataProvider;
@@ -37,30 +37,29 @@ public class FrontEndDevelopment {
         storageProvider.setJobMapper(new JobMapper(new JacksonJsonMapper()));
 
         StubDataProvider.using(storageProvider)
-                //.addALotOfEnqueuedJobsThatTakeSomeTime()
+                .addALotOfEnqueuedJobsThatTakeSomeTime()
                 //.addALotOfEnqueuedJobsThatTakeSomeTime()
                 .addSomeRecurringJobs();
 
         storageProvider.save(aJob().withJobDetails(classThatDoesNotExistJobDetails()).withState(new ScheduledState(Instant.now().plus(1, DAYS))).build());
         storageProvider.save(aJob().withJobDetails(methodThatDoesNotExistJobDetails()).withState(new ScheduledState(Instant.now().plus(1, DAYS))).build());
 
-        BackgroundJobServer backgroundJobServer = new BackgroundJobServer(storageProvider);
         JobRunr
                 .configure()
                 .useStorageProvider(storageProvider)
                 .useDashboardIf(dashboardIsEnabled(args), 8000)
-                .useBackgroundJobServer(backgroundJobServer)
+                .useBackgroundJobServer()
                 .initialize();
 
-        backgroundJobServer.start();
         BackgroundJob.<TestService>scheduleRecurrently("Github-75", Cron.daily(11, 42), ZoneId.of("America/New_York"),
                 x -> x.doWorkThatTakesLong(JobContext.Null));
 
-        SevereExceptionManager severeExceptionManager = new SevereExceptionManager(backgroundJobServer);
+        DashboardNotificationManager dashboardNotificationManager = new DashboardNotificationManager(JobRunr.getBackgroundJobServer().getId(), storageProvider);
         new Timer().schedule(new TimerTask() {
                                  @Override
                                  public void run() {
-                                     severeExceptionManager.handle(new SevereJobRunrException("A bad exception happened.", new ExceptionWithDiagnostics()));
+                                     dashboardNotificationManager.handle(new SevereJobRunrException("A bad exception happened.", new ExceptionWithDiagnostics()));
+                                     dashboardNotificationManager.notify(new CpuAllocationIrregularityNotification(20));
                                      System.out.println("Saved ServerJobRunrException");
                                  }
                              },

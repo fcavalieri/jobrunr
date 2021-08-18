@@ -12,11 +12,13 @@ import org.jobrunr.scheduling.exceptions.JobClassNotFoundException;
 import org.jobrunr.scheduling.exceptions.JobMethodNotFoundException;
 import org.jobrunr.server.BackgroundJobServer;
 import org.jobrunr.storage.InMemoryStorageProvider;
-import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.storage.StorageProviderForTest;
 import org.jobrunr.stubs.TestService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -57,22 +59,23 @@ import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
  */
 public class BackgroundJobTest {
 
+    private static Logger LOGGER = LoggerFactory.getLogger(BackgroundJobTest.class);
+
     private TestService testService;
-    private StorageProvider storageProvider;
+    private StorageProviderForTest storageProvider;
     private BackgroundJobServer backgroundJobServer;
 
     @BeforeEach
     void setUpTests() {
         testService = new TestService();
         testService.reset();
-        storageProvider = new InMemoryStorageProvider();
-        backgroundJobServer = new BackgroundJobServer(storageProvider, null, usingStandardBackgroundJobServerConfiguration().andPollIntervalInSeconds(5));
+        storageProvider = new StorageProviderForTest(new InMemoryStorageProvider());
         JobRunr.configure()
                 .useStorageProvider(storageProvider)
-                .useBackgroundJobServer(backgroundJobServer)
+                .useBackgroundJobServer(usingStandardBackgroundJobServerConfiguration().andPollIntervalInSeconds(5))
                 .initialize();
 
-        backgroundJobServer.start();
+        backgroundJobServer = JobRunr.getBackgroundJobServer();
     }
 
     @AfterEach
@@ -373,7 +376,7 @@ public class BackgroundJobTest {
     }
 
     @Test
-    void jobCanBeDeletedDuringProcessingState() {
+    void jobCanBeDeletedDuringProcessingState_jobRethrowsInterruptedException() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatTakesLong(12));
         await().atMost(3, SECONDS).until(() -> storageProvider.getJobById(jobId).hasState(PROCESSING));
 
@@ -382,6 +385,61 @@ public class BackgroundJobTest {
         await().atMost(6, SECONDS).untilAsserted(() -> {
             assertThat(backgroundJobServer.getJobZooKeeper().getOccupiedWorkerCount()).isZero();
             assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, DELETED);
+        });
+
+        await().during(6, SECONDS).atMost(12, SECONDS).untilAsserted(() -> {
+            assertThat(storageProvider.getJobById(jobId)).doesNotHaveState(SUCCEEDED);
+        });
+    }
+
+    @Test
+    void jobCanBeDeletedDuringProcessingState_jobInterruptCurrentThread() {
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatTakesLongInterruptThread(12));
+        await().atMost(3, SECONDS).until(() -> storageProvider.getJobById(jobId).hasState(PROCESSING));
+
+        BackgroundJob.delete(jobId);
+
+        await().atMost(6, SECONDS).untilAsserted(() -> {
+            assertThat(backgroundJobServer.getJobZooKeeper().getOccupiedWorkerCount()).isZero();
+            assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, DELETED);
+        });
+
+        await().during(12, SECONDS).atMost(18, SECONDS).untilAsserted(() -> {
+            assertThat(storageProvider.getJobById(jobId)).doesNotHaveState(SUCCEEDED);
+        });
+    }
+
+    @Test
+    void jobCanBeDeletedDuringProcessingStateIfInterruptible() {
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatCanBeInterrupted(12));
+        await().atMost(3, SECONDS).until(() -> storageProvider.getJobById(jobId).hasState(PROCESSING));
+
+        BackgroundJob.delete(jobId);
+
+        await().atMost(6, SECONDS).untilAsserted(() -> {
+            assertThat(backgroundJobServer.getJobZooKeeper().getOccupiedWorkerCount()).isZero();
+            assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, DELETED);
+        });
+
+        await().during(12, SECONDS).atMost(18, SECONDS).untilAsserted(() -> {
+            assertThat(storageProvider.getJobById(jobId)).doesNotHaveState(SUCCEEDED);
+        });
+    }
+
+    @Test
+    void jobCanBeDeletedDuringProcessingState_InterruptedExceptionCatched() {
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatTakesLongCatchInterruptException(12));
+        await().atMost(3, SECONDS).until(() -> storageProvider.getJobById(jobId).hasState(PROCESSING));
+
+        BackgroundJob.delete(jobId);
+
+        await().atMost(6, SECONDS).untilAsserted(() -> {
+            assertThat(backgroundJobServer.getJobZooKeeper().getOccupiedWorkerCount()).isZero();
+            assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, DELETED);
+        });
+
+        await().during(12, SECONDS).atMost(18, SECONDS).untilAsserted(() -> {
+            assertThat(storageProvider.getJobById(jobId)).doesNotHaveState(SUCCEEDED);
         });
     }
 
@@ -418,6 +476,36 @@ public class BackgroundJobTest {
     void testJobInheritance() {
         SomeSysoutJobClass someSysoutJobClass = new SomeSysoutJobClass(Cron.daily());
         assertThatCode(() -> someSysoutJobClass.schedule()).doesNotThrowAnyException();
+    }
+
+    @Test
+    public void test() throws InterruptedException {
+        LOGGER.info("Scheduling job 1");
+        BackgroundJob.enqueue(() -> System.out.println("Running job 1"));
+        LOGGER.info("Letting job 1 execute");
+        Thread.sleep(2000);
+
+        LOGGER.info("Scheduling job 2");
+        BackgroundJob.enqueue(() -> System.out.println("Running job 2"));
+        LOGGER.info("Stopping the world");
+        stopTheWorld(15000);
+        stopTheWorld(15000);
+
+        LOGGER.info("Letting JobRunr to recover after stop the world");
+        Thread.sleep(10000);
+        LOGGER.info("Scheduling job 3");
+        BackgroundJob.enqueue(() -> System.out.println("Running job 3"));
+
+        LOGGER.info("Final wait");
+        Thread.sleep(120000);
+        LOGGER.info("Exiting");
+    }
+
+    public static void stopTheWorld(long millis) {
+        long timestamp = System.currentTimeMillis();
+        while (timestamp + millis > System.currentTimeMillis()) {
+            System.gc();
+        }
     }
 
     interface SomeJobInterface {

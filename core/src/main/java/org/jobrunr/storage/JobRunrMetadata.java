@@ -1,6 +1,7 @@
 package org.jobrunr.storage;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public class JobRunrMetadata {
 
@@ -9,6 +10,10 @@ public class JobRunrMetadata {
     private final Instant createdAt;
     private final Instant updatedAt;
     private String value;
+
+    public JobRunrMetadata(String name, String owner, Object value) {
+        this(name, owner, value.toString());
+    }
 
     public JobRunrMetadata(String name, String owner, String value) {
         this(name, owner, value, Instant.now(), Instant.now());
@@ -56,5 +61,9 @@ public class JobRunrMetadata {
 
     public static String toId(String name, String owner) {
         return name.replace(" ", "_") + "-" + owner.replace(" ", "_");
+    }
+
+    public static String toId(String name, UUID owner) {
+        return toId(name, owner.toString());
     }
 }

@@ -1,20 +1,19 @@
 package org.jobrunr.jobs.details.instructions;
 
-import org.jobrunr.jobs.details.JobDetailsFinderContext;
+import org.jobrunr.jobs.details.JobDetailsBuilder;
 
 public class AAStoreInstruction extends ZeroOperandInstruction {
 
-    public AAStoreInstruction(JobDetailsFinderContext jobDetailsBuilder) {
+    public AAStoreInstruction(JobDetailsBuilder jobDetailsBuilder) {
         super(jobDetailsBuilder);
     }
 
     @Override
-    public void load() {
-        // not needed
-    }
-
-    @Override
     public Object invokeInstruction() {
-        return null;
+        Object value = jobDetailsBuilder.getStack().pollLast();
+        int index = (int) jobDetailsBuilder.getStack().pollLast();
+        Object[] array = (Object[]) jobDetailsBuilder.getStack().pollLast();
+        array[index] = value;
+        return DO_NOT_PUT_ON_STACK;
     }
 }

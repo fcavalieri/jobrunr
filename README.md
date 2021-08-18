@@ -31,16 +31,17 @@ Open and free for commercial use.
 <br/>
 
 
+
 <p align="center">
     <a href="https://search.maven.org/artifact/org.jobrunr/jobrunr"><img src="https://maven-badges.herokuapp.com/maven-central/org.jobrunr/jobrunr/badge.svg"></a>&nbsp;
     <img alt="Drone Build" src="https://build.jobrunr.io/api/badges/jobrunr/jobrunr/status.svg" />&nbsp;
     <img alt="LGPLv3 Licence" src="https://img.shields.io/badge/license-LGPLv3-green.svg" /><br/>
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Quality Scale" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=sqale_rating" /></a>&nbsp;
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Reliability Rating" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=reliability_rating" /></a>&nbsp;
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Security Rating" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=security_rating" /></a><br/>
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=coverage" /></a>&nbsp;
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Vulnerabilities" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=vulnerabilities" /></a>&nbsp;
-    <a href="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr"><img alt="Bugs" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=bugs" /></a><br/>
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Quality Scale" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=sqale_rating" /></a>&nbsp;
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Reliability Rating" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=reliability_rating" /></a>&nbsp;
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Security Rating" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=security_rating" /></a><br/>
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=coverage" /></a>&nbsp;
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Vulnerabilities" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=vulnerabilities" /></a>&nbsp;
+    <a href="https://sonarcloud.io/dashboard?id=jobrunr_jobrunr"><img alt="Bugs" src="https://sonarcloud.io/api/project_badges/measure?project=jobrunr_jobrunr&metric=bugs" /></a><br/>
     <a href="https://twitter.com/intent/tweet?text=Try%20JobRunr%20for%20easy%20distributed%20background%20job%20processing%20on%20the%20JVM%21%20&url=https://www.jobrunr.io&via=jobrunr&hashtags=java,scheduling,processing,distributed,developers"><img alt="Tweet about us!" src="https://www.jobrunr.io/tweet-btn.svg?v2" /></a>&nbsp;
     <a href="https://github.com/jobrunr/jobrunr/stargazers"><img alt="Star us!" src="https://www.jobrunr.io/github-star-btn.svg?v2" /></a>
     <a href="https://github.com/jobrunr/jobrunr/discussions"><img src="https://img.shields.io/badge/chat-Github%20discussions-green" alt="Join the chat at Gitter" /></a><br />
@@ -51,7 +52,7 @@ Open and free for commercial use.
 BackgroundJob.enqueue(() -> System.out.println("This is all you need for distributed jobs!"));
 ```
 
-Incredibly easy way to perform **fire-and-forget**, **delayed**, **scheduled** and **recurring jobs** inside **Java applications** using only *Java 8 lambda's*. CPU and I/O intensive, long-running and short-running jobs are supported. Persistent storage is done via either RDBMS (e.g. Postgres, MariaDB/MySQL and Oracle) or NoSQL (ElasticSearch, MongoDB and Redis).
+Incredibly easy way to perform **fire-and-forget**, **delayed**, **scheduled** and **recurring jobs** inside **Java applications** using only *Java 8 lambda's*. CPU and I/O intensive, long-running and short-running jobs are supported. Persistent storage is done via either RDBMS (e.g. Postgres, MariaDB/MySQL, Oracle, SQL Server, DB2 and SQLite) or NoSQL (ElasticSearch, MongoDB and Redis).
 
 JobRunr provides a unified programming model to handle background tasks in a **reliable way** and runs them on shared hosting, dedicated hosting or in the cloud (hello Kubernetes) within a JVM instance.
 
@@ -140,8 +141,8 @@ Installation
  ```xml
 <dependency>
     <groupId>org.jobrunr</groupId>
- <artifactId>jobrunr</artifactId>
- <version>2.0.0</version>
+    <artifactId>jobrunr</artifactId>
+    <version>3.1.2</version>
 </dependency>
 ```
  
@@ -149,7 +150,7 @@ Installation
  
 Just add the dependency to JobRunr:
  ```groovy
-implementation 'org.jobrunr:jobrunr:2.0.0'
+implementation 'org.jobrunr:jobrunr:3.1.2'
 ```
 
 Configuration
@@ -180,10 +181,10 @@ public class JobRunrApplication {
     @Bean
     public JobScheduler initJobRunr(DataSource dataSource, JobActivator jobActivator) {
         return JobRunr.configure()
+                .useJobActivator(jobActivator)
                 .useStorageProvider(SqlStorageProviderFactory
                           .using(dataSource))
-                .useJobActivator(jobActivator)
-                .useDefaultBackgroundJobServer()
+                .useBackgroundJobServer()
                 .useDashboard()
                 .initialize();
     }
@@ -198,3 +199,19 @@ See [CONTRIBUTING](https://github.com/jobrunr/jobrunr/blob/master/CONTRIBUTING.m
 * Join the discussion on [Github discussion](https://github.com/jobrunr/jobrunr/discussions) - we won't be using Gitter anymore.
 * Answer questions on [issues](https://github.com/jobrunr/jobrunr/issues).
 * Fix bugs reported on [issues](https://github.com/jobrunr/jobrunr/issues), and send us pull request.
+
+### How to build?
+* `git clone https://github.com/jobrunr/jobrunr.git`
+* `cd jobrunr`
+* `cd core/src/main/resources/org/jobrunr/dashboard/frontend`
+* `npm i`
+* `npm run build`
+* `cd -`
+* `./gradlew :core:publishToMavenLocal`
+* `./gradlew :jobrunr-kotlin-14-support:publishToMavenLocal`
+* `./gradlew :jobrunr-kotlin-15-support:publishToMavenLocal`
+* `./gradlew :jobrunr-spring-boot-starter:publishToMavenLocal`
+* `./gradlew :platform:publishToMavenLocal`
+
+Then, in your own project you can depend on `org.jobrunr:jobrunr:1.0.0-SNAPSHOT`.
+* 

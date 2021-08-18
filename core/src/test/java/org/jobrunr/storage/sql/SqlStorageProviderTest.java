@@ -4,19 +4,29 @@ import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.StorageProviderTest;
 import org.jobrunr.storage.sql.common.SqlStorageProviderFactory;
+import org.jobrunr.storage.sql.common.db.Sql;
+import org.jobrunr.storage.sql.common.db.Transaction;
 import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
+import org.junit.jupiter.api.BeforeAll;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.Duration;
+import java.util.Map;
 
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
 
 public abstract class SqlStorageProviderTest extends StorageProviderTest {
+
+    @BeforeAll
+    static void clearParsedStatementCache() {
+        final Map<?, ?> parsedStatementCache = Whitebox.getInternalState(Sql.forType(null), "parsedStatementCache");
+        parsedStatementCache.clear();
+    }
+
+    private static Class<? extends SqlStorageProviderTest> currentTestClass;
+    private static int testMethodIndex;
 
     @Override
     public void cleanup() {
@@ -33,6 +43,7 @@ public abstract class SqlStorageProviderTest extends StorageProviderTest {
 
     protected static void printSqlContainerDetails(JdbcDatabaseContainer<?> sqlContainer, Duration duration) {
         System.out.println("=========================================================");
+        System.out.println(" java version: " + System.getProperty("java.version"));
         System.out.println("   connection: " + sqlContainer.getJdbcUrl());
         System.out.println("         user: " + sqlContainer.getUsername());
         System.out.println("     password: " + sqlContainer.getPassword());
@@ -43,35 +54,22 @@ public abstract class SqlStorageProviderTest extends StorageProviderTest {
     protected abstract DataSource getDataSource();
 
     protected void cleanupDatabase(DataSource dataSource) {
-        drop(dataSource, "view jobrunr_jobs_stats");
-        drop(dataSource, "table jobrunr_recurring_jobs");
-        drop(dataSource, "table jobrunr_job_counters");
-        drop(dataSource, "table jobrunr_jobs");
-        drop(dataSource, "table jobrunr_backgroundjobservers");
-        drop(dataSource, "table jobrunr_migrations");
-        drop(dataSource, "table jobrunr_metadata");
-    }
-
-    private void drop(DataSource dataSource, String name) {
-        try (Connection connection = dataSource.getConnection()) {
-            connection.setAutoCommit(true);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("drop " + name);
-                System.out.println("Dropped " + name);
-            }
-        } catch (SQLException e) {
-            if (canNotIgnoreException(e)) {
-                System.out.println("Error dropping " + name);
-                e.printStackTrace();
-            }
+        if (getTestMethodIndex() < 3) {
+            getDatabaseCleaner(dataSource).dropAllTablesAndViews();
+        } else {
+            getDatabaseCleaner(dataSource).deleteAllDataInTables();
         }
     }
 
-    private boolean canNotIgnoreException(SQLException e) {
-        return !canIgnoreException(e);
+    protected DatabaseCleaner getDatabaseCleaner(DataSource dataSource) {
+        return new DatabaseCleaner(dataSource);
     }
 
-    protected boolean canIgnoreException(SQLException e) {
-        return true;
+    private int getTestMethodIndex() {
+        if (currentTestClass != this.getClass()) {
+            testMethodIndex = 0;
+        }
+        currentTestClass = this.getClass();
+        return testMethodIndex++;
     }
 }

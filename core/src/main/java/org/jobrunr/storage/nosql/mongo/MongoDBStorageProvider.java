@@ -19,7 +19,6 @@ import org.bson.codecs.UuidCodec;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.conversions.Bson;
-import org.h2.command.dml.Delete;
 import org.jobrunr.jobs.AbstractJob;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobDetails;
@@ -45,7 +44,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.mongodb.client.model.Aggregates.group;
@@ -64,13 +62,13 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.jobrunr.JobRunrException.shouldNotHappenException;
-import static org.jobrunr.jobs.states.StateName.AWAITING;
 import static org.jobrunr.jobs.states.StateName.DELETED;
 import static org.jobrunr.jobs.states.StateName.ENQUEUED;
 import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.storage.JobRunrMetadata.toId;
 import static org.jobrunr.storage.StorageProviderUtils.areNewJobs;
 import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreExisting;
 import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreNew;
@@ -205,7 +203,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
 
     @Override
     public JobRunrMetadata getMetadata(String name, String owner) {
-        Document document = metadataCollection.find(eq(toMongoId(Metadata.FIELD_ID), JobRunrMetadata.toId(name, owner))).first();
+        Document document = metadataCollection.find(eq(toMongoId(Metadata.FIELD_ID), toId(name, owner))).first();
         return metadataDocumentMapper.toJobRunrMetadata(document);
     }
 
@@ -219,7 +217,6 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     @Override
     public Job save(Job job) {
         if (isNew(job)) {
-            job.increaseVersion();
             try {
                 jobCollection.insertOne(jobDocumentMapper.toInsertDocument(job));
             } catch (MongoWriteException e) {
@@ -230,6 +227,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
             final UpdateOneModel<Document> updateModel = jobDocumentMapper.toUpdateOneModel(job);
             final UpdateResult updateResult = jobCollection.updateOne(updateModel.getFilter(), updateModel.getUpdate());
             if (updateResult.getModifiedCount() < 1) {
+                job.decreaseVersion();
                 throw new ConcurrentJobModificationException(job);
             }
         }
@@ -265,7 +263,6 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
                 throw new IllegalArgumentException("All jobs must be either new (with id == null) or existing (with id != null)");
             }
             final List<Document> jobsToInsert = jobs.stream()
-                    .peek(AbstractJob::increaseVersion)
                     .map(job -> jobDocumentMapper.toInsertDocument(job))
                     .collect(toList());
             jobCollection.insertMany(jobsToInsert);
@@ -284,13 +281,13 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
                         .find(in(toMongoId(Jobs.FIELD_ID), jobs.stream().map(Job::getId).collect(toList())))
                         .projection(include(Jobs.FIELD_JOB_AS_JSON))
                         .map(jobDocumentMapper::toJob)
-                        .forEach((Consumer<Job>) job -> mongoDbDocuments.put(job.getId(), job));
+                        .forEach(job -> mongoDbDocuments.put(job.getId(), job));
 
                 final List<Job> concurrentModifiedJobs = jobs.stream()
                         .filter(job -> !job.getUpdatedAt().equals(mongoDbDocuments.get(job.getId()).getUpdatedAt()))
                         .collect(toList());
+                concurrentModifiedJobs.forEach(AbstractJob::decreaseVersion);
                 throw new ConcurrentJobModificationException(concurrentModifiedJobs);
-
             }
         }
         notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
@@ -305,11 +302,6 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     @Override
     public List<Job> getScheduledJobs(Instant scheduledBefore, PageRequest pageRequest) {
         return findJobs(and(eq(Jobs.FIELD_STATE, SCHEDULED.name()), lt(Jobs.FIELD_SCHEDULED_AT, toMicroSeconds(scheduledBefore))), pageRequest);
-    }
-
-    @Override
-    public Long countJobs(StateName state) {
-        return jobCollection.countDocuments(eq(Jobs.FIELD_STATE, state.name()));
     }
 
     @Override
@@ -378,35 +370,35 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     public JobStats getJobStats() {
         Instant instant = Instant.now();
         final Document succeededJobStats = metadataCollection.find(eq(toMongoId(Metadata.FIELD_ID), Metadata.STATS_ID)).first();
-        final long succeededCount = (succeededJobStats != null ? ((Number) succeededJobStats.get(Metadata.FIELD_VALUE)).longValue() : 0L);
+        final long allTimeSucceededCount = (succeededJobStats != null ? ((Number) succeededJobStats.get(Metadata.FIELD_VALUE)).longValue() : 0L);
 
         final List<Document> aggregates = jobCollection.aggregate(asList(
-                match(ne(Jobs.FIELD_STATE, null)),
-                group("$state", Accumulators.sum(Jobs.FIELD_STATE, 1)),
-                limit(10)))
+                        match(ne(Jobs.FIELD_STATE, null)),
+                        group("$state", Accumulators.sum(Jobs.FIELD_STATE, 1)),
+                        limit(10)))
                 .into(new ArrayList<>());
 
-        Long awaiting = getCount(AWAITING, aggregates);
-        Long scheduled = getCount(SCHEDULED, aggregates);
-        Long enqueued = getCount(ENQUEUED, aggregates);
-        Long processing = getCount(PROCESSING, aggregates);
-        Long failed = getCount(FAILED, aggregates);
-        Long succeeded = getCount(SUCCEEDED, aggregates) + succeededCount;
-        Long deleted = getCount(DELETED, aggregates);
+        Long scheduledCount = getCount(SCHEDULED, aggregates);
+        Long enqueuedCount = getCount(ENQUEUED, aggregates);
+        Long processingCount = getCount(PROCESSING, aggregates);
+        Long succeededCount = getCount(SUCCEEDED, aggregates);
+        Long failedCount = getCount(FAILED, aggregates);
+        Long deletedCount = getCount(DELETED, aggregates);
 
+        final long total = scheduledCount + enqueuedCount + processingCount + succeededCount + failedCount;
         final int recurringJobCount = (int) recurringJobCollection.countDocuments();
         final int backgroundJobServerCount = (int) backgroundJobServerCollection.countDocuments();
 
         return new JobStats(
                 instant,
-                7L,
-                awaiting,
-                scheduled,
-                enqueued,
-                processing,
-                failed,
-                succeeded,
-                deleted,
+                total,
+                scheduledCount,
+                enqueuedCount,
+                processingCount,
+                failedCount,
+                succeededCount,
+                allTimeSucceededCount,
+                deletedCount,
                 recurringJobCount,
                 backgroundJobServerCount
         );
@@ -472,7 +464,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     }
 
     private void runMigrations(MongoClient mongoClient, String dbName) {
-        new MongoDBCreator(this, mongoClient, dbName).runMigrations();
+        new MongoDBCreator(mongoClient, dbName).runMigrations();
     }
 
     // used to perform query analysis for performance tuning

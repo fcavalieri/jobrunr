@@ -1,17 +1,17 @@
 package org.jobrunr.jobs.details.instructions;
 
-import org.jobrunr.jobs.details.JobDetailsFinderContext;
+import org.jobrunr.jobs.details.JobDetailsBuilder;
 
 public abstract class VisitLocalVariableInstruction extends AbstractJVMInstruction {
 
     protected int variable;
 
-    public VisitLocalVariableInstruction(JobDetailsFinderContext jobDetailsBuilder) {
+    protected VisitLocalVariableInstruction(JobDetailsBuilder jobDetailsBuilder) {
         super(jobDetailsBuilder);
     }
 
-    public void load(int var) {
-        this.variable = var;
+    public void load(int variable) {
+        this.variable = variable;
         jobDetailsBuilder.pushInstructionOnStack(this);
     }
 

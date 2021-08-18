@@ -71,12 +71,13 @@ class BackgroundJobServerTest {
         testServiceForIoC.reset();
         storageProvider = Mockito.spy(new InMemoryStorageProvider());
         jobActivator = new SimpleJobActivator(testServiceForIoC);
-        backgroundJobServer = new BackgroundJobServer(storageProvider, jobActivator, usingStandardBackgroundJobServerConfiguration().andPollIntervalInSeconds(5));
-        logger = LoggerAssert.initFor(backgroundJobServer);
         JobRunr.configure()
+                .useJobActivator(jobActivator)
                 .useStorageProvider(storageProvider)
-                .useBackgroundJobServer(backgroundJobServer)
+                .useBackgroundJobServer(usingStandardBackgroundJobServerConfiguration().andPollIntervalInSeconds(5), false)
                 .initialize();
+        backgroundJobServer = JobRunr.getBackgroundJobServer();
+        logger = LoggerAssert.initFor(backgroundJobServer);
     }
 
     @AfterEach
@@ -133,8 +134,7 @@ class BackgroundJobServerTest {
         for (int i = 0; i < amountOfJobs; i++) {
             BackgroundJob.enqueue(() -> testService.doWork());
         }
-        await().atMost(TEN_SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == amountOfJobs);
-
+        await().atMost(TEN_SECONDS).untilAsserted(() -> assertThat(storageProvider).hasJobs(SUCCEEDED, amountOfJobs));
         await().atMost(TEN_SECONDS).untilAsserted(() -> assertThat(Thread.getAllStackTraces()).matches(this::containsBackgroundJobThreads));
 
         backgroundJobServer.stop();
@@ -158,8 +158,8 @@ class BackgroundJobServerTest {
         assertThat(backgroundJobServer.isUnAnnounced()).isTrue();
         assertThat(backgroundJobServer.isStarted()).isTrue();
         assertThat(backgroundJobServer.isRunning()).isTrue();
-        Mockito.reset(storageProvider);
         await().until(() -> backgroundJobServer.isStopped());
+        Mockito.reset(storageProvider);
 
         // INITIAL -> START
         assertThatCode(() -> backgroundJobServer.start()).doesNotThrowAnyException();

@@ -10,10 +10,10 @@ import org.jobrunr.jobs.filters.JobDefaultFilters;
 import org.jobrunr.jobs.states.DeletedState;
 import org.jobrunr.jobs.states.ProcessingState;
 import org.jobrunr.scheduling.cron.Cron;
-import org.jobrunr.storage.BackgroundJobServerStatus;
-import org.jobrunr.storage.ConcurrentJobModificationException;
-import org.jobrunr.storage.JobRunrMetadata;
-import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.server.dashboard.DashboardNotificationManager;
+import org.jobrunr.server.strategy.WorkDistributionStrategy;
+import org.jobrunr.storage.*;
+import org.jobrunr.stubs.TestServiceInterface;
 import org.jobrunr.utils.annotations.Because;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +23,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.jobrunr.JobRunrAssertions.assertThat;
+import static org.jobrunr.jobs.JobDetailsTestBuilder.jobDetails;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.methodThatDoesNotExistJobDetails;
 import static org.jobrunr.jobs.JobTestBuilder.aCopyOf;
 import static org.jobrunr.jobs.JobTestBuilder.aJobInProgress;
@@ -56,13 +58,13 @@ import static org.jobrunr.utils.reflection.ReflectionUtils.cast;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -72,6 +74,8 @@ class JobZooKeeperTest {
     private StorageProvider storageProvider;
     @Mock
     private BackgroundJobServer backgroundJobServer;
+    @Mock
+    private WorkDistributionStrategy workDistributionStrategy;
     @Captor
     private ArgumentCaptor<List<Job>> jobsToSaveArgumentCaptor;
     @Captor
@@ -95,14 +99,76 @@ class JobZooKeeperTest {
     void jobZooKeeperDoesNothingIfItIsNotInitialized() {
         when(backgroundJobServer.isUnAnnounced()).thenReturn(true);
 
-        jobZooKeeper = new JobZooKeeper(backgroundJobServer);
-
         jobZooKeeper.run();
 
-        verify(storageProvider, never()).getRecurringJobs();
-        verify(storageProvider, never()).getScheduledJobs(any(), any());
-        verify(storageProvider, never()).getJobs(any(), any());
-        verify(storageProvider, never()).deleteJobsPermanently(any(), any());
+        verifyNoInteractions(storageProvider);
+    }
+
+    @Test
+    void jobsThatAreProcessedAreBeingUpdatedWithAHeartbeat() {
+        final Job job = anEnqueuedJob().withId().build();
+        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
+
+        job.startProcessingOn(backgroundJobServer);
+        jobZooKeeper.startProcessing(job, mock(Thread.class));
+        jobZooKeeper.run();
+
+        verify(storageProvider).save(singletonList(job));
+        ProcessingState processingState = job.getJobState();
+        assertThat(processingState.getUpdatedAt()).isAfter(processingState.getCreatedAt());
+    }
+
+    @Test
+    void noExceptionIsThrownIfAJobHasSucceededWhileUpdateProcessingIsCalled() {
+        // GIVEN
+        final Job job = anEnqueuedJob().withId().build();
+        job.startProcessingOn(backgroundJobServer);
+        jobZooKeeper.startProcessing(job, mock(Thread.class));
+
+        // WHEN
+        job.succeeded();
+        jobZooKeeper.run();
+
+        // THEN
+        assertThat(logger).hasNoWarnLogMessages();
+        verify(storageProvider).save(singletonList(job));
+    }
+
+    @Test
+    void evenWhenNoWorkCanBeOnboardedJobsThatAreProcessedAreBeingUpdatedWithAHeartbeat() {
+        backgroundJobServerStatus = aDefaultBackgroundJobServerStatus().withWorkerSize(0).build();
+        jobZooKeeper = initializeJobZooKeeper();
+
+        final Job job = anEnqueuedJob().withId().build();
+        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
+
+        job.startProcessingOn(backgroundJobServer);
+        jobZooKeeper.startProcessing(job, mock(Thread.class));
+        jobZooKeeper.run();
+        jobZooKeeper.startProcessing(aJobInProgress().build(), mock(Thread.class));
+
+        verify(storageProvider).save(singletonList(job));
+        ProcessingState processingState = job.getJobState();
+        assertThat(processingState.getUpdatedAt()).isAfter(processingState.getCreatedAt());
+    }
+
+    @Test
+    void jobsThatAreBeingProcessedButHaveBeenDeletedViaDashboardWillBeInterrupted() {
+        final Job job = anEnqueuedJob().withId().build();
+        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
+        doThrow(new ConcurrentJobModificationException(job)).when(storageProvider).save(singletonList(job));
+        when(storageProvider.getJobById(job.getId())).thenReturn(aCopyOf(job).withState(new DeletedState()).build());
+        final Thread threadMock = mock(Thread.class);
+
+        job.startProcessingOn(backgroundJobServer);
+        jobZooKeeper.startProcessing(job, threadMock);
+        jobZooKeeper.run();
+
+        assertThat(logger).hasNoWarnLogMessages();
+
+        assertThat(job).hasState(DELETED);
+        verify(storageProvider).save(singletonList(job));
+        verify(threadMock).interrupt();
     }
 
     @Test
@@ -129,26 +195,29 @@ class JobZooKeeperTest {
     }
 
     @Test
+    void checkForScheduledJobsEnqueuesJobsThatNeedToBeEnqueued() {
+        final Job scheduledJob = aScheduledJob().build();
+        final List<Job> jobs = List.of(scheduledJob);
+
+        when(storageProvider.getScheduledJobs(any(), any())).thenReturn(jobs, emptyJobList());
+
+        jobZooKeeper.run();
+
+        verify(storageProvider).save(jobsToSaveArgumentCaptor.capture());
+        assertThat(jobsToSaveArgumentCaptor.getValue().get(0)).hasStates(SCHEDULED, ENQUEUED);
+    }
+
+    @Test
     void checkForEnqueuedJobsIfJobsPresentSubmitsThemToTheBackgroundJobServer() {
         final Job enqueuedJob = anEnqueuedJob().build();
         final List<Job> jobs = List.of(enqueuedJob);
 
         lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(), any())).thenReturn(emptyList());
-        lenient().when(storageProvider.getJobs(eq(ENQUEUED), refEq(ascOnUpdatedAt(10)))).thenReturn(jobs);
+        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(jobs);
 
         jobZooKeeper.run();
 
         verify(backgroundJobServer).processJob(enqueuedJob);
-    }
-
-    @Test
-    void checkForEnqueuedJobsNotDoneIfRequestedStateIsStopped() {
-        backgroundJobServerStatus.pause();
-
-        jobZooKeeper.run();
-
-        verify(storageProvider, never()).getJobs(eq(ENQUEUED), refEq(ascOnUpdatedAt(1)));
-        verify(backgroundJobServer, never()).processJob(any());
     }
 
     @Test
@@ -191,7 +260,7 @@ class JobZooKeeperTest {
 
     @Test
     void checkForSucceededJobsThanCanGoToDeletedState() {
-        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), refEq(ascOnUpdatedAt(1000))))
+        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), any()))
                 .thenReturn(
                         asList(aSucceededJob().build(), aSucceededJob().build(), aSucceededJob().build(), aSucceededJob().build(), aSucceededJob().build()),
                         emptyJobList()
@@ -208,6 +277,30 @@ class JobZooKeeperTest {
     }
 
     @Test
+    void checkForSucceededJobsCanGoToDeletedStateAlsoWorksForInterfacesWithMethodsThatDontExistAnymore() {
+        // GIVEN
+        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), any()))
+                .thenReturn(
+                        asList(aSucceededJob()
+                                .withJobDetails(jobDetails()
+                                        .withClassName(TestServiceInterface.class)
+                                        .withMethodName("methodThatDoesNotExist")
+                                        .build())
+                                .build()),
+                        emptyJobList()
+                );
+
+        // WHEN
+        jobZooKeeper.run();
+
+        // THEN
+        assertThat(logger).hasNoWarnLogMessages();
+
+        verify(storageProvider).save(anyList());
+        verify(storageProvider).publishTotalAmountOfSucceededJobs(1);
+    }
+
+    @Test
     void checkForJobsThatCanBeDeleted() {
         when(storageProvider.deleteJobsPermanently(eq(DELETED), any())).thenReturn(5);
 
@@ -217,61 +310,10 @@ class JobZooKeeperTest {
     }
 
     @Test
-    void jobsThatAreProcessedAreBeingUpdatedWithAHeartbeat() {
-        final Job job = anEnqueuedJob().withId().build();
-        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
-
-        job.startProcessingOn(backgroundJobServer);
-        jobZooKeeper.startProcessing(job, mock(Thread.class));
-        jobZooKeeper.run();
-
-        verify(storageProvider).save(singletonList(job));
-        ProcessingState processingState = job.getJobState();
-        assertThat(processingState.getUpdatedAt()).isAfter(processingState.getCreatedAt());
-    }
-
-    @Test
-    void evenWhenNoWorkCanBeOnboardedJobsThatAreProcessedAreBeingUpdatedWithAHeartbeat() {
-        backgroundJobServerStatus = aDefaultBackgroundJobServerStatus().withWorkerSize(0).build();
-        jobZooKeeper = initializeJobZooKeeper();
-
-        final Job job = anEnqueuedJob().withId().build();
-        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
-
-        job.startProcessingOn(backgroundJobServer);
-        jobZooKeeper.startProcessing(job, mock(Thread.class));
-        jobZooKeeper.run();
-        jobZooKeeper.startProcessing(aJobInProgress().build(), mock(Thread.class));
-
-        verify(storageProvider).save(singletonList(job));
-        ProcessingState processingState = job.getJobState();
-        assertThat(processingState.getUpdatedAt()).isAfter(processingState.getCreatedAt());
-    }
-
-    @Test
-    void jobsThatAreBeingProcessedButHaveBeenDeletedViaDashboardWillBeInterrupted() {
-        final Job job = anEnqueuedJob().withId().build();
-        lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
-        doThrow(new ConcurrentJobModificationException(job)).when(storageProvider).save(singletonList(job));
-        when(storageProvider.getJobById(job.getId())).thenReturn(aCopyOf(job).withState(new DeletedState()).build());
-        final Thread threadMock = mock(Thread.class);
-
-        job.startProcessingOn(backgroundJobServer);
-        jobZooKeeper.startProcessing(job, threadMock);
-        jobZooKeeper.run();
-
-        assertThat(logger).hasNoWarnLogMessages();
-
-        assertThat(job).hasState(DELETED);
-        verify(storageProvider).save(singletonList(job));
-        verify(threadMock).interrupt();
-    }
-
-    @Test
     void allStateChangesArePassingViaTheApplyStateFilterOnSuccess() {
         Job job = aScheduledJob().build();
 
-        when(storageProvider.getScheduledJobs(any(Instant.class), refEq(ascOnUpdatedAt(1000))))
+        when(storageProvider.getScheduledJobs(any(Instant.class), any()))
                 .thenReturn(
                         singletonList(job),
                         emptyJobList()
@@ -289,7 +331,7 @@ class JobZooKeeperTest {
     void jobNotFoundExceptionsDoNotCauseTheBackgroundJobServerToStop() {
         Job job = aSucceededJob().withJobDetails(methodThatDoesNotExistJobDetails()).build();
 
-        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), refEq(ascOnUpdatedAt(1000))))
+        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), any()))
                 .thenReturn(
                         singletonList(job),
                         emptyJobList());
@@ -308,7 +350,7 @@ class JobZooKeeperTest {
 
         when(storageProvider.getJobById(succeededJob1.getId())).thenReturn(succeededJob1);
         when(storageProvider.getJobById(succeededJob2.getId())).thenReturn(succeededJob2);
-        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), refEq(ascOnUpdatedAt(1000))))
+        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), any()))
                 .thenReturn(
                         asList(succeededJob1, succeededJob2, aSucceededJob().build(), aSucceededJob().build(), aSucceededJob().build()),
                         emptyJobList()
@@ -325,11 +367,28 @@ class JobZooKeeperTest {
                 .valueContains("## Runtime information");
     }
 
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/122")
+    void masterTasksArePostponedToNextRunIfPollIntervalInSecondsTimeboxIsAboutToPass() {
+        when(backgroundJobServer.isUnAnnounced()).then(putRunStartTimeInPast());
+
+        jobZooKeeper.run();
+
+        verify(storageProvider, never()).getScheduledJobs(any(Instant.class), any(PageRequest.class));
+        verify(storageProvider, never()).getJobs(eq(PROCESSING), any(Instant.class), any(PageRequest.class));
+        verify(storageProvider, never()).getJobs(eq(SUCCEEDED), any(Instant.class), any(PageRequest.class));
+    }
+
     private JobZooKeeper initializeJobZooKeeper() {
-        when(backgroundJobServer.getId()).thenReturn(UUID.randomUUID());
+        UUID backgroundJobServerId = UUID.randomUUID();
+        lenient().when(backgroundJobServer.getId()).thenReturn(backgroundJobServerId);
         when(backgroundJobServer.getStorageProvider()).thenReturn(storageProvider);
         when(backgroundJobServer.getServerStatus()).thenReturn(backgroundJobServerStatus);
+        when(backgroundJobServer.getWorkDistributionStrategy()).thenReturn(workDistributionStrategy);
         when(backgroundJobServer.getJobFilters()).thenReturn(new JobDefaultFilters(logAllStateChangesFilter));
+        when(backgroundJobServer.getDashboardExceptionManager()).thenReturn(new DashboardNotificationManager(backgroundJobServerId, storageProvider));
+        lenient().when(workDistributionStrategy.canOnboardNewWork()).thenReturn(true);
+        lenient().when(workDistributionStrategy.getWorkPageRequest()).thenReturn(ascOnUpdatedAt(10));
         lenient().when(backgroundJobServer.isAnnounced()).thenReturn(true);
         lenient().when(backgroundJobServer.isMaster()).thenReturn(true);
         return new JobZooKeeper(backgroundJobServer);
@@ -339,5 +398,12 @@ class JobZooKeeperTest {
         List<Job>[] result = cast(new ArrayList[1]);
         result[0] = new ArrayList<>();
         return result;
+    }
+
+    private Answer<Boolean> putRunStartTimeInPast() {
+        return invocation -> {
+            Whitebox.setInternalState(jobZooKeeper, "runStartTime", System.currentTimeMillis() - 15000);
+            return false;
+        };
     }
 }

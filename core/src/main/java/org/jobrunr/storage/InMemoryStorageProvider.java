@@ -22,16 +22,18 @@ import static java.util.Arrays.asList;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.jobrunr.jobs.states.StateName.AWAITING;
 import static org.jobrunr.jobs.states.StateName.DELETED;
 import static org.jobrunr.jobs.states.StateName.ENQUEUED;
 import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata.FIELD_CREATED_AT;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata.FIELD_UPDATED_AT;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_ID;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_NAME;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_OWNER;
+import static org.jobrunr.storage.StorageProviderUtils.returnConcurrentModifiedJobs;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
 import static org.jobrunr.utils.reflection.ReflectionUtils.getValueFromFieldOrProperty;
 import static org.jobrunr.utils.reflection.ReflectionUtils.setFieldUsingAutoboxing;
@@ -182,7 +184,10 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public List<Job> save(List<Job> jobs) {
-        jobs.forEach(this::saveJob);
+        final List<Job> concurrentModifiedJobs = returnConcurrentModifiedJobs(jobs, this::saveJob);
+        if (!concurrentModifiedJobs.isEmpty()) {
+            throw new ConcurrentJobModificationException(concurrentModifiedJobs);
+        }
         notifyJobStatsOnChangeListeners();
         return jobs;
     }
@@ -208,11 +213,6 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     }
 
     @Override
-    public Long countJobs(StateName state) {
-        return getJobsStream(state).count();
-    }
-
-    @Override
     public List<Job> getJobs(StateName state, PageRequest pageRequest) {
         return getJobsStream(state, pageRequest)
                 .skip(pageRequest.getOffset())
@@ -223,7 +223,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public Page<Job> getJobPage(StateName state, PageRequest pageRequest) {
-        return new Page<>(countJobs(state), getJobs(state, pageRequest),
+        return new Page<>(getJobsStream(state).count(), getJobs(state, pageRequest),
                 pageRequest
         );
     }
@@ -291,12 +291,12 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return new JobStats(
                 Instant.now(),
                 (long) jobQueue.size(),
-                getJobsStream(AWAITING).count(),
                 getJobsStream(SCHEDULED).count(),
                 getJobsStream(ENQUEUED).count(),
                 getJobsStream(PROCESSING).count(),
                 getJobsStream(FAILED).count(),
-                getJobsStream(SUCCEEDED).count() + getMetadata(STATS_NAME, STATS_OWNER).getValueAsLong(),
+                getJobsStream(SUCCEEDED).count(),
+                getMetadata(STATS_NAME, STATS_OWNER).getValueAsLong(),
                 getJobsStream(DELETED).count(),
                 recurringJobs.size(),
                 backgroundJobServers.size()
@@ -305,8 +305,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public void publishTotalAmountOfSucceededJobs(int amount) {
-        this.metadata.computeIfAbsent(STATS_ID, input -> new JobRunrMetadata(STATS_NAME, STATS_OWNER, new AtomicLong(0).toString()));
-        JobRunrMetadata metadata = getMetadata(STATS_NAME, STATS_OWNER);
+        JobRunrMetadata metadata = this.metadata.computeIfAbsent(STATS_ID, input -> new JobRunrMetadata(STATS_NAME, STATS_OWNER, new AtomicLong(0).toString()));
         metadata.setValue(new AtomicLong(parseLong(metadata.getValue()) + amount).toString());
     }
 
@@ -334,7 +333,6 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         }
 
         job.increaseVersion();
-
         jobQueue.put(job.getId(), deepClone(job));
     }
 
@@ -349,9 +347,9 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 order = PageRequest.Order.valueOf(sortAndOrder[1].toUpperCase());
             }
             Comparator<Job> comparator = null;
-            if (sortField.equalsIgnoreCase("createdAt")) {
+            if (sortField.equalsIgnoreCase(FIELD_CREATED_AT)) {
                 comparator = Comparator.comparing(Job::getCreatedAt);
-            } else if (sortField.equalsIgnoreCase("updatedAt")) {
+            } else if (sortField.equalsIgnoreCase(FIELD_UPDATED_AT)) {
                 comparator = Comparator.comparing(Job::getUpdatedAt);
             } else {
                 throw new IllegalStateException("An unsupported sortOrder was requested: " + sortField);

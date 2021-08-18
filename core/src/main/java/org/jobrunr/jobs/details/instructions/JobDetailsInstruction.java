@@ -1,13 +1,15 @@
 package org.jobrunr.jobs.details.instructions;
 
 import org.jobrunr.jobs.JobParameter;
-import org.jobrunr.jobs.details.JobDetailsFinderContext;
+import org.jobrunr.jobs.details.JobDetailsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
@@ -16,6 +18,7 @@ import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.createObjectViaM
 import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.findParamTypesFromDescriptor;
 import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.findParamTypesFromDescriptorAsArray;
 import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.toFQClassName;
+import static org.jobrunr.utils.reflection.ReflectionUtils.getValueFromField;
 import static org.jobrunr.utils.reflection.ReflectionUtils.isClassAssignableToObject;
 import static org.jobrunr.utils.reflection.ReflectionUtils.toClass;
 
@@ -23,7 +26,7 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JobDetailsInstruction.class);
 
-    public JobDetailsInstruction(JobDetailsFinderContext jobDetailsBuilder) {
+    public JobDetailsInstruction(JobDetailsBuilder jobDetailsBuilder) {
         super(jobDetailsBuilder);
     }
 
@@ -40,7 +43,7 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
             final long before = System.nanoTime();
             final Object result = getObject();
             final long after = System.nanoTime();
-            if ((after - before) > 1_000_000) {
+            if ((after - before) > 5_000_000) {
                 LOGGER.warn("You are using a custom method ({}.{}({})) while enqueueing that takes a lot of time. See https://www.jobrunr.io/en/documentation/background-methods/best-practices/ on how to use JobRunr effectively.", getClassName(), getMethodName(), Stream.of(findParamTypesFromDescriptorAsArray(descriptor)).map(Class::getSimpleName).collect(joining(", ")));
             }
             return result;
@@ -50,7 +53,7 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
     String getClassName() {
         String className = toFQClassName(owner);
         if (jobDetailsBuilder.getStack().isEmpty()) {
-            return className;
+            return findInheritedClassName(className).orElse(className);
         }
 
         Object jobOnStack = jobDetailsBuilder.getStack().getLast();
@@ -65,6 +68,7 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
         return className;
     }
 
+
     String getMethodName() {
         return name;
     }
@@ -77,6 +81,17 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
 
     private boolean isLastInstruction() {
         return jobDetailsBuilder.getInstructions().isEmpty();
+    }
+
+    private Optional<String> findInheritedClassName(String className) {
+        if (jobDetailsBuilder.getLocalVariable(0) != null) {
+            final Field declaredField = jobDetailsBuilder.getLocalVariable(0).getClass().getDeclaredFields()[0];
+            final Object valueFromField = getValueFromField(declaredField, jobDetailsBuilder.getLocalVariable(0));
+            if (toClass(className).isAssignableFrom(valueFromField.getClass())) {
+                return Optional.of(valueFromField.getClass().getName());
+            }
+        }
+        return Optional.empty();
     }
 
     private List<JobParameter> getJobParameters() {

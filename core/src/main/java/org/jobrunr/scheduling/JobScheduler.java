@@ -638,19 +638,24 @@ public class JobScheduler {
     }
 
     /**
+     * @see #delete(UUID)
+     */
+    public void delete(JobId jobId) {
+        this.delete(jobId.asUUID());
+    }
+
+    /**
      * Deletes a job and sets it's state to DELETED. If the job is being processed, it will be interrupted.
      *
      * @param id the id of the job
      */
     public void delete(UUID id) {
-        storageProvider.delete(id);
-    }
-
-    /**
-     * @see #delete(UUID)
-     */
-    public void delete(JobId jobId) {
-        storageProvider.delete(jobId.asUUID());
+        final Job jobToDelete = storageProvider.getJobById(id);
+        jobToDelete.delete();
+        jobFilterUtils.runOnStateElectionFilter(jobToDelete);
+        final Job deletedJob = storageProvider.save(jobToDelete);
+        jobFilterUtils.runOnStateAppliedFilters(deletedJob);
+        LOGGER.debug("Deleted Job with id {}", deletedJob.getId());
     }
 
     /**
@@ -797,6 +802,14 @@ public class JobScheduler {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
     }
 
+    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
+        final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
+        jobFilterUtils.runOnCreatingFilter(recurringJob);
+        RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
+        jobFilterUtils.runOnCreatedFilter(recurringJob);
+        return savedRecurringJob.getId();
+    }
+
     JobId saveJob(Job job) {
         try {
             jobFilterUtils.runOnCreatingFilter(job);
@@ -814,13 +827,5 @@ public class JobScheduler {
         final List<Job> savedJobs = this.storageProvider.save(jobs);
         jobFilterUtils.runOnCreatedFilter(savedJobs);
         return savedJobs;
-    }
-
-    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
-        final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
-        jobFilterUtils.runOnCreatingFilter(recurringJob);
-        RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
-        jobFilterUtils.runOnCreatedFilter(recurringJob);
-        return savedRecurringJob.getId();
     }
 }

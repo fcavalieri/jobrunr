@@ -8,7 +8,7 @@ import org.jobrunr.jobs.filters.JobFilterUtils;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.server.concurrent.ConcurrentJobModificationResolver;
 import org.jobrunr.server.concurrent.UnresolvableConcurrentJobModificationException;
-import org.jobrunr.server.strategy.BasicWorkDistributionStrategy;
+import org.jobrunr.server.dashboard.DashboardNotificationManager;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
 import org.jobrunr.storage.BackgroundJobServerStatus;
 import org.jobrunr.storage.ConcurrentJobModificationException;
@@ -42,7 +42,7 @@ public class JobZooKeeper implements Runnable {
 
     private final BackgroundJobServer backgroundJobServer;
     private final StorageProvider storageProvider;
-    private final SevereExceptionManager severeExceptionManager;
+    private final DashboardNotificationManager dashboardNotificationManager;
     private final JobFilterUtils jobFilterUtils;
     private final WorkDistributionStrategy workDistributionStrategy;
     private final ConcurrentJobModificationResolver concurrentJobModificationResolver;
@@ -50,15 +50,18 @@ public class JobZooKeeper implements Runnable {
     private final AtomicInteger exceptionCount;
     private final ReentrantLock reentrantLock;
     private final AtomicInteger occupiedWorkers;
+    private final Duration durationPollIntervalTimeBox;
+    private long runStartTime;
 
     public JobZooKeeper(BackgroundJobServer backgroundJobServer) {
         this.backgroundJobServer = backgroundJobServer;
         this.storageProvider = backgroundJobServer.getStorageProvider();
-        this.severeExceptionManager = new SevereExceptionManager(backgroundJobServer);
+        this.workDistributionStrategy = backgroundJobServer.getWorkDistributionStrategy();
+        this.dashboardNotificationManager = backgroundJobServer.getDashboardExceptionManager();
         this.jobFilterUtils = new JobFilterUtils(backgroundJobServer.getJobFilters());
-        this.workDistributionStrategy = createWorkDistributionStrategy();
         this.concurrentJobModificationResolver = createConcurrentJobModificationResolver();
         this.currentlyProcessedJobs = new ConcurrentHashMap<>();
+        this.durationPollIntervalTimeBox = Duration.ofSeconds((long) (backgroundJobServerStatus().getPollIntervalInSeconds() - (backgroundJobServerStatus().getPollIntervalInSeconds() * 0.05)));
         this.reentrantLock = new ReentrantLock();
         this.exceptionCount = new AtomicInteger();
         this.occupiedWorkers = new AtomicInteger();
@@ -67,22 +70,14 @@ public class JobZooKeeper implements Runnable {
     @Override
     public void run() {
         try {
+            runStartTime = System.currentTimeMillis();
             if (backgroundJobServer.isUnAnnounced()) return;
 
-            if (canOnboardNewWork()) {
-                if (backgroundJobServer.isMaster()) {
-                    runMasterTasks();
-                }
-
-                updateJobsThatAreBeingProcessed();
-                checkForEnqueuedJobs();
-            } else {
-                updateJobsThatAreBeingProcessed();
-            }
+            updateJobsThatAreBeingProcessed();
+            runMasterTasksIfCurrentServerIsMaster();
+            onboardNewWorkIfPossible();
         } catch (Exception e) {
-            if (e instanceof SevereJobRunrException) {
-                severeExceptionManager.handle((SevereJobRunrException) e);
-            }
+            dashboardNotificationManager.handle(e);
             if (exceptionCount.getAndIncrement() < 5) {
                 LOGGER.warn(JobRunrException.SHOULD_NOT_HAPPEN_MESSAGE + " - Processing will continue.", e);
             } else {
@@ -92,13 +87,15 @@ public class JobZooKeeper implements Runnable {
         }
     }
 
-    void runMasterTasks() {
-        checkForRecurringJobs();
-        checkForScheduledJobs();
-        checkForOrphanedJobs();
-        checkForSucceededJobsThanCanGoToDeletedState();
-        checkForFailedJobsThanCanGoToDeletedState();
-        checkForJobsThatCanBeDeleted();
+    void runMasterTasksIfCurrentServerIsMaster() {
+        if (backgroundJobServer.isMaster()) {
+            checkForRecurringJobs();
+            checkForScheduledJobs();
+            checkForOrphanedJobs();
+            checkForSucceededJobsThanCanGoToDeletedState();
+            checkForFailedJobsThanCanGoToDeletedState();
+            checkForJobsThatCanBeDeleted();
+        }
     }
 
     boolean canOnboardNewWork() {
@@ -164,7 +161,14 @@ public class JobZooKeeper implements Runnable {
 
     void updateJobsThatAreBeingProcessed() {
         LOGGER.debug("Updating currently processed jobs... ");
-        processJobList(new ArrayList<>(currentlyProcessedJobs.keySet()), Job::updateProcessing);
+        processJobList(new ArrayList<>(currentlyProcessedJobs.keySet()), this::updateCurrentlyProcessingJob);
+    }
+
+    void onboardNewWorkIfPossible() {
+        if (pollIntervalInSecondsTimeBoxIsAboutToPass()) return;
+        if (canOnboardNewWork()) {
+            checkForEnqueuedJobs();
+        }
     }
 
     void checkForEnqueuedJobs() {
@@ -198,6 +202,8 @@ public class JobZooKeeper implements Runnable {
     }
 
     void processJobList(Supplier<List<Job>> jobListSupplier, Consumer<Job> jobConsumer) {
+        if (pollIntervalInSecondsTimeBoxIsAboutToPass()) return;
+
         List<Job> jobs = jobListSupplier.get();
         while (!jobs.isEmpty()) {
             processJobList(jobs, jobConsumer);
@@ -253,8 +259,22 @@ public class JobZooKeeper implements Runnable {
         }
     }
 
-    BasicWorkDistributionStrategy createWorkDistributionStrategy() {
-        return new BasicWorkDistributionStrategy(backgroundJobServer, this);
+    private void updateCurrentlyProcessingJob(Job job) {
+        try {
+            job.updateProcessing();
+        } catch (ClassCastException e) {
+            // why: because of thread context switching there is a really small chance that the job has succeeded
+        }
+    }
+
+    private boolean pollIntervalInSecondsTimeBoxIsAboutToPass() {
+        final long currentTime = System.currentTimeMillis();
+        final Duration durationRunTime = Duration.ofMillis(currentTime - runStartTime);
+        final boolean runTimeBoxIsPassed = durationRunTime.compareTo(durationPollIntervalTimeBox) >= 0;
+        if (runTimeBoxIsPassed) {
+            LOGGER.debug("JobRunr is passing the poll interval in seconds timebox because of too many tasks.");
+        }
+        return runTimeBoxIsPassed;
     }
 
     ConcurrentJobModificationResolver createConcurrentJobModificationResolver() {

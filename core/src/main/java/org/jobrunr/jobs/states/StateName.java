@@ -4,7 +4,6 @@ import java.util.function.Predicate;
 
 public enum StateName {
 
-    AWAITING,
     SCHEDULED,
     ENQUEUED,
     PROCESSING,
@@ -12,5 +11,5 @@ public enum StateName {
     SUCCEEDED,
     DELETED;
 
-    public static final Predicate<JobState> FAILED_STATES = state -> state instanceof FailedState;
+    public static final Predicate<JobState> FAILED_STATES = FailedState.class::isInstance;
 }

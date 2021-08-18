@@ -62,6 +62,7 @@ import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
 import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.jobrunr.storage.JobRunrMetadata.toId;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata.FIELD_VALUE;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata.STATS_ID;
@@ -240,7 +241,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
     @Override
     public JobRunrMetadata getMetadata(String name, String owner) {
         try {
-            GetResponse response = client.get(new GetRequest(metadataIndexName(), JobRunrMetadata.toId(name, owner)), RequestOptions.DEFAULT);
+            GetResponse response = client.get(new GetRequest(metadataIndexName(), toId(name, owner)), RequestOptions.DEFAULT);
             return elasticSearchDocumentMapper.toMetadata(response);
         } catch (IOException e) {
             throw new StorageException(e);
@@ -279,6 +280,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
             return job;
         } catch (ElasticsearchStatusException e) {
             if (e.status().getStatus() == 409) {
+                job.decreaseVersion();
                 throw new ConcurrentJobModificationException(job);
             }
             throw e;
@@ -332,16 +334,19 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
 
             BulkRequest bulkRequest = new BulkRequest(jobIndexName()).setRefreshPolicy(IMMEDIATE);
             jobs.stream()
-                    .peek(AbstractJob::increaseVersion)
                     .map(job -> new IndexRequest().id(job.getId().toString())
                             .versionType(VersionType.EXTERNAL)
-                            .version(job.getVersion())
+                            .version(job.increaseVersion())
                             .source(elasticSearchDocumentMapper.toXContentBuilder(job)))
                     .forEach(bulkRequest::add);
 
             BulkResponse bulk = client.bulk(bulkRequest, RequestOptions.DEFAULT);
-            List<Job> concurrentModifiedJobs = Stream.of(bulk.getItems()).filter(item -> item.isFailed() && item.status().getStatus() == 409).map(item -> jobs.get(item.getItemId())).collect(toList());
+            List<Job> concurrentModifiedJobs = Stream.of(bulk.getItems())
+                    .filter(item -> item.isFailed() && item.status().getStatus() == 409)
+                    .map(item -> jobs.get(item.getItemId()))
+                    .collect(toList());
             if (!concurrentModifiedJobs.isEmpty()) {
+                concurrentModifiedJobs.forEach(AbstractJob::decreaseVersion);
                 throw new ConcurrentJobModificationException(concurrentModifiedJobs);
             }
             notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
@@ -381,15 +386,6 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
     }
 
     @Override
-    public Long countJobs(StateName state) {
-        try {
-            return countJobs(boolQuery().must(matchQuery(Jobs.FIELD_STATE, state)));
-        } catch (IOException e) {
-            throw new StorageException(e);
-        }
-    }
-
-    @Override
     public List<Job> getJobs(StateName state, PageRequest pageRequest) {
         try {
             BoolQueryBuilder stateQuery = boolQuery().must(matchQuery(Jobs.FIELD_STATE, state));
@@ -404,12 +400,16 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
 
     @Override
     public Page<Job> getJobPage(StateName state, PageRequest pageRequest) {
-        Long count = countJobs(state);
-        if (count > 0) {
-            List<Job> jobs = getJobs(state, pageRequest);
-            return new Page<>(count, jobs, pageRequest);
+        try {
+            long count = countJobs(boolQuery().must(matchQuery(Jobs.FIELD_STATE, state)));
+            if (count > 0) {
+                List<Job> jobs = getJobs(state, pageRequest);
+                return new Page<>(count, jobs, pageRequest);
+            }
+            return new Page<>(0, new ArrayList<>(), pageRequest);
+        } catch (IOException e) {
+            throw new StorageException(e);
         }
-        return new Page<>(0, new ArrayList<>(), pageRequest);
     }
 
     @Override
@@ -559,12 +559,12 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
             return new JobStats(
                     Instant.now(),
                     0L,
-                    buckets.stream().filter(bucket -> StateName.AWAITING.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
                     buckets.stream().filter(bucket -> StateName.SCHEDULED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
                     buckets.stream().filter(bucket -> StateName.ENQUEUED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
                     buckets.stream().filter(bucket -> StateName.PROCESSING.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
                     buckets.stream().filter(bucket -> StateName.FAILED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
-                    buckets.stream().filter(bucket -> StateName.SUCCEEDED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L) + (int) getResponse.getSource().getOrDefault(FIELD_VALUE, 0L),
+                    buckets.stream().filter(bucket -> StateName.SUCCEEDED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
+                    ((Number) getResponse.getSource().getOrDefault(FIELD_VALUE, 0L)).longValue(),
                     buckets.stream().filter(bucket -> StateName.DELETED.name().equals(bucket.getKeyAsString())).map(MultiBucketsAggregation.Bucket::getDocCount).findFirst().orElse(0L),
                     (int) client.count(new CountRequest(recurringJobIndexName()), RequestOptions.DEFAULT).getCount(),
                     (int) client.count(new CountRequest(backgroundJobServerIndexName()), RequestOptions.DEFAULT).getCount()

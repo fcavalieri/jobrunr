@@ -10,6 +10,7 @@ import org.jobrunr.jobs.lambdas.JobLambda;
 import org.jobrunr.jobs.lambdas.JobLambdaFromStream;
 import org.jobrunr.stubs.TestService;
 import org.jobrunr.stubs.TestServiceInterface;
+import org.jobrunr.utils.annotations.Because;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -31,6 +33,7 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jobrunr.JobRunrAssertions.assertThat;
+import static org.jobrunr.utils.StringUtils.substringBeforeLast;
 
 class JobDetailsAsmGeneratorTest {
 
@@ -56,7 +59,7 @@ class JobDetailsAsmGeneratorTest {
         String name = this.getClass().getName();
         //String location = new File(".").getAbsolutePath() + "/build/classes/java/test/" + toFQResource(name) + ".class";
 
-        String location = "/home/ronald/Projects/Personal/JobRunr/jobrunr/jobrunr-kotlin-support/build/classes/kotlin/test/org/jobrunr/jobs/details/JobDetailsAsmGeneratorForKotlinTest$testMethodReferenceJobLambdaInSameClass$jobDetails$1.class";
+        String location = "/home/ronald/Projects/Personal/JobRunr/jobrunr/jobrunr-kotlin-15-support/build/classes/kotlin/test/org/jobrunr/jobs/details/JobDetailsAsmGeneratorForKotlinTest$testMethodReferenceJobLambdaInSameClass$jobDetails$1.class";
         assertThatCode(() -> Textifier.main(new String[]{location})).doesNotThrowAnyException();
     }
 
@@ -98,6 +101,22 @@ class JobDetailsAsmGeneratorTest {
         assertThatThrownBy(() -> jobDetailsGenerator.toJobDetails(job))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("You are passing null to your background job - JobRunr prevents this to fail fast.");
+    }
+
+    @Test
+    void testJobLambdaCallInstanceMethod_OtherLambda() {
+        Supplier<Boolean> supplier = () -> {
+            System.out.println("Dit is een test");
+            return true;
+        };
+        JobLambda job = () -> {
+            if (supplier.get()) {
+                System.out.println("In nested lambda");
+            }
+        };
+        assertThatThrownBy(() -> jobDetailsGenerator.toJobDetails(job))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("You are passing another (nested) Java 8 lambda to JobRunr - this is not supported. Try to convert your lambda to a class or a method.");
     }
 
     @Test
@@ -157,6 +176,54 @@ class JobDetailsAsmGeneratorTest {
                 .hasClass(TestService.class)
                 .hasMethodName("doWork")
                 .hasArgs(3.3);
+    }
+
+    @Test
+    void testJobLambdaWithSum() {
+        int a = 6;
+        int b = 3;
+        JobLambda job = () -> testService.doWork(a + b);
+
+        assertThatCode(() -> jobDetailsGenerator.toJobDetails(job))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                .hasRootCauseMessage("You are summing two numbers while enqueueing/scheduling jobs - for performance reasons it is better to do the calculation outside of the job lambda");
+    }
+
+    @Test
+    void testJobLambdaWithSubtraction() {
+        int a = 6;
+        int b = 3;
+        JobLambda job = () -> testService.doWork(a - b);
+
+        assertThatCode(() -> jobDetailsGenerator.toJobDetails(job))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                .hasRootCauseMessage("You are subtracting two numbers while enqueueing/scheduling jobs - for performance reasons it is better to do the calculation outside of the job lambda");
+    }
+
+    @Test
+    void testJobLambdaWithMultiplication() {
+        int a = 6;
+        int b = 3;
+        JobLambda job = () -> testService.doWork(a * b);
+
+        assertThatCode(() -> jobDetailsGenerator.toJobDetails(job))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                .hasRootCauseMessage("You are multiplying two numbers while enqueueing/scheduling jobs - for performance reasons it is better to do the calculation outside of the job lambda");
+    }
+
+    @Test
+    void testJobLambdaWithDivision() {
+        int a = 6;
+        int b = 3;
+        JobLambda job = () -> testService.doWork(a / b);
+
+        assertThatCode(() -> jobDetailsGenerator.toJobDetails(job))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                .hasRootCauseMessage("You are dividing two numbers while enqueueing/scheduling jobs - for performance reasons it is better to do the calculation outside of the job lambda");
     }
 
     @Test
@@ -325,7 +392,7 @@ class JobDetailsAsmGeneratorTest {
                 .hasMethodName("println")
                 .hasArg(obj -> obj.toString().startsWith("This is a test: ")
                         && obj.toString().contains(" 6; 5.3; 5.3; 3; true; Value1;")
-                        && obj.toString().contains(LocalDateTime.now().withNano(0).toString()));
+                        && obj.toString().contains(substringBeforeLast(LocalDateTime.now().toString(), ":")));
     }
 
     @Test
@@ -563,6 +630,141 @@ class JobDetailsAsmGeneratorTest {
     }
 
     @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/158")
+    void testIocJobLambdaWithPrimitiveWrappers_LOAD() {
+        for (int i = 0; i < 3; i++) {
+            final Boolean finalB = i % 2 == 0;
+            final Integer finalI = i;
+            final Long finalL = 5L + i;
+            final Float finalF = 3.3F + i;
+            final Double finalD = 2.3D + i;
+            IocJobLambda<TestService> iocJobLambda = (x) -> x.doWork(finalB, finalI, finalL, finalF, finalD);
+            JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJobLambda);
+            assertThat(jobDetails)
+                    .hasClass(TestService.class)
+                    .hasMethodName("doWork")
+                    .hasArgs(i % 2 == 0, finalI, 5L + i, 3.3F + i, 2.3D + i);
+        }
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testJobLambdaWithPrimitiveParametersAndWrappersInMethod_LOAD() {
+        long id = 1L;
+        long env = 2L;
+        String param = "test";
+
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(() -> testService.jobRunBatchWrappers(id, env, param, TestUtils.getCurrentLogin()));
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchWrappers")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testIoCJobLambdaWithPrimitiveParametersAndWrappersInMethod_LOAD() {
+        long id = 1L;
+        long env = 2L;
+        String param = "test";
+
+        IocJobLambda<TestService> iocJobLambda = (x) -> x.jobRunBatchWrappers(id, env, param, TestUtils.getCurrentLogin());
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJobLambda);
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchWrappers")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testJobLambdaWithPrimitiveParametersAndPrimitivesInMethod_LOAD() {
+        long id = 1L;
+        long env = 2L;
+        String param = "test";
+
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(() -> testService.jobRunBatchPrimitives(id, env, param, TestUtils.getCurrentLogin()));
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchPrimitives")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testIoCJobLambdaWithPrimitiveParametersAndPrimitivesInMethod_LOAD() {
+        long id = 1L;
+        long env = 2L;
+        String param = "test";
+
+        IocJobLambda<TestService> iocJobLambda = (x) -> x.jobRunBatchPrimitives(id, env, param, TestUtils.getCurrentLogin());
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJobLambda);
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchPrimitives")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testJobLambdaWithCombinationParametersAndPrimitivesInMethod_LOAD() {
+        long id = 1L;
+        Long env = 2L;
+        String param = "test";
+
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(() -> testService.jobRunBatchPrimitives(id, env, param, TestUtils.getCurrentLogin()));
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchPrimitives")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testIoCJobLambdaWithCombinationParametersAndPrimitivesInMethod_LOAD() {
+        long id = 1L;
+        Long env = 2L;
+        String param = "test";
+
+        IocJobLambda<TestService> iocJobLambda = (x) -> x.jobRunBatchPrimitives(id, env, param, TestUtils.getCurrentLogin());
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJobLambda);
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchPrimitives")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testJobLambdaWithCombinationParametersAndWrappersInMethod_LOAD() {
+        long id = 1L;
+        Long env = 2L;
+        String param = "test";
+
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(() -> testService.jobRunBatchWrappers(id, env, param, TestUtils.getCurrentLogin()));
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchWrappers")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/165")
+    void testIoCJobLambdaWithCombinationParametersAndWrappersInMethod_LOAD() {
+        long id = 1L;
+        Long env = 2L;
+        String param = "test";
+
+        IocJobLambda<TestService> iocJobLambda = (x) -> x.jobRunBatchPrimitives(id, env, param, TestUtils.getCurrentLogin());
+        final JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJobLambda);
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("jobRunBatchPrimitives")
+                .hasArgs(1L, 2L, "test", "Some string");
+    }
+
+    @Test
     void testIocJobLambdaWithUnsupportedPrimitiveTypes() {
         IocJobLambda<TestService> iocJobLambda = (x) -> x.doWork((byte) 0x3, (short) 2, 'c');
         assertThatThrownBy(() -> jobDetailsGenerator.toJobDetails(iocJobLambda))
@@ -643,5 +845,12 @@ class JobDetailsAsmGeneratorTest {
 
     public void doWorkWithUUID(UUID uuid) {
         System.out.println("Doing some work... " + uuid);
+    }
+
+    public static class TestUtils {
+
+        public static String getCurrentLogin() {
+            return "Some string";
+        }
     }
 }
