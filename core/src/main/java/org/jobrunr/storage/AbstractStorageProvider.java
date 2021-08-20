@@ -182,8 +182,8 @@ public abstract class AbstractStorageProvider implements StorageProvider, AutoCl
                 if (value instanceof DisposableResource) {
                     try {
                         ((DisposableResource)value).dispose();
-                    } catch (Exception e) {
-                        logError(e);
+                    } catch (Throwable t) {
+                        LOGGER.error("Error disposing resource: " + t.getMessage(), t);
                     }
                 }
             }
