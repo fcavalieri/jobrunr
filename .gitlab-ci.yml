@@ -9,20 +9,19 @@ cache:
     - .gradle
     - .npm
 
-build:
-  stage: build
-  script:
-    - echo $CI_PIPELINE_SOURCE
-    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
-    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
-    - ./gradlew --no-daemon --info clean assemble
-
-test:
-  stage: test
-  script:
-    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
-    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
-    - ./gradlew --no-daemon -info build
+#build:
+#  stage: build
+#  script:
+#    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
+#    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
+#    - ./gradlew --no-daemon --info clean assemble
+#
+#test:
+#  stage: test
+#  script:
+#    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
+#    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
+#    - ./gradlew --no-daemon -info build
 
 publish:
   stage: publish
