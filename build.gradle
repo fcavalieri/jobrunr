@@ -5,12 +5,6 @@ plugins {
     id 'signing'
 }
 
-nexusPublishing {
-    repositories {
-        sonatype()
-    }
-}
-
 subprojects {
     group = 'org.jobrunr'
     version = System.getenv('DRONE_TAG') ?: "v1.0.0-SNAPSHOT"
