@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = 'org.jobrunr'
-    version = System.getenv('DRONE_TAG') ?: "v1.0.0-SNAPSHOT"
+    version = "v3.2.1-plus-20210824"
 }
 
 configure(subprojects.findAll {it.name != 'platform'}) {
