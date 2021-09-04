@@ -15,12 +15,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 
+import static org.jobrunr.utils.Constants.MARKLOGIC_IMAGE;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
 
 @Testcontainers
 class MarklogicStorageProviderTest extends StorageProviderTest {
     @Container
-    private static final GenericContainer marklogicContainer = new GenericContainer("store/marklogicdb/marklogic-server:10.0-6.1-dev-centos")
+    private static final GenericContainer marklogicContainer = new GenericContainer(MARKLOGIC_IMAGE)
             .withExposedPorts(8000, 8001, 8002)
             .withEnv("MARKLOGIC_INIT", "true")
             .withEnv("MARKLOGIC_ADMIN_USERNAME", "admin")

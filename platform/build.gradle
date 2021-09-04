@@ -4,8 +4,6 @@ plugins {
     id 'signing'
 }
 
-version = System.getenv('DRONE_TAG') ?: "v1.0.0-SNAPSHOT"
-
 dependencies {
     constraints {
         api 'org.slf4j:slf4j-api:1.7.32'
@@ -98,12 +96,17 @@ publishing {
             }
         }
     }
-}
-
-signing {
-    String base64Key = System.getenv('SIGNING_KEY')
-    if (base64Key) {
-        useInMemoryPgpKeys(new String(Base64.decoder.decode(base64Key)), System.getenv('SIGNING_PASSWORD'))
-        sign publishing.publications.mavenJava
+    repositories {
+        maven {
+            url "https://gitlab.com/api/v4/projects/26366632/packages/maven"
+            credentials(HttpHeaderCredentials) {
+                name = System.getenv("PRIVATE_TOKEN") != null ? "Private-Token" : "Job-Token"
+                value = System.getenv("PRIVATE_TOKEN") != null ? System.getenv("PRIVATE_TOKEN") : System.getenv("CI_JOB_TOKEN")
+            }
+            authentication {
+                header(HttpHeaderAuthentication)
+            }
+        }
     }
 }
+
