@@ -78,6 +78,18 @@ publishing {
       }
     }
   }
+  repositories {
+    maven {
+      url "https://gitlab.com/api/v4/projects/26366632/packages/maven"
+      credentials(HttpHeaderCredentials) {
+        name = System.getenv("PRIVATE_TOKEN") != null ? "Private-Token" : "Job-Token"
+        value = System.getenv("PRIVATE_TOKEN") != null ? System.getenv("PRIVATE_TOKEN") : System.getenv("CI_JOB_TOKEN")
+      }
+      authentication {
+        header(HttpHeaderAuthentication)
+      }
+    }
+  }
 }
 
 signing {
