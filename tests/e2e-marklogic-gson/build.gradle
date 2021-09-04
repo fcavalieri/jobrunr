@@ -10,6 +10,7 @@ dependencies {
     implementation 'com.marklogic:marklogic-client-api'
 
     testImplementation project(':core')
+    testImplementation testFixtures(project(":core"))
     testImplementation testFixtures(project(":tests:e2e-base"))
 }
 
