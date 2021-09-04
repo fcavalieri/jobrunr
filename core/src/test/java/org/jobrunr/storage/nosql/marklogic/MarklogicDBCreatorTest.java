@@ -42,13 +42,14 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.jobrunr.utils.Constants.MARKLOGIC_IMAGE;
 
 @Testcontainers
 @ExtendWith(MockitoExtension.class)
 class MarklogicDBCreatorTest {
 
     @Container
-    private static final GenericContainer marklogicContainer = new GenericContainer("store/marklogicdb/marklogic-server:10.0-6.1-dev-centos")
+    private static final GenericContainer marklogicContainer = new GenericContainer(MARKLOGIC_IMAGE)
             .withExposedPorts(8000, 8001, 8002)
             .withEnv("MARKLOGIC_INIT", "true")
             .withEnv("MARKLOGIC_ADMIN_USERNAME", "admin")

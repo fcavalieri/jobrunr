@@ -6,13 +6,15 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.jobrunr.utils.Constants.MARKLOGIC_IMAGE;
+
 @Testcontainers
 public class MarklogicJacksonE2ETest extends AbstractE2EJacksonTest {
 
     private static final Network network = Network.newNetwork();
 
     @Container
-    private static final GenericContainer marklogicContainer = new GenericContainer("store/marklogicdb/marklogic-server:10.0-6.1-dev-centos")
+    private static final GenericContainer marklogicContainer = new GenericContainer(MARKLOGIC_IMAGE)
             .withNetwork(network)
             .withNetworkAliases("marklogic")
             .withExposedPorts(8000, 8001, 8002)
