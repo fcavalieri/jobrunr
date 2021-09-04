@@ -63,7 +63,7 @@ public class JobStateChangeTest {
                 .initialize();
 
         backgroundJobServer = JobRunr.getBackgroundJobServer();
-        logger = LoggerAssert.initFor(storageProvider.storageProvider);
+        logger = LoggerAssert.initFor(storageProvider.getStorageProvider());
     }
 
     @AfterEach

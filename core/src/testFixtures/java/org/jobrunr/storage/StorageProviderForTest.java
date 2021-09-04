@@ -23,6 +23,10 @@ public class StorageProviderForTest implements StorageProvider {
         this.storageProvider = storageProvider;
     }
 
+    public StorageProvider getStorageProvider() {
+        return storageProvider;
+    }
+
     @Override
     public String getName() {
         return storageProvider.getName();
