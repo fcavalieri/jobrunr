@@ -13,10 +13,12 @@ public class BackgroundJobServerConfiguration {
 
     public static final int DEFAULT_POLL_INTERVAL_IN_SECONDS = 15;
     public static final Duration DEFAULT_DELETE_SUCCEEDED_JOBS_DURATION = Duration.ofHours(36);
+    public static final Duration DEFAULT_DELETE_FAILED_JOBS_DURATION = Duration.ofHours(0);
     public static final Duration DEFAULT_PERMANENTLY_DELETE_JOBS_DURATION = Duration.ofHours(72);
 
     int pollIntervalInSeconds = DEFAULT_POLL_INTERVAL_IN_SECONDS;
     Duration deleteSucceededJobsAfter = DEFAULT_DELETE_SUCCEEDED_JOBS_DURATION;
+    Duration deleteFailedJobsAfter = DEFAULT_DELETE_FAILED_JOBS_DURATION;
     Duration permanentlyDeleteDeletedJobsAfter = DEFAULT_PERMANENTLY_DELETE_JOBS_DURATION;
     BackgroundJobServerWorkerPolicy backgroundJobServerWorkerPolicy = new DefaultBackgroundJobServerWorkerPolicy();
 
@@ -66,6 +68,18 @@ public class BackgroundJobServerConfiguration {
      */
     public BackgroundJobServerConfiguration andBackgroundJobServerWorkerPolicy(BackgroundJobServerWorkerPolicy backgroundJobServerWorkerPolicy) {
         this.backgroundJobServerWorkerPolicy = backgroundJobServerWorkerPolicy;
+        return this;
+    }
+
+    /**
+     * Allows to set the duration to wait before deleting failed jobs.
+     * A value of 0 means that failed jobs will never be deleted.
+     *
+     * @param duration the duration to wait before deleting failed jobs
+     * @return the same configuration instance which provides a fluent api
+     */
+    public BackgroundJobServerConfiguration andDeleteFailedJobsAfter(Duration duration) {
+        this.deleteFailedJobsAfter = duration;
         return this;
     }
 

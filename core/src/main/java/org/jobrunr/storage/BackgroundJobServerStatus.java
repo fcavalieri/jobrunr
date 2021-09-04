@@ -12,6 +12,7 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
     private final int workerPoolSize;
     private final int pollIntervalInSeconds;
     private final Duration deleteSucceededJobsAfter;
+    private final Duration deleteFailedJobsAfter;
     private final Duration permanentlyDeleteDeletedJobsAfter;
     private final Instant firstHeartbeat;
     private final Instant lastHeartbeat;
@@ -24,15 +25,16 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
     private final Long processAllocatedMemory;
     private final Double processCpuLoad;
 
-    public BackgroundJobServerStatus(int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration permanentlyDeleteDeletedJobsAfter) {
-        this(UUID.randomUUID(), workerPoolSize, pollIntervalInSeconds, deleteSucceededJobsAfter, permanentlyDeleteDeletedJobsAfter, null, null, false, null, null, null, null, null, null, null);
+    public BackgroundJobServerStatus(int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration deleteFailedJobsAfter, Duration permanentlyDeleteDeletedJobsAfter) {
+        this(UUID.randomUUID(), workerPoolSize, pollIntervalInSeconds, deleteSucceededJobsAfter, deleteFailedJobsAfter, permanentlyDeleteDeletedJobsAfter, null, null, false, null, null, null, null, null, null, null);
     }
 
-    public BackgroundJobServerStatus(UUID id, int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration permanentlyDeleteDeletedJobsAfter, Instant firstHeartbeat, Instant lastHeartbeat, boolean isRunning, Long systemTotalMemory, Long systemFreeMemory, Double systemCpuLoad, Long processMaxMemory, Long processFreeMemory, Long processAllocatedMemory, Double processCpuLoad) {
+    public BackgroundJobServerStatus(UUID id, int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration deleteFailedJobsAfter, Duration permanentlyDeleteDeletedJobsAfter, Instant firstHeartbeat, Instant lastHeartbeat, boolean isRunning, Long systemTotalMemory, Long systemFreeMemory, Double systemCpuLoad, Long processMaxMemory, Long processFreeMemory, Long processAllocatedMemory, Double processCpuLoad) {
         this.id = id;
         this.workerPoolSize = workerPoolSize;
         this.pollIntervalInSeconds = pollIntervalInSeconds;
         this.deleteSucceededJobsAfter = deleteSucceededJobsAfter;
+        this.deleteFailedJobsAfter = deleteFailedJobsAfter;
         this.permanentlyDeleteDeletedJobsAfter = permanentlyDeleteDeletedJobsAfter;
         this.firstHeartbeat = firstHeartbeat;
         this.lastHeartbeat = lastHeartbeat;
@@ -64,6 +66,11 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
     @Override
     public Duration getDeleteSucceededJobsAfter() {
         return deleteSucceededJobsAfter;
+    }
+
+    @Override
+    public Duration getDeleteFailedJobsAfter() {
+        return deleteFailedJobsAfter;
     }
 
     @Override

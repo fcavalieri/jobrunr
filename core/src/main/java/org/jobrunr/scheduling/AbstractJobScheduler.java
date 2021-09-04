@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Collections.emptyList;
 
@@ -115,8 +116,16 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails));
     }
 
+    JobId enqueue(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        return saveJob(new Job(id, jobDetails, metadata));
+    }
+
     JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails) {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)));
+    }
+
+    JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
     }
 
     String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {

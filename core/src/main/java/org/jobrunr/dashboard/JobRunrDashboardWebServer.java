@@ -2,8 +2,10 @@ package org.jobrunr.dashboard;
 
 import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
+import org.jobrunr.dashboard.server.AbstractWebServer;
 import org.jobrunr.dashboard.server.HttpExchangeHandler;
-import org.jobrunr.dashboard.server.WebServer;
+import org.jobrunr.dashboard.server.WebServerHttp;
+import org.jobrunr.dashboard.server.WebServerHttps;
 import org.jobrunr.dashboard.server.http.RedirectHttpHandler;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.ThreadSafeStorageProvider;
@@ -12,6 +14,9 @@ import org.jobrunr.utils.mapper.JsonMapper;
 import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+
+import java.nio.file.Path;
 
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.utils.StringUtils.isNotNullOrEmpty;
@@ -28,10 +33,19 @@ public class JobRunrDashboardWebServer {
 
     private final StorageProvider storageProvider;
     private final JsonMapper jsonMapper;
-    private final int port;
+
     private final BasicAuthenticator basicAuthenticator;
 
-    private WebServer webServer;
+    private final boolean enableHttp;
+    private final int portHttp;
+
+    private final boolean enableHttps;
+    private final int portHttps;
+    private final Path keyStorePathHttps;
+    private final String keyStorePasswordHttps;
+
+    private WebServerHttp webServerHttp;
+    private WebServerHttps webServerHttps;
 
     public static void main(String[] args) {
         new JobRunrDashboardWebServer(null, new JacksonJsonMapper());
@@ -41,53 +55,78 @@ public class JobRunrDashboardWebServer {
         this(storageProvider, jsonMapper, 8000);
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp));
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port, String username, String password) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port).andBasicAuthentication(username, password));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp, String username, String password) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp).andBasicAuthentication(username, password));
     }
 
     public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, JobRunrDashboardWebServerConfiguration configuration) {
         this.storageProvider = new ThreadSafeStorageProvider(storageProvider);
         this.jsonMapper = jsonMapper;
-        this.port = configuration.port;
+
+        this.enableHttp = configuration.enableHttp;
+        this.portHttp = configuration.port;
+
         this.basicAuthenticator = createOptionalBasicAuthenticator(configuration.username, configuration.password);
+
+        this.enableHttps = configuration.enableHttps;
+        this.portHttps = configuration.portHttps;
+        this.keyStorePathHttps = configuration.keyStorePathHttps;
+        this.keyStorePasswordHttps = configuration.keyStorePasswordHttps;
     }
 
     public void start() {
+        if (enableHttp) {
+            webServerHttp = new WebServerHttp(portHttp);
+            initWebServer(webServerHttp);
+        }
+        if (enableHttps) {
+            webServerHttps = new WebServerHttps(portHttps, keyStorePathHttps, keyStorePasswordHttps);
+            initWebServer(webServerHttps);
+        }
+    }
+
+    private void initWebServer(AbstractWebServer webServer) {
         RedirectHttpHandler redirectHttpHandler = new RedirectHttpHandler("/", "/dashboard");
         JobRunrStaticFileHandler staticFileHandler = createStaticFileHandler();
         JobRunrApiHandler dashboardHandler = createApiHandler(storageProvider, jsonMapper);
         JobRunrSseHandler sseHandler = createSSeHandler(storageProvider, jsonMapper);
 
-        webServer = new WebServer(port);
-        registerContext(redirectHttpHandler);
-        registerSecuredContext(staticFileHandler);
-        registerSecuredContext(dashboardHandler);
-        registerSecuredContext(sseHandler);
-        webServer.start();
+        registerContext(webServer, redirectHttpHandler);
+        registerSecuredContext(webServer, staticFileHandler);
+        registerSecuredContext(webServer, dashboardHandler);
+        registerSecuredContext(webServer, sseHandler);
 
-        LOGGER.info("JobRunr Dashboard using {} started at http://{}:{}/dashboard",
+        webServer.start();
+        LOGGER.info("JobRunr Dashboard using {} started at {}://{}:{}",
                 storageProvider.getName(),
+                webServer.getWebServerProtocol(),
                 webServer.getWebServerHostAddress(),
                 webServer.getWebServerHostPort());
     }
 
     public void stop() {
-        if (webServer == null) return;
-        webServer.stop();
-        LOGGER.info("JobRunr dashboard stopped");
-        webServer = null;
+        if (webServerHttp != null) {
+            webServerHttp.stop();
+            LOGGER.info("JobRunr HTTP dashboard stopped");
+            webServerHttp = null;
+        }
+        if (webServerHttps != null) {
+            webServerHttps.stop();
+            LOGGER.info("JobRunr HTTPS dashboard stopped");
+            webServerHttps = null;
+        }
     }
 
-    HttpContext registerContext(HttpExchangeHandler httpHandler) {
+    HttpContext registerContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
         return webServer.createContext(httpHandler);
     }
 
-    HttpContext registerSecuredContext(HttpExchangeHandler httpHandler) {
-        HttpContext httpContext = registerContext(httpHandler);
+    HttpContext registerSecuredContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
+        HttpContext httpContext = registerContext(webServer, httpHandler);
         if (basicAuthenticator != null) {
             httpContext.setAuthenticator(basicAuthenticator);
         }
