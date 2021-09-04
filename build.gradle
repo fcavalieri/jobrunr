@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = 'org.jobrunr'
-    version = "v3.2.1-plus-20210824"
+    version = "v3.2.1-plus-20210903"
 }
 
 configure(subprojects.findAll {it.name != 'platform'}) {
