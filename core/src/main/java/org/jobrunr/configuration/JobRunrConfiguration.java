@@ -48,6 +48,7 @@ public class JobRunrConfiguration {
         JsonMapperKind jsonMapperKind = determineJsonMapperKind();
         this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
+        this.jobDetailsGenerator = new CachingJobDetailsGenerator();
         this.jobFilters = new ArrayList<>();
     }
 

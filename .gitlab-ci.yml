@@ -22,6 +22,9 @@ test:
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon -info build
+  artifacts:
+    paths:
+      - /tmp/reports
 
 publish:
   stage: publish
