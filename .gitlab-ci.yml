@@ -24,6 +24,7 @@ test:
     - ./gradlew --no-daemon -info build
   artifacts:
     paths:
+      - /tmp/reports/core/index.html
       - /tmp/reports
 
 publish:
