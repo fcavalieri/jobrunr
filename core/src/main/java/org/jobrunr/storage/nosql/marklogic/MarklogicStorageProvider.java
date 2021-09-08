@@ -210,22 +210,24 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
     @Override
     public Job save(Job job) {
         try (final JobVersioner jobVersioner = new JobVersioner(job)) {
-            Transaction transaction = databaseClient.openTransaction();
-            if (jobVersioner.isNewJob()) {
-                if (marklogicWrapper.existsDocument(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        transaction)) {
-                    throw new ConcurrentJobModificationException(job);
+            try (final MarklogicTransaction marklogicTransaction = new MarklogicTransaction(databaseClient)) {
+                Transaction transaction = marklogicTransaction.getTransaction();
+                if (jobVersioner.isNewJob()) {
+                    if (marklogicWrapper.existsDocument(
+                            StorageProviderUtils.Jobs.NAME,
+                            job.getId().toString(),
+                            transaction)) {
+                        throw new ConcurrentJobModificationException(job);
+                    }
+                    marklogicWrapper.putJob(job, jobMapper, transaction);
+                } else {
+                    marklogicWrapper.patchJob(job, jobMapper, transaction);
                 }
-                marklogicWrapper.putJob(job, jobMapper, transaction);
-            } else {
-                marklogicWrapper.patchJob(job, jobMapper, transaction);
+                marklogicTransaction.commit();
+            } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
+                throw new StorageException(e);
             }
-            transaction.commit();
             jobVersioner.commitVersion();
-        } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
-            throw new StorageException(e);
         }
         notifyJobStatsOnChangeListeners();
         return job;
@@ -262,28 +264,29 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
     @Override
     public List<Job> save(List<Job> jobs) {
         try (JobListVersioner jobListVersioner = new JobListVersioner(jobs)) {
-            Transaction transaction = databaseClient.openTransaction();
-            if (jobListVersioner.areNewJobs()) {
-                marklogicWrapper.putJobs(jobs, jobMapper, transaction);
-            } else {
-                List<Job> concurrentlyModifiedJobs = new ArrayList<>();
-                for (Job job: jobs) {
-                    try {
-                        marklogicWrapper.patchJob(job, jobMapper, transaction);
-                    } catch (ConcurrentJobModificationException e) {
-                        concurrentlyModifiedJobs.add(job);
+            try (final MarklogicTransaction marklogicTransaction = new MarklogicTransaction(databaseClient)) {
+                Transaction transaction = marklogicTransaction.getTransaction();
+                if (jobListVersioner.areNewJobs()) {
+                    marklogicWrapper.putJobs(jobs, jobMapper, transaction);
+                } else {
+                    List<Job> concurrentlyModifiedJobs = new ArrayList<>();
+                    for (Job job : jobs) {
+                        try {
+                            marklogicWrapper.patchJob(job, jobMapper, transaction);
+                        } catch (ConcurrentJobModificationException e) {
+                            concurrentlyModifiedJobs.add(job);
+                        }
+                    }
+                    if (concurrentlyModifiedJobs.size() > 0) {
+                        jobListVersioner.rollbackVersions(concurrentlyModifiedJobs);
+                        throw new ConcurrentJobModificationException(jobs);
                     }
                 }
-                if (concurrentlyModifiedJobs.size() > 0) {
-                    jobListVersioner.rollbackVersions(concurrentlyModifiedJobs);
-                    throw new ConcurrentJobModificationException(jobs);
-                }
+                marklogicTransaction.commit();
+            } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
+                throw new StorageException(e);
             }
-            transaction.commit();
             jobListVersioner.commitVersions();
-        }
-        catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
-            throw new StorageException(e);
         }
         notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
         return jobs;
@@ -484,7 +487,7 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public void publishTotalAmountOfSucceededJobs(int amount) {
-        Transaction transaction = databaseClient.openTransaction();
+        Transaction transaction = null; //databaseClient.openTransaction();
         try {
             MarklogicMetadata document = marklogicWrapper.loadDocumentIfPresent(
                     StorageProviderUtils.Metadata.NAME,
@@ -511,7 +514,7 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
                         transaction);
             }
         } finally {
-            transaction.commit();
+            //transaction.commit();
         }
     }
 

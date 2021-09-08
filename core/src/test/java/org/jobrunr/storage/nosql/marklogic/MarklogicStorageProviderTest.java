@@ -2,12 +2,17 @@ package org.jobrunr.storage.nosql.marklogic;
 
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.DatabaseClientFactory;
+import com.marklogic.client.MarkLogicIOException;
+import com.mongodb.MongoException;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.StorageProviderTest;
 import org.jobrunr.storage.StorageProviderUtils;
+import org.jobrunr.storage.nosql.mongo.AbstractMongoDBStorageProviderTest;
 import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -17,6 +22,11 @@ import java.io.IOException;
 
 import static org.jobrunr.utils.Constants.MARKLOGIC_IMAGE;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.internal.util.reflection.Whitebox.setInternalState;
 
 @Testcontainers
 class MarklogicStorageProviderTest extends StorageProviderTest {
@@ -50,10 +60,32 @@ class MarklogicStorageProviderTest extends StorageProviderTest {
 
     }
 
+    @Override
+    protected ThrowingStorageProvider makeThrowingStorageProvider(StorageProvider storageProvider) {
+        return new ThrowingMarklogicStorageProvider(storageProvider);
+    }
+
     private DatabaseClient marklogicClient() {
         return DatabaseClientFactory.newClient(
             marklogicContainer.getContainerIpAddress(),
             marklogicContainer.getMappedPort(8000),
             new DatabaseClientFactory.DigestAuthContext("admin", "admin"));
+    }
+
+    protected static class ThrowingMarklogicStorageProvider extends ThrowingStorageProvider {
+
+        public ThrowingMarklogicStorageProvider(StorageProvider storageProvider) {
+            super(storageProvider, "marklogicWrapper");
+        }
+
+        @Override
+        protected void makeStorageProviderThrowException(StorageProvider storageProvider) {
+            MarklogicWrapper mockedMarklogicWrapper = mock(MarklogicWrapper.class);
+            MarkLogicIOException markLogicIOException = mock(MarkLogicIOException.class);
+            doThrow(markLogicIOException).when(mockedMarklogicWrapper).putJob(any(), any(), any());
+            doThrow(markLogicIOException).when(mockedMarklogicWrapper).putJobs(any(), any(), any());
+            doThrow(markLogicIOException).when(mockedMarklogicWrapper).patchJob(any(), any(), any());
+            setInternalState(storageProvider, "marklogicWrapper", mockedMarklogicWrapper);
+        }
     }
 }
