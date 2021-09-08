@@ -19,7 +19,7 @@ public class MarklogicJob extends HashMap<String, Object> {
     super();
 
     put(StorageProviderUtils.Jobs.FIELD_ID, job.getId().toString());
-    put(StorageProviderUtils.Jobs.FIELD_VERSION, job.increaseVersion());
+    put(StorageProviderUtils.Jobs.FIELD_VERSION, job.getVersion());
     put(StorageProviderUtils.Jobs.FIELD_JOB_AS_JSON, jobMapper.serializeJob(job));
     put(StorageProviderUtils.Jobs.FIELD_JOB_SIGNATURE, job.getJobSignature());
     put(StorageProviderUtils.Jobs.FIELD_STATE, job.getState().name());
@@ -35,7 +35,7 @@ public class MarklogicJob extends HashMap<String, Object> {
   }
 
   public static DocumentPatchHandle toUpdateDocument(Job job, JobMapper jobMapper, DocumentPatchBuilder dpb) {
-    dpb.replaceValue("/" + StorageProviderUtils.Jobs.FIELD_VERSION, job.increaseVersion())
+    dpb.replaceValue("/" + StorageProviderUtils.Jobs.FIELD_VERSION, job.getVersion())
             .replaceValue("/" + StorageProviderUtils.Jobs.FIELD_JOB_AS_JSON, jobMapper.serializeJob(job))
             .replaceValue("/" + StorageProviderUtils.Jobs.FIELD_STATE, job.getState().name())
             .replaceValue("/" + StorageProviderUtils.Jobs.FIELD_UPDATED_AT, job.getUpdatedAt().toEpochMilli());

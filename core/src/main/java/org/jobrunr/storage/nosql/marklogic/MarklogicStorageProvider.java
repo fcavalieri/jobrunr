@@ -2,13 +2,20 @@ package org.jobrunr.storage.nosql.marklogic;
 
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.DatabaseClientFactory;
+import com.marklogic.client.MarkLogicBindingException;
+import com.marklogic.client.MarkLogicIOException;
+import com.marklogic.client.MarkLogicInternalException;
+import com.marklogic.client.MarkLogicServerException;
 import com.marklogic.client.Transaction;
 import com.marklogic.client.document.DocumentPatchBuilder;
 import com.marklogic.client.io.marker.DocumentPatchHandle;
 import com.marklogic.client.query.StructuredQueryBuilder;
 import com.marklogic.client.query.StructuredQueryDefinition;
+import org.bson.Document;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobDetails;
+import org.jobrunr.jobs.JobListVersioner;
+import org.jobrunr.jobs.JobVersioner;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
@@ -42,11 +49,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
-import static org.jobrunr.storage.StorageProviderUtils.areNewJobs;
-import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreExisting;
-import static org.jobrunr.storage.StorageProviderUtils.notAllJobsAreNew;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
-import static org.jobrunr.utils.JobUtils.isNew;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
 import static org.jobrunr.utils.resilience.RateLimiter.SECOND;
 
@@ -206,55 +209,28 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public Job save(Job job) {
-        doSave(job);
+        try (final JobVersioner jobVersioner = new JobVersioner(job)) {
+            try (final MarklogicTransaction marklogicTransaction = new MarklogicTransaction(databaseClient)) {
+                Transaction transaction = marklogicTransaction.getTransaction();
+                if (jobVersioner.isNewJob()) {
+                    if (marklogicWrapper.existsDocument(
+                            StorageProviderUtils.Jobs.NAME,
+                            job.getId().toString(),
+                            transaction)) {
+                        throw new ConcurrentJobModificationException(job);
+                    }
+                    marklogicWrapper.putJob(job, jobMapper, transaction);
+                } else {
+                    marklogicWrapper.patchJob(job, jobMapper, transaction);
+                }
+                marklogicTransaction.commit();
+            } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
+                throw new StorageException(e);
+            }
+            jobVersioner.commitVersion();
+        }
         notifyJobStatsOnChangeListeners();
         return job;
-    }
-
-    public void doSave(Job job) {
-        Transaction transaction = databaseClient.openTransaction();
-        try
-        {
-            if (isNew(job)) {
-                if (marklogicWrapper.existsDocument(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        transaction)) {
-                    throw new ConcurrentJobModificationException(job);
-                }
-                MarklogicJob jobMarklogicDocument = new MarklogicJob(jobMapper, job);
-                marklogicWrapper.putDocument(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        jobMarklogicDocument,
-                        transaction);
-            } else {
-                StructuredQueryDefinition query = queryBuilder.and(
-                        queryBuilder.directory(1, "/" + StorageProviderUtils.Jobs.NAME + "/"),
-                        queryBuilder.value(
-                                queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_ID),
-                                job.getId().toString()),
-                        queryBuilder.value(
-                                queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_VERSION),
-                                job.getVersion())
-                );
-                String uriToUpdate = marklogicWrapper.queryDocumentURIs(query, transaction)
-                        .stream()
-                        .findFirst()
-                        .orElse(null);
-                if (uriToUpdate == null) {
-                    throw new ConcurrentJobModificationException(job);
-                }
-                DocumentPatchBuilder patchBuilder = databaseClient.newJSONDocumentManager().newPatchBuilder();
-                marklogicWrapper.patchDocumentIfPresent(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        MarklogicJob.toUpdateDocument(job, jobMapper, patchBuilder),
-                        transaction);
-            }
-        } finally {
-            transaction.commit();
-        }
     }
 
     @Override
@@ -287,28 +263,31 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public List<Job> save(List<Job> jobs) {
-        if (areNewJobs(jobs)) {
-            if (notAllJobsAreNew(jobs)) {
-                throw new IllegalArgumentException("All jobs must be either new (with id == null) or existing (with id != null)");
+        try (JobListVersioner jobListVersioner = new JobListVersioner(jobs)) {
+            try (final MarklogicTransaction marklogicTransaction = new MarklogicTransaction(databaseClient)) {
+                Transaction transaction = marklogicTransaction.getTransaction();
+                if (jobListVersioner.areNewJobs()) {
+                    marklogicWrapper.putJobs(jobs, jobMapper, transaction);
+                } else {
+                    List<Job> concurrentlyModifiedJobs = new ArrayList<>();
+                    for (Job job : jobs) {
+                        try {
+                            marklogicWrapper.patchJob(job, jobMapper, transaction);
+                        } catch (ConcurrentJobModificationException e) {
+                            concurrentlyModifiedJobs.add(job);
+                        }
+                    }
+                    if (concurrentlyModifiedJobs.size() > 0) {
+                        jobListVersioner.rollbackVersions(concurrentlyModifiedJobs);
+                        throw new ConcurrentJobModificationException(jobs);
+                    }
+                }
+                marklogicTransaction.commit();
+            } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
+                throw new StorageException(e);
             }
-        } else {
-            if (notAllJobsAreExisting(jobs)) {
-                throw new IllegalArgumentException("All jobs must be either new (with id == null) or existing (with id != null)");
-            }
+            jobListVersioner.commitVersions();
         }
-
-        List<Job> concurrentlyModifiedJobs = new ArrayList<>();
-        for (Job job: jobs) {
-            try {
-                doSave(job);
-            } catch (ConcurrentJobModificationException e) {
-                concurrentlyModifiedJobs.add(job);
-            }
-        }
-        if (concurrentlyModifiedJobs.size() > 0) {
-            throw new ConcurrentJobModificationException(jobs);
-        }
-
         notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
         return jobs;
     }
@@ -508,7 +487,7 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public void publishTotalAmountOfSucceededJobs(int amount) {
-        Transaction transaction = databaseClient.openTransaction();
+        Transaction transaction = null; //databaseClient.openTransaction();
         try {
             MarklogicMetadata document = marklogicWrapper.loadDocumentIfPresent(
                     StorageProviderUtils.Metadata.NAME,
@@ -535,7 +514,7 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
                         transaction);
             }
         } finally {
-            transaction.commit();
+            //transaction.commit();
         }
     }
 
