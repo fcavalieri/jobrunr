@@ -11,6 +11,7 @@ import com.marklogic.client.document.DocumentPatchBuilder;
 import com.marklogic.client.io.marker.DocumentPatchHandle;
 import com.marklogic.client.query.StructuredQueryBuilder;
 import com.marklogic.client.query.StructuredQueryDefinition;
+import org.bson.Document;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobDetails;
 import org.jobrunr.jobs.JobListVersioner;
@@ -208,12 +209,6 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
 
     @Override
     public Job save(Job job) {
-        doSave(job);
-        notifyJobStatsOnChangeListeners();
-        return job;
-    }
-
-    public void doSave(Job job) {
         try (final JobVersioner jobVersioner = new JobVersioner(job)) {
             Transaction transaction = databaseClient.openTransaction();
             if (jobVersioner.isNewJob()) {
@@ -223,41 +218,17 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
                         transaction)) {
                     throw new ConcurrentJobModificationException(job);
                 }
-                MarklogicJob jobMarklogicDocument = new MarklogicJob(jobMapper, job);
-                marklogicWrapper.putDocument(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        jobMarklogicDocument,
-                        transaction);
+                marklogicWrapper.putJob(job, jobMapper, transaction);
             } else {
-                StructuredQueryDefinition query = queryBuilder.and(
-                        queryBuilder.directory(1, "/" + StorageProviderUtils.Jobs.NAME + "/"),
-                        queryBuilder.value(
-                                queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_ID),
-                                job.getId().toString()),
-                        queryBuilder.value(
-                                queryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_VERSION),
-                                job.getVersion())
-                );
-                String uriToUpdate = marklogicWrapper.queryDocumentURIs(query, transaction)
-                        .stream()
-                        .findFirst()
-                        .orElse(null);
-                if (uriToUpdate == null) {
-                    throw new ConcurrentJobModificationException(job);
-                }
-                DocumentPatchBuilder patchBuilder = databaseClient.newJSONDocumentManager().newPatchBuilder();
-                marklogicWrapper.patchDocumentIfPresent(
-                        StorageProviderUtils.Jobs.NAME,
-                        job.getId().toString(),
-                        MarklogicJob.toUpdateDocument(job, jobMapper, patchBuilder),
-                        transaction);
+                marklogicWrapper.patchJob(job, jobMapper, transaction);
             }
             transaction.commit();
             jobVersioner.commitVersion();
         } catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
             throw new StorageException(e);
         }
+        notifyJobStatsOnChangeListeners();
+        return job;
     }
 
     @Override
@@ -291,23 +262,31 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
     @Override
     public List<Job> save(List<Job> jobs) {
         try (JobListVersioner jobListVersioner = new JobListVersioner(jobs)) {
-            jobListVersioner.validateJobs();
-
-            List<Job> concurrentlyModifiedJobs = new ArrayList<>();
-            for (Job job: jobs) {
-                try {
-                    doSave(job);
-                } catch (ConcurrentJobModificationException e) {
-                    concurrentlyModifiedJobs.add(job);
+            Transaction transaction = databaseClient.openTransaction();
+            if (jobListVersioner.areNewJobs()) {
+                marklogicWrapper.putJobs(jobs, jobMapper, transaction);
+            } else {
+                List<Job> concurrentlyModifiedJobs = new ArrayList<>();
+                for (Job job: jobs) {
+                    try {
+                        marklogicWrapper.patchJob(job, jobMapper, transaction);
+                    } catch (ConcurrentJobModificationException e) {
+                        concurrentlyModifiedJobs.add(job);
+                    }
+                }
+                if (concurrentlyModifiedJobs.size() > 0) {
+                    jobListVersioner.rollbackVersions(concurrentlyModifiedJobs);
+                    throw new ConcurrentJobModificationException(jobs);
                 }
             }
-            if (concurrentlyModifiedJobs.size() > 0) {
-                throw new ConcurrentJobModificationException(jobs);
-            }
-
-            notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
-            return jobs;
+            transaction.commit();
+            jobListVersioner.commitVersions();
         }
+        catch (MarkLogicIOException | MarkLogicServerException | MarkLogicBindingException | MarkLogicInternalException e) {
+            throw new StorageException(e);
+        }
+        notifyJobStatsOnChangeListenersIf(!jobs.isEmpty());
+        return jobs;
     }
 
     @Override

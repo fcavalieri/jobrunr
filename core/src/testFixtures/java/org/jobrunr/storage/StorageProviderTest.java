@@ -347,8 +347,10 @@ public abstract class StorageProviderTest {
         Job createdJob3 = storageProvider.save(aCopyOf(job).withId().build());
         Job createdJob4 = storageProvider.save(aCopyOf(job).withId().build());
 
-        storageProvider.save(aCopyOf(createdJob2).withSucceededState().build());
-        storageProvider.save(aCopyOf(createdJob3).withDeletedState().build());
+        Job createdJob2Copy = aCopyOf(createdJob2).withSucceededState().build();
+        Job createdJob3Copy = aCopyOf(createdJob3).withDeletedState().build();
+        storageProvider.save(createdJob2Copy);
+        storageProvider.save(createdJob3Copy);
 
         createdJob1.updateProcessing();
         createdJob2.updateProcessing();

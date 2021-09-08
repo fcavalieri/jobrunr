@@ -4,9 +4,12 @@ import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.ResourceNotFoundException;
 import com.marklogic.client.Transaction;
 import com.marklogic.client.admin.QueryOptionsManager;
+import com.marklogic.client.document.DocumentPatchBuilder;
+import com.marklogic.client.document.DocumentWriteSet;
 import com.marklogic.client.document.JSONDocumentManager;
 import com.marklogic.client.eval.ServerEvaluationCall;
 import com.marklogic.client.io.Format;
+import com.marklogic.client.io.ReaderHandle;
 import com.marklogic.client.io.SearchHandle;
 import com.marklogic.client.io.StringHandle;
 import com.marklogic.client.io.marker.DocumentPatchHandle;
@@ -14,11 +17,17 @@ import com.marklogic.client.query.MatchDocumentSummary;
 import com.marklogic.client.query.QueryManager;
 import com.marklogic.client.query.StructuredQueryBuilder;
 import com.marklogic.client.query.StructuredQueryDefinition;
+import org.jobrunr.jobs.Job;
+import org.jobrunr.jobs.mappers.JobMapper;
+import org.jobrunr.storage.ConcurrentJobModificationException;
 import org.jobrunr.storage.PageRequest;
+import org.jobrunr.storage.StorageProviderUtils;
+import org.jobrunr.storage.nosql.marklogic.mapper.MarklogicJob;
 import org.jobrunr.storage.nosql.marklogic.mapper.MarklogicPageRequestMapper;
 import org.jobrunr.utils.mapper.JsonMapper;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +78,6 @@ public class MarklogicWrapper {
     String serializedDocument = jsonMapper.serializeRaw(document);
     jsonDocumentManager.write(computeURI(directory, id), new StringHandle(serializedDocument), transaction);
   }
-
   public boolean existsDocument(String directory, String id) {
     return existsDocument(directory, id, null);
   }
@@ -292,4 +300,50 @@ public class MarklogicWrapper {
     if (resultString != null)
       throw new IOException(resultString);
   }
+
+  public void putJob(Job job, JobMapper jobMapper, Transaction transaction) {
+    MarklogicJob jobMarklogicDocument = new MarklogicJob(jobMapper, job);
+    putDocument(
+            StorageProviderUtils.Jobs.NAME,
+            job.getId().toString(),
+            jobMarklogicDocument,
+            transaction);
+  }
+
+  public void putJobs(List<Job> jobs, JobMapper jobMapper, Transaction transaction) {
+    DocumentWriteSet writeset = jsonDocumentManager.newWriteSet();
+    for (Job job: jobs) {
+      MarklogicJob jobMarklogicDocument = new MarklogicJob(jobMapper, job);
+      String serializedDocument = jsonMapper.serializeRaw(jobMarklogicDocument);
+      writeset.add(computeURI(StorageProviderUtils.Jobs.NAME, job.getId().toString()), new ReaderHandle(new StringReader(serializedDocument)));
+    }
+    jsonDocumentManager.write(writeset, transaction);
+  }
+
+  public void patchJob(Job job, JobMapper jobMapper, Transaction transaction) {
+    StructuredQueryDefinition query = structuredQueryBuilder.and(
+            structuredQueryBuilder.directory(1, "/" + StorageProviderUtils.Jobs.NAME + "/"),
+            structuredQueryBuilder.value(
+                    structuredQueryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_ID),
+                    job.getId().toString()),
+            structuredQueryBuilder.value(
+                    structuredQueryBuilder.jsonProperty(StorageProviderUtils.Jobs.FIELD_VERSION),
+                    job.getVersion() - 1)
+    );
+    String uriToUpdate = queryDocumentURIs(query, transaction)
+            .stream()
+            .findFirst()
+            .orElse(null);
+    if (uriToUpdate == null) {
+      throw new ConcurrentJobModificationException(job);
+    }
+    DocumentPatchBuilder patchBuilder = databaseClient.newJSONDocumentManager().newPatchBuilder();
+    patchDocumentIfPresent(
+            StorageProviderUtils.Jobs.NAME,
+            job.getId().toString(),
+            MarklogicJob.toUpdateDocument(job, jobMapper, patchBuilder),
+            transaction);
+  }
+
+
 }
