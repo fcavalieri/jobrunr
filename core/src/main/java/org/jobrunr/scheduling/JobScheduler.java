@@ -1,25 +1,16 @@
 package org.jobrunr.scheduling;
 
-import org.jobrunr.configuration.JobRunr;
-import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobDetails;
 import org.jobrunr.jobs.JobId;
-import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.details.JobDetailsAsmGenerator;
 import org.jobrunr.jobs.details.JobDetailsGenerator;
-import org.jobrunr.jobs.filters.JobDefaultFilters;
 import org.jobrunr.jobs.filters.JobFilter;
-import org.jobrunr.jobs.filters.JobFilterUtils;
 import org.jobrunr.jobs.lambdas.IocJobLambda;
 import org.jobrunr.jobs.lambdas.IocJobLambdaFromStream;
 import org.jobrunr.jobs.lambdas.JobLambda;
 import org.jobrunr.jobs.lambdas.JobLambdaFromStream;
-import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.scheduling.cron.CronExpression;
-import org.jobrunr.storage.ConcurrentJobModificationException;
 import org.jobrunr.storage.StorageProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.*;
 import java.util.List;
@@ -34,17 +25,14 @@ import static org.jobrunr.utils.streams.StreamUtils.batchCollector;
 
 /**
  * Provides methods for creating fire-and-forget, delayed and recurring jobs as well as to delete existing background jobs.
+ * <p>
+ * This {@code JobScheduler} allows to schedule jobs by means of a Java 8 lambda which is analyzed.
  *
  * @author Ronald Dehuysser
  */
-public class JobScheduler {
+public class JobScheduler extends AbstractJobScheduler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JobScheduler.class);
-
-    private final StorageProvider storageProvider;
     private final JobDetailsGenerator jobDetailsGenerator;
-    private final JobFilterUtils jobFilterUtils;
-    private static final int BATCH_SIZE = 5000;
 
     /**
      * Creates a new JobScheduler using the provided storageProvider
@@ -65,11 +53,12 @@ public class JobScheduler {
         this(storageProvider, new JobDetailsAsmGenerator(), jobFilters);
     }
 
-    JobScheduler(StorageProvider storageProvider, JobDetailsGenerator jobDetailsGenerator, List<JobFilter> jobFilters) {
-        if (storageProvider == null) throw new IllegalArgumentException("A JobStorageProvider is required to use the JobScheduler. Please see the documentation on how to setup a JobStorageProvider");
-        this.storageProvider = storageProvider;
+    public JobScheduler(StorageProvider storageProvider, JobDetailsGenerator jobDetailsGenerator, List<JobFilter> jobFilters) {
+        super(storageProvider, jobFilters);
+        if (jobDetailsGenerator == null)
+            throw new IllegalArgumentException("A JobDetailsGenerator is required to use the JobScheduler.");
         this.jobDetailsGenerator = jobDetailsGenerator;
-        this.jobFilterUtils = new JobFilterUtils(new JobDefaultFilters(jobFilters));
+        BackgroundJob.setJobScheduler(this);
     }
 
     /**
@@ -221,7 +210,7 @@ public class JobScheduler {
      *      jobScheduler.schedule(ZonedDateTime.now().plusHours(5), () -> service.doWork());
      * }</pre>
      *
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param zonedDateTime the moment in time at which the job will be enqueued.
      * @param job           the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -239,7 +228,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id            the uuid with which to save the job
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param zonedDateTime the moment in time at which the job will be enqueued.
      * @param job           the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -274,7 +263,7 @@ public class JobScheduler {
      *      jobScheduler.<MyService>schedule(ZonedDateTime.now().plusHours(5), x -> x.doWork());
      * }</pre>
      *
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param zonedDateTime the moment in time at which the job will be enqueued.
      * @param iocJob        the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -291,7 +280,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id            the uuid with which to save the job
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param zonedDateTime the moment in time at which the job will be enqueued.
      * @param iocJob        the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -431,7 +420,7 @@ public class JobScheduler {
      *      jobScheduler.schedule(LocalDateTime.now().plusHours(5), () -> service.doWork());
      * }</pre>
      *
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param localDateTime the moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
      * @param job           the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -449,7 +438,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id            the uuid with which to save the job
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param localDateTime the moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
      * @param job           the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -484,7 +473,7 @@ public class JobScheduler {
      *      jobScheduler.<MyService>schedule(LocalDateTime.now().plusHours(5), x -> x.doWork());
      * }</pre>
      *
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param localDateTime the moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
      * @param iocJob        the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -501,7 +490,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id            the uuid with which to save the job
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param localDateTime the moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
      * @param iocJob        the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -536,7 +525,7 @@ public class JobScheduler {
      *      jobScheduler.schedule(Instant.now().plusHours(5), () -> service.doWork());
      * }</pre>
      *
-     * @param instant The moment in time at which the job will be enqueued.
+     * @param instant the moment in time at which the job will be enqueued.
      * @param job     the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -554,7 +543,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id      the uuid with which to save the job
-     * @param instant The moment in time at which the job will be enqueued.
+     * @param instant the moment in time at which the job will be enqueued.
      * @param job     the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -591,7 +580,7 @@ public class JobScheduler {
      *      jobScheduler.<MyService>schedule(Instant.now().plusHours(5), x -> x.doWork());
      * }</pre>
      *
-     * @param instant The moment in time at which the job will be enqueued.
+     * @param instant the moment in time at which the job will be enqueued.
      * @param iocJob  the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -608,7 +597,7 @@ public class JobScheduler {
      * }</pre>
      *
      * @param id      the uuid with which to save the job
-     * @param instant The moment in time at which the job will be enqueued.
+     * @param instant the moment in time at which the job will be enqueued.
      * @param iocJob  the lambda which defines the fire-and-forget job
      * @return the id of the Job
      */
@@ -635,27 +624,6 @@ public class JobScheduler {
     public <S> JobId schedule(UUID id, Instant instant, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
         return schedule(id, instant, jobDetails, metadata);
-    }
-
-    /**
-     * @see #delete(UUID)
-     */
-    public void delete(JobId jobId) {
-        this.delete(jobId.asUUID());
-    }
-
-    /**
-     * Deletes a job and sets it's state to DELETED. If the job is being processed, it will be interrupted.
-     *
-     * @param id the id of the job
-     */
-    public void delete(UUID id) {
-        final Job jobToDelete = storageProvider.getJobById(id);
-        jobToDelete.delete();
-        jobFilterUtils.runOnStateElectionFilter(jobToDelete);
-        final Job deletedJob = storageProvider.save(jobToDelete);
-        jobFilterUtils.runOnStateAppliedFilters(deletedJob);
-        LOGGER.debug("Deleted Job with id {}", deletedJob.getId());
     }
 
     /**
@@ -692,7 +660,7 @@ public class JobScheduler {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
      * <h5>An example:</h5>
      * <pre>{@code
      *      MyService service = new MyService();
@@ -710,7 +678,7 @@ public class JobScheduler {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
      * <h5>An example:</h5>
      * <pre>{@code
      *      jobScheduler.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily()),  x -> x.doWork();
@@ -727,7 +695,7 @@ public class JobScheduler {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
+     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
      * <h5>An example:</h5>
      * <pre>{@code
      *      MyService service = new MyService();
@@ -747,7 +715,7 @@ public class JobScheduler {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression, {@code ZoneId} and lambda. The IoC container will be used to resolve {@code MyService}.
+     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
      * <pre>{@code
      *      jobScheduler.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily(), ZoneId.of("Europe/Brussels"), x -> x.doWork());
@@ -763,69 +731,5 @@ public class JobScheduler {
     public <S> String scheduleRecurrently(String id, String cron, ZoneId zoneId, IocJobLambda<S> iocJob) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
         return scheduleRecurrently(id, jobDetails, CronExpression.create(cron), zoneId);
-    }
-
-    /**
-     * Deletes the recurring job based on the given id.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.delete("my-recurring-job"));
-     * }</pre>
-     *
-     * @param id the id of the recurring job to delete
-     */
-    public void delete(String id) {
-        this.storageProvider.deleteRecurringJob(id);
-    }
-
-    /**
-     * Utility method to register the shutdown of JobRunr in various containers - it is even automatically called by Spring Framework.
-     * Note that this will stop the BackgroundJobServer, the Dashboard and the StorageProvider. JobProcessing will stop and enqueueing new jobs will fail.
-     */
-    public void shutdown() {
-        JobRunr.destroy();
-    }
-
-    JobId enqueue(UUID id, JobDetails jobDetails) {
-        return saveJob(new Job(id, jobDetails));
-    }
-
-    JobId enqueue(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
-        return saveJob(new Job(id, jobDetails, metadata));
-    }
-
-    JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails) {
-        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)));
-    }
-
-    JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
-        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
-    }
-
-    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
-        final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
-        jobFilterUtils.runOnCreatingFilter(recurringJob);
-        RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
-        jobFilterUtils.runOnCreatedFilter(recurringJob);
-        return savedRecurringJob.getId();
-    }
-
-    JobId saveJob(Job job) {
-        try {
-            jobFilterUtils.runOnCreatingFilter(job);
-            Job savedJob = this.storageProvider.save(job);
-            jobFilterUtils.runOnCreatedFilter(savedJob);
-            LOGGER.debug("Created Job with id {}", job.getId());
-        } catch (ConcurrentJobModificationException e) {
-            LOGGER.info("Skipped Job with id {} as it already exists", job.getId());
-        }
-        return new JobId(job.getId());
-    }
-
-    List<Job> saveJobs(List<Job> jobs) {
-        jobFilterUtils.runOnCreatingFilter(jobs);
-        final List<Job> savedJobs = this.storageProvider.save(jobs);
-        jobFilterUtils.runOnCreatedFilter(savedJobs);
-        return savedJobs;
     }
 }

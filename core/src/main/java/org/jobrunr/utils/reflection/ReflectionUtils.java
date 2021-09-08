@@ -200,7 +200,7 @@ public class ReflectionUtils {
         return findField(clazz, f -> fieldName.equals(f.getName()));
     }
 
-    private static Optional<Field> findField(Class<?> clazz, Predicate<Field> predicate) {
+    public static Optional<Field> findField(Class<?> clazz, Predicate<Field> predicate) {
         final Optional<Field> optionalField = stream(clazz.getDeclaredFields())
                 .filter(predicate)
                 .findFirst();
@@ -214,8 +214,6 @@ public class ReflectionUtils {
     }
 
     public static boolean isClassAssignableToObject(Class<?> clazz, Object object) {
-        if (object == null)
-            throw new NullPointerException("You are passing null to your background job - JobRunr prevents this to fail fast.");
         return isClassAssignable(clazz, object.getClass());
     }
 

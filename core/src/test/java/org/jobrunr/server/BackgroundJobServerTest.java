@@ -13,9 +13,11 @@ import org.jobrunr.jobs.stubs.SimpleJobActivator;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.server.runner.BackgroundJobWithIocRunner;
 import org.jobrunr.server.runner.BackgroundJobWithoutIocRunner;
+import org.jobrunr.server.runner.BackgroundStaticJobWithoutIocRunner;
 import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.StorageException;
 import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.stubs.StaticTestService;
 import org.jobrunr.stubs.TestService;
 import org.jobrunr.stubs.TestServiceForIoC;
 import org.jobrunr.stubs.TestServiceThatCannotBeRun;
@@ -312,6 +314,18 @@ class BackgroundJobServerTest {
     }
 
     @Test
+    void getBackgroundJobRunnerForNonIoCStaticJobWithoutInstance() {
+        jobActivator.clear();
+
+        final Job job = anEnqueuedJob()
+                .withJobDetails(StaticTestService::doWorkInStaticMethodWithoutParameter)
+                .build();
+        assertThat(backgroundJobServer.getBackgroundJobRunner(job))
+                .isNotNull()
+                .isInstanceOf(BackgroundStaticJobWithoutIocRunner.class);
+    }
+
+    @Test
     void getBackgroundJobRunnerForJobThatCannotBeRun() {
         final Job job = anEnqueuedJob()
                 .withJobDetails((IocJobLambda<TestServiceThatCannotBeRun>) (x) -> x.doWork())
@@ -325,7 +339,9 @@ class BackgroundJobServerTest {
         backgroundJobServer.start();
 
         await().atMost(10, SECONDS)
-                .untilAsserted(() -> assertThat(logger).hasInfoMessageContaining("BackgroundJobPerformers started successfully").hasNoErrorLogMessages());
+                .untilAsserted(() -> assertThat(logger)
+                        .hasInfoMessageContaining("BackgroundJobPerformers started successfully")
+                        .hasNoErrorLogMessages());
     }
 
     @Test

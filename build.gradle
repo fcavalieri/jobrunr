@@ -7,7 +7,19 @@ plugins {
 
 subprojects {
     group = 'org.jobrunr'
-    version = "v3.2.1-plus-20210903"
+    version = "v3.2.1-plus-20210904"
+}
+
+def isNonStable = { String version ->
+    def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
+    def regex = /^[0-9,.v-]+(-r)?$/
+    return !stableKeyword && !(version ==~ regex)
+}
+
+tasks.named("dependencyUpdates").configure {
+    rejectVersionIf {
+        isNonStable(it.candidate.version) && !isNonStable(it.currentVersion)
+    }
 }
 
 configure(subprojects.findAll {it.name != 'platform'}) {
@@ -39,7 +51,7 @@ configure(subprojects.findAll {it.name != 'platform'}) {
         testImplementation 'com.tngtech.archunit:archunit-junit5'
         testImplementation 'net.javacrumbs.json-unit:json-unit-assertj'
         testImplementation 'ch.qos.logback:logback-classic'
-        testImplementation 'org.mockito:mockito-core'
+        testImplementation 'org.mockito:mockito-inline'
         testImplementation 'org.mockito:mockito-junit-jupiter'
     }
 

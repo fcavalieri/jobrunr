@@ -7,9 +7,7 @@ import org.jobrunr.SevereJobRunrException;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.filters.JobDefaultFilters;
-import org.jobrunr.jobs.states.DeletedState;
 import org.jobrunr.jobs.states.ProcessingState;
-import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.server.dashboard.DashboardNotificationManager;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
 import org.jobrunr.storage.*;
@@ -157,7 +155,7 @@ class JobZooKeeperTest {
         final Job job = anEnqueuedJob().withId().build();
         lenient().when(storageProvider.getJobs(eq(ENQUEUED), any())).thenReturn(singletonList(job));
         doThrow(new ConcurrentJobModificationException(job)).when(storageProvider).save(singletonList(job));
-        when(storageProvider.getJobById(job.getId())).thenReturn(aCopyOf(job).withState(new DeletedState()).build());
+        when(storageProvider.getJobById(job.getId())).thenReturn(aCopyOf(job).withDeletedState().build());
         final Thread threadMock = mock(Thread.class);
 
         job.startProcessingOn(backgroundJobServer);
@@ -173,7 +171,7 @@ class JobZooKeeperTest {
 
     @Test
     void checkForRecurringJobs() {
-        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression(Cron.minutely()).build();
+        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
 
         when(storageProvider.getRecurringJobs()).thenReturn(List.of(recurringJob));
 
@@ -184,7 +182,7 @@ class JobZooKeeperTest {
 
     @Test
     void checkForRecurringJobsDoesNotScheduleSameJobIfItIsAlreadyScheduledEnqueuedOrProcessed() {
-        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression(Cron.minutely()).build();
+        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
 
         when(storageProvider.getRecurringJobs()).thenReturn(List.of(recurringJob));
         when(storageProvider.recurringJobExists(recurringJob.getId(), SCHEDULED, ENQUEUED, PROCESSING)).thenReturn(true);
@@ -386,7 +384,7 @@ class JobZooKeeperTest {
         when(backgroundJobServer.getServerStatus()).thenReturn(backgroundJobServerStatus);
         when(backgroundJobServer.getWorkDistributionStrategy()).thenReturn(workDistributionStrategy);
         when(backgroundJobServer.getJobFilters()).thenReturn(new JobDefaultFilters(logAllStateChangesFilter));
-        when(backgroundJobServer.getDashboardExceptionManager()).thenReturn(new DashboardNotificationManager(backgroundJobServerId, storageProvider));
+        when(backgroundJobServer.getDashboardNotificationManager()).thenReturn(new DashboardNotificationManager(backgroundJobServerId, storageProvider));
         lenient().when(workDistributionStrategy.canOnboardNewWork()).thenReturn(true);
         lenient().when(workDistributionStrategy.getWorkPageRequest()).thenReturn(ascOnUpdatedAt(10));
         lenient().when(backgroundJobServer.isAnnounced()).thenReturn(true);

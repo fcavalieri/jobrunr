@@ -610,7 +610,7 @@ public class BackgroundJob {
     }
 
     /**
-     * Deletes a job and sets it's state to DELETED. If the job is being processed, it will be interrupted.
+     * Deletes a job and sets its state to DELETED. If the job is being processed, it will be interrupted.
      *
      * @param id the id of the job
      */
@@ -662,7 +662,7 @@ public class BackgroundJob {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
      * <h5>An example:</h5>
      * <pre>{@code
      *      MyService service = new MyService();
@@ -681,7 +681,7 @@ public class BackgroundJob {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
      * <h5>An example:</h5>
      * <pre>{@code
      *      BackgroundJob.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily(), x -> x.doWork());
@@ -699,7 +699,7 @@ public class BackgroundJob {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
+     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
      * <h5>An example:</h5>
      * <pre>{@code
      *      MyService service = new MyService();
@@ -719,7 +719,7 @@ public class BackgroundJob {
     }
 
     /**
-     * Creates a new recurring job based on the given id, cron expression, {@code ZoneId} and lambda. The IoC container will be used to resolve {@code MyService}.
+     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
      * <pre>{@code
      *      BackgroundJob.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily(), ZoneId.of("Europe/Brussels"), x -> x.doWork());

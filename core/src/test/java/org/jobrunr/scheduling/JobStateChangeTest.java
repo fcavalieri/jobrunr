@@ -53,7 +53,7 @@ public class JobStateChangeTest {
         testService.reset();
         storageProvider = new StorageProviderForTest(new InMemoryStorageProvider());
         BackgroundJobServerConfiguration backgroundJobServerConfiguration = usingStandardBackgroundJobServerConfiguration()
-                .andPollIntervalInSeconds(2)
+                .andPollIntervalInSeconds(5)
                 .andDeleteFailedJobsAfter(Duration.ofSeconds(3))
                 .andDeleteSucceededJobsAfter(Duration.ofSeconds(3))
                 .andPermanentlyDeleteDeletedJobsAfter(Duration.ofSeconds(3));
@@ -63,7 +63,7 @@ public class JobStateChangeTest {
                 .initialize();
 
         backgroundJobServer = JobRunr.getBackgroundJobServer();
-        logger = LoggerAssert.initFor(storageProvider.storageProvider);
+        logger = LoggerAssert.initFor(storageProvider.getStorageProvider());
     }
 
     @AfterEach

@@ -7,11 +7,9 @@ import org.jobrunr.jobs.filters.JobFilter;
 import org.jobrunr.server.dashboard.DashboardNotificationManager;
 import org.jobrunr.server.jmx.BackgroundJobServerMBean;
 import org.jobrunr.server.jmx.JobServerStats;
-import org.jobrunr.server.runner.BackgroundJobRunner;
-import org.jobrunr.server.runner.BackgroundJobWithIocRunner;
-import org.jobrunr.server.runner.BackgroundJobWithoutIocRunner;
-import org.jobrunr.server.runner.BackgroundStaticJobWithoutIocRunner;
+import org.jobrunr.server.runner.*;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
+import org.jobrunr.server.tasks.CheckForNewJobRunrVersion;
 import org.jobrunr.server.tasks.CheckIfAllJobsExistTask;
 import org.jobrunr.server.threadpool.JobRunrExecutor;
 import org.jobrunr.server.threadpool.ScheduledThreadPoolJobRunrExecutor;
@@ -38,6 +36,7 @@ import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.stream.StreamSupport.stream;
 import static org.jobrunr.JobRunrException.problematicConfigurationException;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
+import static org.jobrunr.utils.JobUtils.assertJobExists;
 
 public class BackgroundJobServer implements BackgroundJobServerMBean {
 
@@ -159,7 +158,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
 
         this.isMaster = isMaster;
         if (isMaster != null) {
-            LOGGER.info("JobRunr BackgroundJobServer ({}) and {} BackgroundJobPerformers started successfully", getId(), workDistributionStrategy.getWorkerCount());
+            LOGGER.info("JobRunr BackgroundJobServer ({}) using {} and {} BackgroundJobPerformers started successfully", getId(), storageProvider.getName(), workDistributionStrategy.getWorkerCount());
         } else {
             LOGGER.error("JobRunr BackgroundJobServer failed to start");
         }
@@ -189,7 +188,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         return storageProvider;
     }
 
-    public DashboardNotificationManager getDashboardExceptionManager() {
+    public DashboardNotificationManager getDashboardNotificationManager() {
         return dashboardNotificationManager;
     }
 
@@ -210,6 +209,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     }
 
     BackgroundJobRunner getBackgroundJobRunner(Job job) {
+        assertJobExists(job.getJobDetails());
         return backgroundJobRunners.stream()
                 .filter(jobRunner -> jobRunner.supports(job))
                 .findFirst()
@@ -253,6 +253,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         // and all will be launched one after another
         zookeeperThreadPool.scheduleWithFixedDelay(serverZooKeeper, 0, configuration.pollIntervalInSeconds, TimeUnit.SECONDS);
         zookeeperThreadPool.scheduleWithFixedDelay(jobZooKeeper, 1, configuration.pollIntervalInSeconds, TimeUnit.SECONDS);
+        zookeeperThreadPool.scheduleWithFixedDelay(new CheckForNewJobRunrVersion(this), 1, 1, TimeUnit.DAYS);
     }
 
     private void stopZooKeepers() {
@@ -274,7 +275,9 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
 
     private void runStartupTasks() {
         try {
-            List<Runnable> startupTasks = asList(new CheckIfAllJobsExistTask(this));
+            List<Runnable> startupTasks = asList(
+                    new CheckIfAllJobsExistTask(this),
+                    new CheckForNewJobRunrVersion(this));
             startupTasks.forEach(jobExecutor::execute);
         } catch (Exception notImportant) {
             // server is shut down immediately
@@ -283,9 +286,10 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
 
     private List<BackgroundJobRunner> initializeBackgroundJobRunners(JobActivator jobActivator) {
         return asList(
-                new BackgroundStaticJobWithoutIocRunner(),
                 new BackgroundJobWithIocRunner(jobActivator),
-                new BackgroundJobWithoutIocRunner()
+                new BackgroundJobWithoutIocRunner(),
+                new BackgroundStaticJobWithoutIocRunner(),
+                new BackgroundStaticFieldJobWithoutIocRunner()
         );
     }
 
@@ -294,6 +298,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
+                LOGGER.info("JobRunr BackgroundJobServer shutdown requested - waiting for jobs to finish (at most 10 seconds)");
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {
@@ -322,7 +327,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
                 .orElse(new ScheduledThreadPoolJobRunrExecutor(workDistributionStrategy.getWorkerCount(), "backgroundjob-worker-pool"));
     }
 
-    private class BackgroundJobServerLifecycleLock implements AutoCloseable {
+    private static class BackgroundJobServerLifecycleLock implements AutoCloseable {
         private final ReentrantLock reentrantLock = new ReentrantLock();
 
         public BackgroundJobServerLifecycleLock lock() {

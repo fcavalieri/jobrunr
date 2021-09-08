@@ -62,8 +62,10 @@ class PackageDependenciesTest {
 
     @ArchTest
     ArchRule jobRunrJobsClassesDependenciesTest = classes()
-            .that().resideInAPackage("org.jobrunr.jobs..").and().resideOutsideOfPackage("org.jobrunr.jobs.details..")
-            .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "org.slf4j..", "java..");
+            .that().resideInAPackage("org.jobrunr.jobs..")
+            .and().resideOutsideOfPackage("org.jobrunr.jobs.details..")
+            .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "org.slf4j..", "java..")
+            .orShould().beAnonymousClasses(); // needed to make switch case work.
 
     @ArchTest
     ArchRule jobRunrJobsDetailsClassesDependenciesTest = classes()
@@ -82,8 +84,10 @@ class PackageDependenciesTest {
 
     @ArchTest
     ArchRule jobRunrServerClassesDependenciesTest = classes()
-                .that().resideInAPackage("org.jobrunr.server..").and().resideOutsideOfPackage("org.jobrunr.server.jmx..")
-                .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "org.slf4j..", "java..");
+                .that().resideInAPackage("org.jobrunr.server..")
+                .and().resideOutsideOfPackage("org.jobrunr.server.jmx..")
+                .and().resideOutsideOfPackage("org.jobrunr.server.metrics..")
+                    .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "org.slf4j..", "java..");
 
     @ArchTest
     ArchRule jobRunrServerJmxClassesDependenciesTest = classes()

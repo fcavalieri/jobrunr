@@ -101,7 +101,8 @@ public class JobRunrDashboardWebServer {
         registerSecuredContext(webServer, sseHandler);
 
         webServer.start();
-        LOGGER.info("JobRunr Dashboard started at {}://{}:{}",
+        LOGGER.info("JobRunr Dashboard using {} started at {}://{}:{}",
+                storageProvider.getName(),
                 webServer.getWebServerProtocol(),
                 webServer.getWebServerHostAddress(),
                 webServer.getWebServerHostPort());

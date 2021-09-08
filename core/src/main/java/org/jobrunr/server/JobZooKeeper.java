@@ -57,7 +57,7 @@ public class JobZooKeeper implements Runnable {
         this.backgroundJobServer = backgroundJobServer;
         this.storageProvider = backgroundJobServer.getStorageProvider();
         this.workDistributionStrategy = backgroundJobServer.getWorkDistributionStrategy();
-        this.dashboardNotificationManager = backgroundJobServer.getDashboardExceptionManager();
+        this.dashboardNotificationManager = backgroundJobServer.getDashboardNotificationManager();
         this.jobFilterUtils = new JobFilterUtils(backgroundJobServer.getJobFilters());
         this.concurrentJobModificationResolver = createConcurrentJobModificationResolver();
         this.currentlyProcessedJobs = new ConcurrentHashMap<>();
@@ -104,8 +104,8 @@ public class JobZooKeeper implements Runnable {
 
     void checkForRecurringJobs() {
         LOGGER.debug("Looking for recurring jobs... ");
-        List<RecurringJob> enqueuedJobs = storageProvider.getRecurringJobs();
-        processRecurringJobs(enqueuedJobs);
+        List<RecurringJob> recurringJobs = storageProvider.getRecurringJobs();
+        processRecurringJobs(recurringJobs);
     }
 
     void checkForScheduledJobs() {
@@ -131,7 +131,7 @@ public class JobZooKeeper implements Runnable {
         Supplier<List<Job>> succeededJobsSupplier = () -> storageProvider.getJobs(SUCCEEDED, updatedBefore, ascOnUpdatedAt(1000));
         processJobList(succeededJobsSupplier, job -> {
             succeededJobsCounter.incrementAndGet();
-            job.delete();
+            job.delete("JobRunr maintenance - deleting succeeded job");
         });
 
         if (succeededJobsCounter.get() > 0) {
@@ -147,7 +147,7 @@ public class JobZooKeeper implements Runnable {
         final Instant updatedBefore = now().minus(backgroundJobServer.getServerStatus().getDeleteFailedJobsAfter());
         Supplier<List<Job>> failedJobsSupplier = () -> storageProvider.getJobs(FAILED, updatedBefore, ascOnUpdatedAt(1000));
         processJobList(failedJobsSupplier, job -> {
-            job.delete();
+            job.delete("JobRunr maintenance - deleting failed job");
         });
     }
 
@@ -196,7 +196,7 @@ public class JobZooKeeper implements Runnable {
     }
 
     boolean mustSchedule(RecurringJob recurringJob) {
-        return recurringJob.getNextRun().isBefore(now().plusSeconds(60))
+        return recurringJob.getNextRun().isBefore(now().plus(durationPollIntervalTimeBox).plusSeconds(1))
                 && !storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING);
 
     }

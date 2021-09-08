@@ -24,6 +24,11 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
+    public String getName() {
+        return storageProvider.getName();
+    }
+
+    @Override
     public void addJobStorageOnChangeListener(StorageProviderChangeListener listener) {
         storageProvider.addJobStorageOnChangeListener(listener);
     }
@@ -105,11 +110,6 @@ public class ThreadSafeStorageProvider implements StorageProvider {
         try (MultiLock lock = new MultiLock(jobs)) {
             return storageProvider.save(jobs);
         }
-    }
-
-    @Override
-    public int delete(UUID id) {
-        return storageProvider.delete(id);
     }
 
     @Override

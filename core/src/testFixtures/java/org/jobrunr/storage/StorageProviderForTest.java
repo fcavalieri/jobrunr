@@ -17,10 +17,19 @@ import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
 
 public class StorageProviderForTest implements StorageProvider {
 
-    public StorageProvider storageProvider;
+    private final StorageProvider storageProvider;
 
     public StorageProviderForTest(StorageProvider storageProvider) {
         this.storageProvider = storageProvider;
+    }
+
+    public StorageProvider getStorageProvider() {
+        return storageProvider;
+    }
+
+    @Override
+    public String getName() {
+        return storageProvider.getName();
     }
 
     @Override
@@ -94,11 +103,6 @@ public class StorageProviderForTest implements StorageProvider {
     @Override
     public Job save(Job job) {
         return storageProvider.save(job);
-    }
-
-    @Override
-    public int delete(UUID id) {
-        return storageProvider.delete(id);
     }
 
     @Override

@@ -1,9 +1,10 @@
 package org.jobrunr.server.runner;
 
 import org.jobrunr.jobs.Job;
+import org.jobrunr.jobs.JobDetails;
+import org.jobrunr.jobs.lambdas.JobContextAware;
 import org.jobrunr.server.JobActivator;
 
-import static org.jobrunr.utils.JobUtils.assertJobExists;
 import static org.jobrunr.utils.reflection.ReflectionUtils.toClass;
 
 public class BackgroundJobWithIocRunner extends AbstractBackgroundJobRunner {
@@ -16,28 +17,32 @@ public class BackgroundJobWithIocRunner extends AbstractBackgroundJobRunner {
 
     @Override
     public boolean supports(Job job) {
-        assertJobExists(job.getJobDetails());
         if (jobActivator == null) return false;
-        return jobActivator.activateJob(toClass(job.getJobDetails().getClassName())) != null;
+        JobDetails jobDetails = job.getJobDetails();
+        return !jobDetails.hasStaticFieldName() && jobActivator.activateJob(toClass(jobDetails.getClassName())) != null;
     }
 
     @Override
     protected BackgroundJobWorker getBackgroundJobWorker(Job job) {
-        return new ConsumerBackgroundJobWorker(jobActivator, job);
+        return new BackgroundForIoCJobLambdaWorker(jobActivator, job);
     }
 
-    protected static class ConsumerBackgroundJobWorker extends BackgroundJobWorker {
+    protected static class BackgroundForIoCJobLambdaWorker extends BackgroundJobWorker {
 
         private final JobActivator jobActivator;
 
-        public ConsumerBackgroundJobWorker(JobActivator jobActivator, Job job) {
+        public BackgroundForIoCJobLambdaWorker(JobActivator jobActivator, Job job) {
             super(job);
             this.jobActivator = jobActivator;
         }
 
         @Override
         protected Object getJobToPerform(Class<?> jobToPerformClass) {
-            return jobActivator.activateJob(jobToPerformClass);
+            final Object object = jobActivator.activateJob(jobToPerformClass);
+            if (object instanceof JobContextAware) {
+                ((JobContextAware) object).setJobContext(getRunnerJobContext());
+            }
+            return object;
         }
     }
 }

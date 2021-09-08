@@ -16,18 +16,18 @@ class VersionRetrieverTest {
         assertThat(VersionRetriever.getVersion(JobRunr.class))
                 .satisfiesAnyOf(
                         val -> assertThat(val).isEqualTo("1.0.0-SNAPSHOT"),
-                        val -> assertThat(val).matches("(\\d)+.(\\d)+.(\\d)+")
+                        val -> assertThat(val).matches("(\\d)+.(\\d)+.(\\d)+(-.*)?")
                 );
     }
 
     @Test
     void gsonVersion() {
-        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.8.7");
+        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.8.8");
     }
 
     @Test
     void jacksonVersion() {
-        assertThat(VersionRetriever.getVersion(ObjectMapper.class)).isEqualTo("2.12.3");
+        assertThat(VersionRetriever.getVersion(ObjectMapper.class)).isEqualTo("2.12.4");
     }
 
 }

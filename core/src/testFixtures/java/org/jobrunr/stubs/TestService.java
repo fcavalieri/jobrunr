@@ -20,6 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static org.jobrunr.jobs.states.StateName.ENQUEUED;
+import static org.jobrunr.jobs.states.StateName.FAILED;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 
 public class TestService implements TestServiceInterface {
@@ -28,6 +30,10 @@ public class TestService implements TestServiceInterface {
 
     public int getProcessedJobs() {
         return processedJobs;
+    }
+
+    public static void doStaticWork() {
+        System.out.println("Doing some work from a static method... ");
     }
 
     public void doWork(Runnable runnable) throws Exception {
@@ -243,6 +249,10 @@ public class TestService implements TestServiceInterface {
         System.out.println("This should not be executed");
     }
 
+    public void doIllegalWork(IllegalWork illegalWork) {
+        System.out.println("Doing some illegal work:" + illegalWork);
+    }
+
     public void doWorkWithoutParameters() {
         doWork(); // why: for kotlin method resolution
     }
@@ -265,6 +275,10 @@ public class TestService implements TestServiceInterface {
 
     public void jobRunBatchPrimitives(long id, long env, String param, String currentLogin) {
         System.out.println("Do work:" + id + "; " + env + "; " + param + "; " + currentLogin);
+    }
+
+    public static void doWorkInStaticMethod(UUID id) {
+        System.out.println("Doing work in static method:" + id);
     }
 
     public static class Work {
@@ -320,11 +334,41 @@ public class TestService implements TestServiceInterface {
         }
     }
 
+    public static class IllegalWork {
+        private long number;
+        private IllegalWork illegalWork;
+
+        public IllegalWork(long number) {
+            this.number = number;
+            this.illegalWork = this;
+        }
+
+        public IllegalWork getIllegalWork() {
+            return illegalWork;
+        }
+
+        public long getNumber() {
+            return number;
+        }
+    }
+
     public static class TheSunIsAlwaysShiningElectStateFilter implements ElectStateFilter {
 
         @Override
         public void onStateElection(org.jobrunr.jobs.Job job, JobState newState) {
-            job.succeeded();
+            if (ENQUEUED.equals(newState.getName())) {
+                job.succeeded();
+            }
+        }
+    }
+
+    public static class FailedToDeleteElectStateFilter implements ElectStateFilter {
+
+        @Override
+        public void onStateElection(org.jobrunr.jobs.Job job, JobState newState) {
+            if (FAILED.equals(newState.getName())) {
+                job.delete("Because it failed");
+            }
         }
     }
 
@@ -333,7 +377,8 @@ public class TestService implements TestServiceInterface {
         @Override
         public void onStateElection(org.jobrunr.jobs.Job job, JobState newState) {
             if (PROCESSING.equals(newState.getName())) {
-                job.scheduleAt(Instant.now(), "Should not run due to business rule. Will be rescheduled and picked up by other server.");
+                job.delete("Should not run due to business rule.");
+                job.scheduleAt(Instant.now(), "Rescheduled by business rule.");
             }
         }
     }
