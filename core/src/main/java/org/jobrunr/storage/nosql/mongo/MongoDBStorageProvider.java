@@ -5,6 +5,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ServerAddress;
 import com.mongodb.bulk.BulkWriteResult;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -122,6 +123,11 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobDocumentMapper != null ? jobDocumentMapper.getJobMapper() : null;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobDocumentMapper = new JobDocumentMapper(jobMapper);
         this.backgroundJobServerStatusDocumentMapper = new BackgroundJobServerStatusDocumentMapper();
@@ -227,10 +233,14 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
 
     @Override
     public int deletePermanently(UUID id) {
-        final DeleteResult result = jobCollection.deleteOne(eq(toMongoId(Jobs.FIELD_ID), id));
-        final int deletedCount = (int) result.getDeletedCount();
-        notifyJobStatsOnChangeListenersIf(deletedCount > 0);
-        return deletedCount;
+        final Document document = jobCollection.findOneAndDelete(eq(toMongoId(Jobs.FIELD_ID), id));
+        if (document != null) {
+            Job job = jobDocumentMapper.toJob(document);
+            disposeJobResources(job.getMetadata());
+            notifyJobStatsOnChangeListeners();
+            return 1;
+        }
+        return 0;
     }
 
     @Override
@@ -301,7 +311,17 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
 
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
-        final DeleteResult deleteResult = jobCollection.deleteMany(and(eq(Jobs.FIELD_STATE, state.name()), lt(Jobs.FIELD_CREATED_AT, toMicroSeconds(updatedBefore))));
+        final ArrayList<Document> jobsToDelete = jobCollection
+                .find(and(eq(Jobs.FIELD_STATE, state.name()), lt(Jobs.FIELD_CREATED_AT, toMicroSeconds(updatedBefore))))
+                .into(new ArrayList<>());
+
+        DeleteResult deleteResult = jobCollection
+                .deleteMany(in(toMongoId(Jobs.FIELD_ID), jobsToDelete.stream()
+                .map(d -> d.get(toMongoId(Jobs.FIELD_ID)))
+                .collect(toList())));
+
+        jobsToDelete.forEach(j -> disposeJobResources(jobDocumentMapper.toJob(j).getMetadata()));
+
         final long deletedCount = deleteResult.getDeletedCount();
         notifyJobStatsOnChangeListenersIf(deletedCount > 0);
         return (int) deletedCount;

@@ -17,7 +17,7 @@ public class Main extends AbstractSqlMain {
     @Override
     protected DataSource createDataSource(String jdbcUrl, String userName, String password) {
         MysqlDataSource dataSource = new MysqlDataSource();
-        dataSource.setUrl(jdbcUrl + "?rewriteBatchedStatements=true&pool=true");
+        dataSource.setUrl(jdbcUrl + "?rewriteBatchedStatements=true&pool=true&useSSL=false");
         dataSource.setUser(userName);
         dataSource.setPassword(password);
         return dataSource;

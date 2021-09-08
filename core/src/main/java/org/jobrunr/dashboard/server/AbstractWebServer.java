@@ -2,35 +2,21 @@ package org.jobrunr.dashboard.server;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class WebServer {
+public abstract class AbstractWebServer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebServer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractWebServer.class);
 
-    private final HttpServer httpServer;
-    private final ExecutorService executorService;
-    private final Set<HttpExchangeHandler> httpHandlers;
-
-    public WebServer(int port) {
-        try {
-            httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-            executorService = Executors.newCachedThreadPool();
-            httpServer.setExecutor(executorService);
-            httpHandlers = new HashSet<>();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
+    protected HttpServer httpServer;
+    protected ExecutorService executorService;
+    protected Set<HttpExchangeHandler> httpHandlers;
 
     public HttpContext createContext(HttpExchangeHandler httpHandler) {
         httpHandlers.add(httpHandler);
@@ -53,6 +39,12 @@ public class WebServer {
             Thread.currentThread().interrupt();
         }
         httpServer.stop(0);
+    }
+
+    public String getWebServerProtocol() {
+        if (httpServer instanceof HttpsServer)
+            return "https";
+        return "http";
     }
 
     public String getWebServerHostAddress() {

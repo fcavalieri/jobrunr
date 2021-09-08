@@ -4,6 +4,7 @@ import org.jobrunr.jobs.details.CachingJobDetailsGenerator;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.convert.DurationUnit;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
@@ -106,14 +107,21 @@ public class JobRunrProperties {
 
         /**
          * Sets the duration to wait before changing jobs that are in the SUCCEEDED state to the DELETED state. If a duration suffix
-         * is not specified, hours will be used.
+         * is not specified, hours will be used. A value of 0 disables the option. The default is 36 hours.
          */
         @DurationUnit(ChronoUnit.HOURS)
         private Duration deleteSucceededJobsAfter = Duration.ofHours(36);
 
         /**
+         * Sets the duration to wait before changing jobs that are in the FAILED state to the DELETED state. If a duration suffix
+         * is not specified, hours will be used. A value of 0 disables the option. The default is disabled.
+         */
+        @DurationUnit(ChronoUnit.HOURS)
+        private Duration deleteFailedJobsAfter = Duration.ofHours(0);
+
+        /**
          * Sets the duration to wait before permanently deleting jobs that are in the DELETED state. If a duration suffix
-         * is not specified, hours will be used.
+         * is not specified, hours will be used. A value of 0 disables the option. The default is 72 hours.
          */
         @DurationUnit(ChronoUnit.HOURS)
         private Duration permanentlyDeleteDeletedJobsAfter = Duration.ofHours(72);
@@ -150,6 +158,14 @@ public class JobRunrProperties {
             this.deleteSucceededJobsAfter = deleteSucceededJobsAfter;
         }
 
+        public Duration getDeleteFailedJobsAfter() {
+            return deleteFailedJobsAfter;
+        }
+
+        public void setDeleteFailedJobsAfter(Duration deleteFailedJobsAfter) {
+            this.deleteFailedJobsAfter = deleteFailedJobsAfter;
+        }
+
         public Duration getPermanentlyDeleteDeletedJobsAfter() {
             return permanentlyDeleteDeletedJobsAfter;
         }
@@ -170,19 +186,49 @@ public class JobRunrProperties {
         private boolean enabled = false;
 
         /**
-         * The port on which the Dashboard should run
+         * Whether the Dashboard should enable HTTP connections or not
+         */
+        private boolean enableHttp = false;
+
+        /**
+         * The port on which the HTTP Dashboard should run
          */
         private int port = 8000;
 
         /**
-         * The username for the basic authentication which protects the dashboard
+         * The username used to authenticate to the Dashboard.
+         * If null, no authentication will be required.
          */
         private String username = null;
 
         /**
          * The password for the basic authentication which protects the dashboard. WARNING: this is insecure as it is in clear text
+         * The password used to authenticate to the Dashboard.
+         * If null, no authentication will be required.
          */
         private String password = null;
+
+        /**
+         * Whether the Dashboard should enable HTTPS connections or not
+         */
+        private boolean enableHttps = false;
+
+        /**
+         * The port on which the HTTPS Dashboard should run
+         */
+        private int portHttps = 8001;
+
+        /**
+         * The keystore which the Dashboard will use for TLS (https).
+         * If null, a self-signed certificate will be generated.
+         */
+        private Path keyStorePathHttps = null;
+
+        /**
+         * The password of the keystore which the Dashboard will use for TLS (https).
+         * If null, an empty password will be used.
+         */
+        private String keyStorePasswordHttps = null;
 
         public boolean isEnabled() {
             return enabled;
@@ -190,6 +236,14 @@ public class JobRunrProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public boolean isHttpEnabled() {
+            return enableHttp;
+        }
+
+        public void setHttpEnabled(boolean enableHttp) {
+            this.enableHttp = enableHttp;
         }
 
         public int getPort() {
@@ -200,22 +254,37 @@ public class JobRunrProperties {
             this.port = port;
         }
 
+        public String getUsername() { return username; }
 
-        public String getPassword() {
-            return password;
+        public void setUsername(String username) { this.username = username; }
+
+        public String getPassword() { return password; }
+
+        public void setPassword(String password) { this.password = password; }
+
+        public boolean isHttpsEnabled() {
+            return enableHttps;
         }
 
-        public void setPassword(String password) {
-            this.password = password;
+        public void setHttpsEnabled(boolean enableHttps) {
+            this.enableHttps = enableHttps;
         }
 
-        public String getUsername() {
-            return username;
+        public int getPortHttps() {
+            return portHttps;
         }
 
-        public void setUsername(String username) {
-            this.username = username;
+        public void setPortHttps(int portHttps) {
+            this.portHttps = portHttps;
         }
+
+        public Path getKeyStorePathHttps() { return keyStorePathHttps; }
+
+        public void setKeyStorePathHttps(Path keyStorePathHttps) { this.keyStorePathHttps = keyStorePathHttps; }
+
+        public String getKeyStorePasswordHttps() { return keyStorePasswordHttps; }
+
+        public void setKeyStorePasswordHttps(String keyStorePasswordHttps) { this.keyStorePasswordHttps = keyStorePasswordHttps; }
     }
 
     /**
