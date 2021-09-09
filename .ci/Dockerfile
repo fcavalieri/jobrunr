@@ -4,7 +4,7 @@ LABEL maintainer="Federico Cavalieri <f@reportix.com>"
 
 ENV KEYSERVER hkp://keyserver.ubuntu.com:80
 ENV TZ=Europe/Zurich
-ENV NODE_VERSION 12.22.5
+ENV NODE_VERSION 16.9.0
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Add repositories for dependencies

@@ -1,4 +1,4 @@
-image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.4
+image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.5
 
 before_script:
   - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
