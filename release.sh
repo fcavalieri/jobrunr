@@ -10,7 +10,7 @@ mkdir -p "$RELEASE_DIR"
 (
   cd "$SCRIPT_DIR/core/src/main/resources/org/jobrunr/dashboard/frontend"
   . ~/.nvm/nvm.sh
-  nvm use 12
+  nvm use 16
   npm install
   npm run build
 )
