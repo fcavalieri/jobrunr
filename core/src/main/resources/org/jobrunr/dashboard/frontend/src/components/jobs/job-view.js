@@ -198,6 +198,7 @@ const JobView = (props) => {
                                         </Grid>
                                         <Grid item xs={4} container className={classes.jobDetails}
                                               justify="flex-end">
+                                            <!--
                                             {job.jobDetails.cacheable === false &&
                                             <HtmlTooltip
                                                 title={
@@ -212,6 +213,7 @@ const JobView = (props) => {
                                                 <Alert severity="error" style={{marginRight: '1em'}}>Job details not cacheable!</Alert>
                                             </HtmlTooltip>
                                             }
+                                            -->
                                             <ButtonGroup>
                                                 {stateBreadcrumb.state !== 'ENQUEUED' &&
                                                 <Button variant="outlined" color="primary" onClick={requeueJob}>
