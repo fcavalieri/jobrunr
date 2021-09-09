@@ -17,7 +17,7 @@ import Succeeded from "./states/succeeded-state";
 import Failed from "./states/failed-state";
 import Deleted from "./states/deleted-state";
 import JobCode from "./job-code";
-import {Snackbar, Tooltip, withStyles} from "@material-ui/core";
+import {Snackbar} from "@material-ui/core";
 import {SortAscending, SortDescending} from "mdi-material-ui";
 import IconButton from "@material-ui/core/IconButton";
 import NavigateNextIcon from "@material-ui/icons/NavigateNext";
