@@ -198,22 +198,6 @@ const JobView = (props) => {
                                         </Grid>
                                         <Grid item xs={4} container className={classes.jobDetails}
                                               justify="flex-end">
-                                            <!--
-                                            {job.jobDetails.cacheable === false &&
-                                            <HtmlTooltip
-                                                title={
-                                                    <React.Fragment>
-                                                        <Typography color="inherit">Job details not cacheable!</Typography>
-                                                        The analysis for this job cannot be cached as the provided lambda is too complex.<br /><br />
-                                                        This means that <b>enqueueing jobs take more time</b> than if they would be cached.<br /><br />
-                                                        More info can be found on the best practices page of JobRunr.
-                                                    </React.Fragment>
-                                                }
-                                            >
-                                                <Alert severity="error" style={{marginRight: '1em'}}>Job details not cacheable!</Alert>
-                                            </HtmlTooltip>
-                                            }
-                                            -->
                                             <ButtonGroup>
                                                 {stateBreadcrumb.state !== 'ENQUEUED' &&
                                                 <Button variant="outlined" color="primary" onClick={requeueJob}>
