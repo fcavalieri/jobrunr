@@ -14,6 +14,8 @@ public class Exceptions {
     }
 
     public static String getStackTraceAsString(Throwable exception) {
+        if (exception == null)
+            return null;
         StringWriter sw = new StringWriter();
         exception.printStackTrace(new PrintWriter(sw));
         return sw.toString();
