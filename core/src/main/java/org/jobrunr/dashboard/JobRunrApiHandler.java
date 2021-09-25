@@ -39,6 +39,8 @@ public class JobRunrApiHandler extends RestHttpHandler {
         get("/recurring-jobs", getRecurringJobs());
         delete("/recurring-jobs/:id", deleteRecurringJob());
         post("/recurring-jobs/:id/trigger", triggerRecurringJob());
+        post("/recurring-jobs/:id/enable", enableRecurringJob());
+        post("/recurring-jobs/:id/disable", disableRecurringJob());
 
         get("/servers", getBackgroundJobServers());
         get("/version", getVersion());
@@ -120,6 +122,34 @@ public class JobRunrApiHandler extends RestHttpHandler {
 
             final Job job = recurringJob.toEnqueuedJob();
             storageProvider.save(job);
+            response.statusCode(204);
+        };
+    }
+
+    private HttpRequestHandler enableRecurringJob() {
+        return (request, response) -> {
+            final RecurringJob recurringJob = storageProvider.getRecurringJobs()
+                    .stream()
+                    .filter(rj -> request.param(":id").equals(rj.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+
+            recurringJob.setEnabled(true);
+            storageProvider.saveRecurringJob(recurringJob);
+            response.statusCode(204);
+        };
+    }
+
+    private HttpRequestHandler disableRecurringJob() {
+        return (request, response) -> {
+            final RecurringJob recurringJob = storageProvider.getRecurringJobs()
+                    .stream()
+                    .filter(rj -> request.param(":id").equals(rj.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+
+            recurringJob.setEnabled(false);
+            storageProvider.saveRecurringJob(recurringJob);
             response.statusCode(204);
         };
     }

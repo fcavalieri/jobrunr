@@ -18,6 +18,7 @@ public class RecurringJobTestBuilder {
     private CronExpression cronExpression;
     private ZoneId zoneId;
     private boolean readOnly;
+    private boolean disabled;
 
     private RecurringJobTestBuilder() {
 
@@ -86,10 +87,16 @@ public class RecurringJobTestBuilder {
         return this;
     }
 
+    public RecurringJobTestBuilder withEnabled(boolean enabled) {
+        this.disabled = !enabled;
+        return this;
+    }
+
     public RecurringJob build() {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
         recurringJob.setJobName(name);
         recurringJob.setReadOnly(readOnly);
+        recurringJob.setEnabled(!disabled);
         return recurringJob;
     }
 

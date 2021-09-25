@@ -15,6 +15,7 @@ public class RecurringJob extends AbstractJob {
     private String cronExpression;
     private String zoneId;
     private boolean readOnly;
+    private boolean disabled;
 
     private RecurringJob() {
         // used for deserialization
@@ -38,6 +39,14 @@ public class RecurringJob extends AbstractJob {
 
     public boolean isReadOnly() {
         return readOnly;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.disabled = !enabled;
+    }
+
+    public boolean isEnabled() {
+        return !disabled;
     }
 
     @Override
@@ -67,7 +76,10 @@ public class RecurringJob extends AbstractJob {
     }
 
     public Instant getNextRun() {
-        return CronExpression.create(cronExpression).next(ZoneId.of(zoneId));
+        if (isEnabled())
+            return CronExpression.create(cronExpression).next(ZoneId.of(zoneId));
+        else
+            return null;
     }
 
     private String validateAndSetId(String input) {
@@ -88,6 +100,7 @@ public class RecurringJob extends AbstractJob {
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
                 ", readOnly='" + isReadOnly() + '\'' +
+                ", enabled='" + isEnabled() + '\'' +
                 '}';
     }
 
