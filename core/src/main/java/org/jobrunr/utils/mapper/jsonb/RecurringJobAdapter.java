@@ -42,7 +42,9 @@ public class RecurringJobAdapter implements JsonbAdapter<RecurringJob, JsonObjec
                 .add("version", recurringJob.getVersion())
                 .add("cronExpression", recurringJob.getCronExpression())
                 .add("zoneId", recurringJob.getZoneId())
-                .add("jobDetails", jobDetailsAdapter.adaptToJson(recurringJob.getJobDetails()));
+                .add("jobDetails", jobDetailsAdapter.adaptToJson(recurringJob.getJobDetails()))
+                .add("enabled", recurringJob.isEnabled())
+                .add("deletableFromDashboard", recurringJob.isDeletableFromDashboard());
         if (recurringJob instanceof RecurringJobUIModel) {
             builder.add("nextRun", recurringJob.getNextRun().toString());
         }
@@ -58,6 +60,8 @@ public class RecurringJobAdapter implements JsonbAdapter<RecurringJob, JsonObjec
                 jsonObject.getString("zoneId")
         );
         recurringJob.setJobName(jsonObject.getString("jobName"));
+        recurringJob.setEnabled(jsonObject.getBoolean("enabled"));
+        recurringJob.setDeletableFromDashboard(jsonObject.getBoolean("deletableFromDashboard"));
         return recurringJob;
     }
 
