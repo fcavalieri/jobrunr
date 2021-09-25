@@ -14,8 +14,8 @@ public class RecurringJob extends AbstractJob {
     private String id;
     private String cronExpression;
     private String zoneId;
-    private boolean readOnly;
-    private boolean disabled;
+    private boolean enabled = true;
+    private boolean deletableFromDashboard = true;
 
     private RecurringJob() {
         // used for deserialization
@@ -33,20 +33,20 @@ public class RecurringJob extends AbstractJob {
         validateCronExpression();
     }
 
-    public void setReadOnly(boolean readOnly) {
-        this.readOnly = readOnly;
+    public void setDeletableFromDashboard(boolean deletableFromDashboard) {
+        this.deletableFromDashboard = deletableFromDashboard;
     }
 
-    public boolean isReadOnly() {
-        return readOnly;
+    public boolean isDeletableFromDashboard() {
+        return deletableFromDashboard;
     }
 
     public void setEnabled(boolean enabled) {
-        this.disabled = !enabled;
+        this.enabled = enabled;
     }
 
     public boolean isEnabled() {
-        return !disabled;
+        return enabled;
     }
 
     @Override
@@ -99,7 +99,7 @@ public class RecurringJob extends AbstractJob {
                 ", identity='" + System.identityHashCode(this) + '\'' +
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
-                ", readOnly='" + isReadOnly() + '\'' +
+                ", deletableFromDashboard='" + isDeletableFromDashboard() + '\'' +
                 ", enabled='" + isEnabled() + '\'' +
                 '}';
     }

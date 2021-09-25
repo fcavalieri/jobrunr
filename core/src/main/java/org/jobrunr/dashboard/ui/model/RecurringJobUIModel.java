@@ -12,7 +12,7 @@ public class RecurringJobUIModel extends RecurringJob {
         super(recurringJob.getId(), recurringJob.getJobDetails(), recurringJob.getCronExpression(), recurringJob.getZoneId());
         setJobName(recurringJob.getJobName());
         setEnabled(recurringJob.isEnabled());
-        setReadOnly(recurringJob.isReadOnly());
+        setDeletableFromDashboard(recurringJob.isDeletableFromDashboard());
         nextRun = super.getNextRun();
     }
 

@@ -237,10 +237,10 @@ const RecurringJobs = (props) => {
                                                                   onClick={(event) => selectRecurringJob(event, recurringJob)}/>
                                                     </TableCell>
                                                     <TableCell>
-                                                        {recurringJob.disabled ? <AlarmOff/> : <AlarmCheck/>}
+                                                        {recurringJob.enabled ? <AlarmCheck/> : <AlarmOff/> }
                                                     </TableCell>
                                                     <TableCell>
-                                                        {recurringJob.readOnly ? <Lock/> : <LockOpenVariant/>}
+                                                        {recurringJob.deletableFromDashboard ? <LockOpenVariant/> : <Lock/> }
                                                     </TableCell>
                                                     <TableCell component="th" scope="row" className={classes.idColumn}>
                                                         {recurringJob.id}

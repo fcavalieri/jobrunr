@@ -173,12 +173,29 @@ abstract class JobRunrDashboardWebServerTest {
 
     @Test
     void testDeleteReadOnlyRecurringJob() {
-        storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-1").withName("Import sales data").withReadOnly(true).build());
+        storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-1").withName("Import sales data").withDeletableFromDashboard(false).build());
         storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-2").withName("Generate sales reports").build());
 
         HttpResponse<String> deleteResponse = http.delete("/api/recurring-jobs/%s", "recurring-job-1");
         assertThat(deleteResponse).hasStatusCode(409);
         assertThat(storageProvider.getRecurringJobs()).hasSize(2);
+    }
+
+    @Test
+    void testEnableDisableRecurringJob() {
+        storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-1").withName("Import sales data").build());
+        assertThat(storageProvider.getRecurringJobs()).hasSize(1);
+        assertThat(storageProvider.getRecurringJobs().stream().findFirst().get().isEnabled());
+
+        HttpResponse<String> disableResponse = http.post("/api/recurring-jobs/%s/disable", "recurring-job-1");
+        assertThat(disableResponse).hasStatusCode(204);
+        assertThat(storageProvider.getRecurringJobs()).hasSize(1);
+        assertThat(!storageProvider.getRecurringJobs().stream().findFirst().get().isEnabled());
+
+        HttpResponse<String> enableResponse = http.post("/api/recurring-jobs/%s/enable", "recurring-job-1");
+        assertThat(enableResponse).hasStatusCode(204);
+        assertThat(storageProvider.getRecurringJobs()).hasSize(1);
+        assertThat(storageProvider.getRecurringJobs().stream().findFirst().get().isEnabled());
     }
 
     @Test
