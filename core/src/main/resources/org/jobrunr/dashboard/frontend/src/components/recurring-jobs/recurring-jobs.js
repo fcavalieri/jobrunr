@@ -81,10 +81,20 @@ const RecurringJobs = (props) => {
                 .filter(recurringJob => recurringJob.selected)
                 .map(recurringJob => fetch(`/api/recurring-jobs/${recurringJob.id}`, {method: 'DELETE'}))
         ).then(responses => {
-            const succeeded = responses.every(response => response.status === 204);
+            const succeeded = responses.every(response => (response.status === 204 || response.status === 409));
             if (succeeded) {
-                setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs'});
+                const someReadOnly = responses.some(response => response.status === 409);
+                const someDeleted = responses.some(response => response.status === 204);
+
+                if (someDeleted && !someReadOnly) {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs'});
+                } else if (someDeleted && someReadOnly) {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs. Some of the selected jobs were read-only and were not deleted'});
+                } else {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'All selected jobs were read-only and were not deleted'});
+                }
                 getRecurringJobs();
+
             } else {
                 setApiStatus({
                     type: 'deleted',

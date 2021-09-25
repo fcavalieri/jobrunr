@@ -17,6 +17,7 @@ public class RecurringJobTestBuilder {
     private JobDetails jobDetails;
     private CronExpression cronExpression;
     private ZoneId zoneId;
+    private boolean readOnly;
 
     private RecurringJobTestBuilder() {
 
@@ -80,9 +81,15 @@ public class RecurringJobTestBuilder {
         return this;
     }
 
+    public RecurringJobTestBuilder withReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        return this;
+    }
+
     public RecurringJob build() {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
         recurringJob.setJobName(name);
+        recurringJob.setReadOnly(readOnly);
         return recurringJob;
     }
 

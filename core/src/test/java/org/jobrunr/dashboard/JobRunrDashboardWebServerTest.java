@@ -172,6 +172,16 @@ abstract class JobRunrDashboardWebServerTest {
     }
 
     @Test
+    void testDeleteReadOnlyRecurringJob() {
+        storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-1").withName("Import sales data").withReadOnly(true).build());
+        storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-2").withName("Generate sales reports").build());
+
+        HttpResponse<String> deleteResponse = http.delete("/api/recurring-jobs/%s", "recurring-job-1");
+        assertThat(deleteResponse).hasStatusCode(409);
+        assertThat(storageProvider.getRecurringJobs()).hasSize(2);
+    }
+
+    @Test
     void testGetBackgroundJobServers() {
         final BackgroundJobServerStatus serverStatus = aDefaultBackgroundJobServerStatus().withIsStarted().build();
         storageProvider.announceBackgroundJobServer(serverStatus);

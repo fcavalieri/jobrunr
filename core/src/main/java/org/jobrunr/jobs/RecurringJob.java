@@ -14,6 +14,7 @@ public class RecurringJob extends AbstractJob {
     private String id;
     private String cronExpression;
     private String zoneId;
+    private boolean readOnly;
 
     private RecurringJob() {
         // used for deserialization
@@ -29,6 +30,14 @@ public class RecurringJob extends AbstractJob {
         this.cronExpression = cronExpression;
         this.zoneId = zoneId;
         validateCronExpression();
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+    }
+
+    public boolean isReadOnly() {
+        return readOnly;
     }
 
     @Override
@@ -78,6 +87,7 @@ public class RecurringJob extends AbstractJob {
                 ", identity='" + System.identityHashCode(this) + '\'' +
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
+                ", readOnly='" + isReadOnly() + '\'' +
                 '}';
     }
 
