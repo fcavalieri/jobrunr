@@ -93,7 +93,7 @@ class JobRunrConfigurationTest {
                 .useStorageProvider(storageProvider)
                 .useDashboard(9000);
         assertThat(configuration.dashboardWebServer).isNotNull();
-        assertThat((int) getInternalState(configuration.dashboardWebServer, "port")).isEqualTo(9000);
+        assertThat((int) getInternalState(configuration.dashboardWebServer, "portHttp")).isEqualTo(9000);
     }
 
     @Test
