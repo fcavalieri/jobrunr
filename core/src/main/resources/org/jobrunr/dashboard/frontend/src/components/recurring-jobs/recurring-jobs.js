@@ -19,6 +19,7 @@ import {Snackbar} from "@material-ui/core";
 import Alert from '@material-ui/lab/Alert'
 import LoadingIndicator from "../LoadingIndicator";
 import VersionFooter from "../utils/version-footer";
+import {AlarmOff, AlarmCheck, Lock, LockOpenVariant} from "mdi-material-ui";
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -81,9 +82,18 @@ const RecurringJobs = (props) => {
                 .filter(recurringJob => recurringJob.selected)
                 .map(recurringJob => fetch(`/api/recurring-jobs/${recurringJob.id}`, {method: 'DELETE'}))
         ).then(responses => {
-            const succeeded = responses.every(response => response.status === 204);
+            const succeeded = responses.every(response => (response.status === 204 || response.status === 409));
             if (succeeded) {
-                setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs'});
+                const someReadOnly = responses.some(response => response.status === 409);
+                const someDeleted = responses.some(response => response.status === 204);
+
+                if (someDeleted && !someReadOnly) {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs'});
+                } else if (someDeleted && someReadOnly) {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'Successfully deleted recurring jobs. Some of the selected jobs cannot be deleted'});
+                } else {
+                  setApiStatus({type: 'deleted', severity: 'success', message: 'All selected jobs cannot be deleted'});
+                }
                 getRecurringJobs();
             } else {
                 setApiStatus({
@@ -118,6 +128,54 @@ const RecurringJobs = (props) => {
         })
     };
 
+    const enableSelectedRecurringJobs = () => {
+        Promise.all(
+            recurringJobs
+                .filter(recurringJob => recurringJob.selected)
+                .map(recurringJob => fetch(`/api/recurring-jobs/${recurringJob.id}/enable`, {method: 'POST'}))
+        ).then(responses => {
+            const succeeded = responses.every(response => response.status === 204);
+            if (succeeded) {
+                setApiStatus({
+                    type: 'enabled',
+                    severity: 'success',
+                    message: 'Successfully enabled recurring jobs'
+                });
+                getRecurringJobs();
+            } else {
+                setApiStatus({
+                    type: 'enabled',
+                    severity: 'error',
+                    message: 'Error enabling recurring jobs - please refresh the page'
+                });
+            }
+        })
+    };
+
+    const disableSelectedRecurringJobs = () => {
+        Promise.all(
+            recurringJobs
+                .filter(recurringJob => recurringJob.selected)
+                .map(recurringJob => fetch(`/api/recurring-jobs/${recurringJob.id}/disable`, {method: 'POST'}))
+        ).then(responses => {
+            const succeeded = responses.every(response => response.status === 204);
+            if (succeeded) {
+                setApiStatus({
+                    type: 'disabled',
+                    severity: 'success',
+                    message: 'Successfully disabling recurring jobs'
+                });
+                getRecurringJobs();
+            } else {
+                setApiStatus({
+                    type: 'disabled',
+                    severity: 'error',
+                    message: 'Error disabling recurring jobs - please refresh the page'
+                });
+            }
+        })
+    };
+
     return (
         <div>
             <Box my={3}>
@@ -135,6 +193,14 @@ const RecurringJobs = (props) => {
                                 <Grid item xs={3} container>
                                     <ButtonGroup className={classes.recurringJobActions}
                                                  disabled={recurringJobs.every(recurringJob => !recurringJob.selected)}>
+                                        <Button variant="outlined" color="primary"
+                                                onClick={disableSelectedRecurringJobs}>
+                                            Disable
+                                        </Button>
+                                        <Button variant="outlined" color="primary"
+                                                onClick={enableSelectedRecurringJobs}>
+                                            Enable
+                                        </Button>
                                         <Button variant="outlined" color="primary"
                                                 onClick={triggerSelectedRecurringJobs}>
                                             Trigger
@@ -154,6 +220,8 @@ const RecurringJobs = (props) => {
                                                         checked={recurringJobs.every(recurringJob => recurringJob.selected)}
                                                         onClick={selectAll}/>
                                                 </TableCell>
+                                                <TableCell padding="checkbox">Enabled?</TableCell>
+                                                <TableCell padding="checkbox">Deletable?</TableCell>
                                                 <TableCell className={classes.idColumn}>Id</TableCell>
                                                 <TableCell>Job name</TableCell>
                                                 <TableCell>Cron</TableCell>
@@ -167,6 +235,12 @@ const RecurringJobs = (props) => {
                                                     <TableCell padding="checkbox">
                                                         <Checkbox checked={recurringJob.selected}
                                                                   onClick={(event) => selectRecurringJob(event, recurringJob)}/>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {recurringJob.enabled ? <AlarmCheck/> : <AlarmOff/> }
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {recurringJob.deletableFromDashboard ? <LockOpenVariant/> : <Lock/> }
                                                     </TableCell>
                                                     <TableCell component="th" scope="row" className={classes.idColumn}>
                                                         {recurringJob.id}

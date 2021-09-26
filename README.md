@@ -18,6 +18,9 @@ The main changes and extensions are:
   library pollutes the classpath with its transitive dependencies.
 * Support additional databases (Marklogic, ...)
 * Support extra static configuration options (dashboard)
+* Removal of messages meant more for developer than users
+* Extra controls for recurring jobs
+* The same recurring job can no longer be run in parallel
 
 <p align="center">
  <img src="https://user-images.githubusercontent.com/567842/80095933-1181c900-8569-11ea-85e7-14129b3f8142.png" alt="JobRunr logo"></img>
