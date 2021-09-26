@@ -52,6 +52,7 @@ public class TeenyHttpClient {
     public HttpResponse<String> get(String url) {
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + url))
+                .header("Connection", "close")
                 .build();
 
         return unchecked(() -> httpClient.send(httpRequest, BodyHandlers.ofString()));
@@ -60,6 +61,7 @@ public class TeenyHttpClient {
     public HttpResponse<String> get(String url, Object... params) {
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
+                .header("Connection", "close")
                 .build();
 
         return unchecked(() -> httpClient.send(httpRequest, BodyHandlers.ofString()));
@@ -68,6 +70,7 @@ public class TeenyHttpClient {
     public HttpResponse<String> delete(String url, Object... params) {
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
+                .header("Connection", "close")
                 .DELETE()
                 .build();
 
@@ -85,6 +88,7 @@ public class TeenyHttpClient {
     public HttpResponse<String> post(String url, Object... params) {
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
+                .header("Connection", "close")
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
 
