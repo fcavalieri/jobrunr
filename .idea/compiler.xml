@@ -250,10 +250,6 @@
         <module name="JobRunr.framework-support.jobrunr-quarkus-extension.tests.main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="11">
-      <module name="JobRunr.jobrunr-kotlin-14-support.test" target="11" />
-      <module name="JobRunr.jobrunr-kotlin-15-support.test" target="11" />
-      <module name="JobRunr.jobrunr-spring-boot-starter.test" target="11" />
-    </bytecodeTargetLevel>
+    <bytecodeTargetLevel target="11" />
   </component>
 </project>
