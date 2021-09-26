@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = 'org.jobrunr'
-    version = "v3.2.1-plus-20210925"
+    version = "v4.0.0-plus-20210926"
 }
 
 def isNonStable = { String version ->
@@ -32,8 +32,8 @@ configure(subprojects.findAll {it.name != 'platform'}) {
     compileTestJava.options.encoding = 'UTF-8'
     javadoc.options.encoding = 'UTF-8'
 
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
 
     compileTestJava {
         sourceCompatibility = JavaVersion.VERSION_11
