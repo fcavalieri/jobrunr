@@ -16,8 +16,11 @@ import java.security.SecureRandom;
 
 public class TeenyHttpClient {
 
+    static {
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "Connection");
+    }
+
     private final String baseUri;
-    private final HttpClient httpClient;
 
     private static TrustManager[] trustAllCerts = new TrustManager[]{
             new X509TrustManager() {
@@ -34,44 +37,48 @@ public class TeenyHttpClient {
     };
 
     public TeenyHttpClient(String baseUri) {
-        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "Connection");
         this.baseUri = baseUri;
+    }
+
+    private HttpClient getHttpClient() {
         try
         {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustAllCerts, new SecureRandom());
-
-            httpClient = HttpClient.newBuilder()
-                        .version(HttpClient.Version.HTTP_1_1)
-                        .sslContext(sslContext)
-                        .build();
+            return HttpClient.newBuilder()
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .sslContext(sslContext)
+                    .build();
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
             throw new IllegalStateException(e);
         }
     }
 
     public HttpResponse<String> get(String url) {
+        HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + url))
-                .header("Connection", "close")
+                //.header("Connection", "close")
                 .build();
 
         return unchecked(() -> httpClient.send(httpRequest, BodyHandlers.ofString()));
     }
 
     public HttpResponse<String> get(String url, Object... params) {
+        HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
-                .header("Connection", "close")
+                //.header("Connection", "close")
                 .build();
 
         return unchecked(() -> httpClient.send(httpRequest, BodyHandlers.ofString()));
     }
 
     public HttpResponse<String> delete(String url, Object... params) {
+        HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
-                .header("Connection", "close")
+                //.header("Connection", "close")
                 .DELETE()
                 .build();
 
@@ -87,9 +94,10 @@ public class TeenyHttpClient {
     }
 
     public HttpResponse<String> post(String url, Object... params) {
+        HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
-                .header("Connection", "close")
+                //.header("Connection", "close")
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
 
