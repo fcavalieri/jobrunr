@@ -39,6 +39,10 @@ public class Job extends AbstractJob {
         this(id, jobDetails, new EnqueuedState());
     }
 
+    public Job(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        this(id, jobDetails, new EnqueuedState(), metadata);
+    }
+
     public Job(JobDetails jobDetails, JobState jobState) {
         this(jobDetails, singletonList(jobState));
     }
@@ -47,12 +51,20 @@ public class Job extends AbstractJob {
         this(id, jobDetails, singletonList(jobState));
     }
 
+    public Job(UUID id, JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
+        this(id, jobDetails, singletonList(jobState), metadata);
+    }
+
     public Job(JobDetails jobDetails, List<JobState> jobHistory) {
         this(null, 0, jobDetails, jobHistory, new ConcurrentHashMap<>());
     }
 
     public Job(UUID id, JobDetails jobDetails, List<JobState> jobHistory) {
         this(id, 0, jobDetails, jobHistory, new ConcurrentHashMap<>());
+    }
+
+    public Job(UUID id, JobDetails jobDetails, List<JobState> jobHistory, ConcurrentMap<String, Object> metadata) {
+        this(id, 0, jobDetails, jobHistory, metadata);
     }
 
     public Job(UUID id, int version, JobDetails jobDetails, List<JobState> jobHistory, ConcurrentMap<String, Object> metadata) {

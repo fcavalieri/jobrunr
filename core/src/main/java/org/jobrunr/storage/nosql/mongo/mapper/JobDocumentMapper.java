@@ -94,4 +94,8 @@ public class JobDocumentMapper {
     private long toMicroSeconds(Instant instant) {
         return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
     }
+
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
 }

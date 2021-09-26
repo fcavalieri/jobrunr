@@ -1,3 +1,27 @@
+## Notice
+
+This project (JobRunr+) is a fork of [JobRunr](https://www.jobrunr.io).
+
+The main changes and extensions are:
+* Support HTTPS (dashboard)
+* Support automatic (self-signed) and user-specified certificates (dashboard)
+* Allow disabling automatic job state changes (core)
+* Allow automatic job deletion for failed jobs (core)
+* Allow jobs to signal through an exception that no retries should be performed (core)
+* Allow users to specify job metadata at the same time (transactionally) a job is submitted, 
+  so that it can be used to make decisions during the enqueue of other jobs (core)
+* Allow users to specify custom external resources (e.g.: files on disk, files in S3, data in databases, ...) that are
+  automatically removed (as specified by the user) when a job is permanently removed. 
+  This can be used to store resources for the completion of the job (so that it can be retried as long as it is visible 
+  in the dashboard) or logs (so that they are available until the job is visible in the dashboard)
+* Allow users to manually specify the json mapper (JSONB, GSON, JACKSON) so that a selection can be made even if some
+  library pollutes the classpath with its transitive dependencies.
+* Support additional databases (Marklogic, ...)
+* Support extra static configuration options (dashboard)
+* Removal of messages meant more for developer than users
+* Extra controls for recurring jobs
+* The same recurring job can no longer be run in parallel
+
 <p align="center">
  <img src="https://user-images.githubusercontent.com/567842/80095933-1181c900-8569-11ea-85e7-14129b3f8142.png" alt="JobRunr logo"></img>
 </p>  
