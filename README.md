@@ -21,6 +21,7 @@ The main changes and extensions are:
 * Removal of messages meant more for developer than users
 * Extra controls for recurring jobs
 * The same recurring job can no longer be run in parallel
+* Exceptions are not swallowed by the dashboard logger
 
 <p align="center">
  <img src="https://user-images.githubusercontent.com/567842/80095933-1181c900-8569-11ea-85e7-14129b3f8142.png" alt="JobRunr logo"></img>
@@ -218,3 +219,20 @@ See [CONTRIBUTING](https://github.com/jobrunr/jobrunr/blob/master/CONTRIBUTING.m
 
 Then, in your own project you can depend on `org.jobrunr:jobrunr:1.0.0-SNAPSHOT`.
 * 
+
+
+### Merge upstream checklist
+```
+git checkout fc-master
+git reset --hard HEAD
+git clean -qdfx
+git pull origin fc-master
+git checkout master
+git reset --hard HEAD
+git clean -qdfx
+git pull upstream master
+git checkout -b fc-merge-upstream-20xx-yy-zz
+git push origin fc-merge-upstream-20xx-yy-zz
+git merge fc-master
+```
+Then fix conflicts and increase version.
