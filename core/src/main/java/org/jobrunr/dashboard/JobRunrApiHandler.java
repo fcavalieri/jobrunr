@@ -119,9 +119,10 @@ public class JobRunrApiHandler extends RestHttpHandler {
                     .filter(rj -> request.param(":id").equals(rj.getId()))
                     .findFirst()
                     .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
-
-            final Job job = recurringJob.toEnqueuedJob();
-            storageProvider.save(job);
+            if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
+                final Job job = recurringJob.toImmediatelyScheduledJob();
+                storageProvider.save(job);
+            }
             response.statusCode(204);
         };
     }
