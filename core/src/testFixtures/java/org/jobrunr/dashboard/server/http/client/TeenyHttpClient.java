@@ -34,6 +34,7 @@ public class TeenyHttpClient {
     };
 
     public TeenyHttpClient(String baseUri) {
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "Connection");
         this.baseUri = baseUri;
         try
         {
