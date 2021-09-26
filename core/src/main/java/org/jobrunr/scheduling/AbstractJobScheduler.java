@@ -129,7 +129,19 @@ public class AbstractJobScheduler {
     }
 
     String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, null, null);
+    }
+
+    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, boolean enabled, boolean deletableFromDashboard) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, enabled, deletableFromDashboard);
+    }
+
+    private String doScheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
+        if (enabled != null)
+            recurringJob.setEnabled(enabled);
+        if (deletableFromDashboard != null)
+            recurringJob.setDeletableFromDashboard(deletableFromDashboard);
         jobFilterUtils.runOnCreatingFilter(recurringJob);
         RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
         jobFilterUtils.runOnCreatedFilter(recurringJob);

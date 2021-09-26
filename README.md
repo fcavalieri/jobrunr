@@ -21,6 +21,7 @@ The main changes and extensions are:
 * Removal of messages meant more for developer than users
 * Extra controls for recurring jobs
 * The same recurring job can no longer be run in parallel
+* Recurring jobs scheduling allows extra arguments
 
 <p align="center">
  <img src="https://user-images.githubusercontent.com/567842/80095933-1181c900-8569-11ea-85e7-14129b3f8142.png" alt="JobRunr logo"></img>
