@@ -7,7 +7,7 @@ import java.util.LinkedList;
 
 public abstract class MongoMigration {
 
-    public abstract void runMigration(MongoDatabase mongoDatabase);
+    public abstract void runMigration(MongoDatabase mongoDatabase, String collectionPrefix);
 
     protected boolean createCollection(MongoDatabase mongoDatabase, String name) {
         try {

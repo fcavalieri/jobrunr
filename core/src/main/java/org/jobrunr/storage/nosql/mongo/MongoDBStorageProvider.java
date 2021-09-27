@@ -24,10 +24,6 @@ import org.jobrunr.jobs.*;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.storage.*;
-import org.jobrunr.storage.StorageProviderUtils.BackgroundJobServers;
-import org.jobrunr.storage.StorageProviderUtils.Jobs;
-import org.jobrunr.storage.StorageProviderUtils.Metadata;
-import org.jobrunr.storage.StorageProviderUtils.RecurringJobs;
 import org.jobrunr.storage.nosql.NoSqlStorageProvider;
 import org.jobrunr.storage.nosql.mongo.mapper.BackgroundJobServerStatusDocumentMapper;
 import org.jobrunr.storage.nosql.mongo.mapper.JobDocumentMapper;
@@ -56,6 +52,7 @@ import static com.mongodb.client.model.Sorts.ascending;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
+import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.jobrunr.JobRunrException.shouldNotHappenException;
@@ -66,6 +63,13 @@ import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
 import static org.jobrunr.storage.JobRunrMetadata.toId;
+import static org.jobrunr.storage.StorageProviderUtils.BackgroundJobServers;
+import static org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
+import static org.jobrunr.storage.StorageProviderUtils.DatabaseOptions.CREATE;
+import static org.jobrunr.storage.StorageProviderUtils.Jobs;
+import static org.jobrunr.storage.StorageProviderUtils.Metadata;
+import static org.jobrunr.storage.StorageProviderUtils.RecurringJobs;
+import static org.jobrunr.storage.StorageProviderUtils.elementPrefixer;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
 import static org.jobrunr.utils.reflection.ReflectionUtils.findMethod;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
@@ -74,6 +78,7 @@ import static org.jobrunr.utils.resilience.RateLimiter.SECOND;
 public class MongoDBStorageProvider extends AbstractStorageProvider implements NoSqlStorageProvider {
 
     public static final String DEFAULT_DB_NAME = "jobrunr";
+
     private static final MongoDBPageRequestMapper pageRequestMapper = new MongoDBPageRequestMapper();
 
     private final MongoDatabase jobrunrDatabase;
@@ -102,25 +107,48 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     }
 
     public MongoDBStorageProvider(MongoClient mongoClient, String dbName) {
-        this(mongoClient, dbName, rateLimit().at1Request().per(SECOND));
+        this(mongoClient, dbName, null, CREATE, rateLimit().at1Request().per(SECOND));
+    }
+
+    public MongoDBStorageProvider(MongoClient mongoClient, String dbName, DatabaseOptions databaseOptions) {
+        this(mongoClient, dbName, null, databaseOptions, rateLimit().at1Request().per(SECOND));
+    }
+
+    public MongoDBStorageProvider(MongoClient mongoClient, String dbName, String collectionPrefix) {
+        this(mongoClient, dbName, collectionPrefix, CREATE, rateLimit().at1Request().per(SECOND));
+    }
+
+    public MongoDBStorageProvider(MongoClient mongoClient, String dbName, String collectionPrefix, DatabaseOptions databaseOptions) {
+        this(mongoClient, dbName, collectionPrefix, databaseOptions, rateLimit().at1Request().per(SECOND));
     }
 
     public MongoDBStorageProvider(MongoClient mongoClient, RateLimiter changeListenerNotificationRateLimit) {
-        this(mongoClient, DEFAULT_DB_NAME, changeListenerNotificationRateLimit);
+        this(mongoClient, null, null, CREATE, changeListenerNotificationRateLimit);
     }
 
-    public MongoDBStorageProvider(MongoClient mongoClient, String dbName, RateLimiter changeListenerNotificationRateLimit) {
+    public MongoDBStorageProvider(MongoClient mongoClient, DatabaseOptions databaseOptions, RateLimiter changeListenerNotificationRateLimit) {
+        this(mongoClient, null, null, databaseOptions, changeListenerNotificationRateLimit);
+    }
+
+    public MongoDBStorageProvider(MongoClient mongoClient, String dbName, String collectionPrefix, DatabaseOptions databaseOptions, RateLimiter changeListenerNotificationRateLimit) {
         super(changeListenerNotificationRateLimit);
-
         validateMongoClient(mongoClient);
-        runMigrations(mongoClient, dbName);
 
-        jobrunrDatabase = mongoClient.getDatabase(dbName);
-        jobCollection = jobrunrDatabase.getCollection(Jobs.NAME, Document.class);
-        recurringJobCollection = jobrunrDatabase.getCollection(RecurringJobs.NAME, Document.class);
-        backgroundJobServerCollection = jobrunrDatabase.getCollection(BackgroundJobServers.NAME, Document.class);
-        metadataCollection = jobrunrDatabase.getCollection(Metadata.NAME, Document.class);
+        final String database = ofNullable(dbName).orElse(DEFAULT_DB_NAME);
+
+        if (CREATE == databaseOptions) {
+            runMigrations(mongoClient, database, collectionPrefix);
+        } else {
+            validateTables(mongoClient, database, collectionPrefix);
+        }
+
+        jobrunrDatabase = mongoClient.getDatabase(database);
+        jobCollection = jobrunrDatabase.getCollection(elementPrefixer(collectionPrefix, Jobs.NAME), Document.class);
+        recurringJobCollection = jobrunrDatabase.getCollection(elementPrefixer(collectionPrefix, RecurringJobs.NAME), Document.class);
+        backgroundJobServerCollection = jobrunrDatabase.getCollection(elementPrefixer(collectionPrefix, BackgroundJobServers.NAME), Document.class);
+        metadataCollection = jobrunrDatabase.getCollection(elementPrefixer(collectionPrefix, Metadata.NAME), Document.class);
     }
+
 
     @Override
     public JobMapper getJobMapper() {
@@ -210,7 +238,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
 
     @Override
     public Job save(Job job) {
-        try(JobVersioner jobVersioner = new JobVersioner(job)) {
+        try (JobVersioner jobVersioner = new JobVersioner(job)) {
             if (jobVersioner.isNewJob()) {
                 jobCollection.insertOne(jobDocumentMapper.toInsertDocument(job));
             } else {
@@ -255,7 +283,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
     @Override
     public List<Job> save(List<Job> jobs) {
         try (JobListVersioner jobListVersioner = new JobListVersioner(jobs)) {
-            if(jobListVersioner.areNewJobs()) {
+            if (jobListVersioner.areNewJobs()) {
                 final List<Document> jobsToInsert = jobs.stream()
                         .map(job -> jobDocumentMapper.toInsertDocument(job))
                         .collect(toList());
@@ -458,8 +486,12 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
         }
     }
 
-    private void runMigrations(MongoClient mongoClient, String dbName) {
-        new MongoDBCreator(mongoClient, dbName).runMigrations();
+    private void runMigrations(MongoClient mongoClient, String dbName, String collectionPrefix) {
+        new MongoDBCreator(mongoClient, dbName, collectionPrefix).runMigrations();
+    }
+
+    private void validateTables(MongoClient mongoClient, String dbName, String collectionPrefix) {
+        new MongoDBCreator(mongoClient, dbName, collectionPrefix).validateCollections();
     }
 
     // used to perform query analysis for performance tuning

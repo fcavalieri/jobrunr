@@ -12,20 +12,22 @@ import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Indexes.compoundIndex;
 import static org.jobrunr.storage.StorageProviderUtils.JobStats;
 import static org.jobrunr.storage.StorageProviderUtils.Metadata;
+import static org.jobrunr.storage.StorageProviderUtils.elementPrefixer;
 import static org.jobrunr.storage.nosql.mongo.MongoDBStorageProvider.toMongoId;
 
 public class M005_CreateMetadataCollectionAndDropJobStats extends MongoMigration {
 
     @Override
-    public void runMigration(MongoDatabase jobrunrDatabase) {
-        if (createCollection(jobrunrDatabase, Metadata.NAME)) {
-            MongoCollection<Document> metadataCollection = createMetadataCollection(jobrunrDatabase);
+    public void runMigration(MongoDatabase jobrunrDatabase, String collectionPrefix) {
+        String collectionName = elementPrefixer(collectionPrefix, Metadata.NAME);
+        if (createCollection(jobrunrDatabase, collectionName)) {
+            MongoCollection<Document> metadataCollection = createMetadataCollection(jobrunrDatabase, collectionName);
             migrateExistingAllTimeSucceededFromJobStatsToMetadataAndDropJobStats(jobrunrDatabase, metadataCollection);
         }
     }
 
-    private MongoCollection<Document> createMetadataCollection(MongoDatabase jobrunrDatabase) {
-        MongoCollection<Document> metadataCollection = jobrunrDatabase.getCollection(Metadata.NAME, Document.class);
+    private MongoCollection<Document> createMetadataCollection(MongoDatabase jobrunrDatabase, String processedMetadataCollectionName) {
+        MongoCollection<Document> metadataCollection = jobrunrDatabase.getCollection(processedMetadataCollectionName, Document.class);
         metadataCollection.createIndex(compoundIndex(Indexes.ascending(Metadata.FIELD_NAME), Indexes.ascending(Metadata.FIELD_OWNER)));
         metadataCollection.insertOne(initialAllTimeSucceededJobCounterDocument());
         return metadataCollection;

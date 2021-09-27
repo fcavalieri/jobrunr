@@ -5,7 +5,7 @@ import com.mongodb.client.MongoDatabase;
 public class M004_CreateJobStatsCollection extends MongoMigration {
 
     @Override
-    public void runMigration(MongoDatabase jobrunrDatabase) {
+    public void runMigration(MongoDatabase jobrunrDatabase, String collectionPrefix) {
         //why: to be compatible with existing installations not using Migrations yet
     }
 }
