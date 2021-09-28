@@ -68,12 +68,14 @@ public class RecurringJob extends AbstractJob {
     private Job toScheduledJob(Instant scheduledAt) {
         final Job job = new Job(getJobDetails(), new ScheduledState(scheduledAt, this));
         job.setJobName(getJobName());
+        job.setRecurringJobId(this.getId());
         return job;
     }
 
     public Job toEnqueuedJob() {
         final Job job = new Job(getJobDetails(), new EnqueuedState());
         job.setJobName(getJobName());
+        job.setRecurringJobId(this.getId());
         return job;
     }
 

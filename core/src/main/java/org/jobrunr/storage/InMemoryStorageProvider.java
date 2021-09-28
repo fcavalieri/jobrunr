@@ -252,10 +252,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return jobQueue.values().stream()
                 .anyMatch(job ->
                         asList(states).contains(job.getState())
-                                && job.getLastJobStateOfType(ScheduledState.class)
-                                .map(ScheduledState::getRecurringJobId)
-                                .map(actualRecurringJobId -> actualRecurringJobId.equals(recurringJobId))
-                                .orElse(false));
+                                && recurringJobId.equals(job.getRecurringJobId()));
     }
 
     @Override

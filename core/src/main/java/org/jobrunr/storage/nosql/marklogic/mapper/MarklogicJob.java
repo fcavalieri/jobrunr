@@ -25,12 +25,14 @@ public class MarklogicJob extends HashMap<String, Object> {
     put(StorageProviderUtils.Jobs.FIELD_STATE, job.getState().name());
     put(StorageProviderUtils.Jobs.FIELD_CREATED_AT, job.getCreatedAt().toEpochMilli());
     put(StorageProviderUtils.Jobs.FIELD_UPDATED_AT, job.getUpdatedAt().toEpochMilli());
+    if (job.getRecurringJobId() != null)
+      put(StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, job.getRecurringJobId());
+    else
+      put(StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, null);
     if (job.hasState(StateName.SCHEDULED)) {
       put(StorageProviderUtils.Jobs.FIELD_SCHEDULED_AT, job.<ScheduledState>getJobState().getScheduledAt().toEpochMilli());
-      put(StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, job.<ScheduledState>getJobState().getRecurringJobId());
     } else {
       put(StorageProviderUtils.Jobs.FIELD_SCHEDULED_AT, null);
-      put(StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, null);
     }
   }
 
@@ -41,7 +43,7 @@ public class MarklogicJob extends HashMap<String, Object> {
             .replaceValue("/" + StorageProviderUtils.Jobs.FIELD_UPDATED_AT, job.getUpdatedAt().toEpochMilli());
     if (job.hasState(StateName.SCHEDULED)) {
       dpb.replaceValue("/" + StorageProviderUtils.Jobs.FIELD_SCHEDULED_AT, job.<ScheduledState>getJobState().getScheduledAt().toEpochMilli());
-      dpb.replaceValue("/" + StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, job.<ScheduledState>getJobState().getRecurringJobId());
+      //dpb.replaceValue("/" + StorageProviderUtils.Jobs.FIELD_RECURRING_JOB_ID, job.<ScheduledState>getJobState().getRecurringJobId());
     }
     return dpb.build();
   }

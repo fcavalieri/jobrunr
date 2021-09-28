@@ -3,8 +3,11 @@ package org.jobrunr.tests.e2e;
 import org.awaitility.core.ConditionTimeoutException;
 import org.jobrunr.configuration.JobRunr;
 import org.jobrunr.configuration.JobRunrConfiguration;
+import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
+import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.scheduling.BackgroundJob;
+import org.jobrunr.storage.PageRequest;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.tests.e2e.services.TestService;
 import org.jobrunr.utils.Stopwatch;
@@ -12,8 +15,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -67,6 +74,16 @@ public abstract class AbstractE2ETest {
             System.out.println(backgroundJobServer().getLogs());
             throw e;
         }
+    }
+
+    @Test
+    void testEachRecurringJobsRunsOnlyOnceAtTheSameTime() {
+        TestService testService = new TestService();
+        BackgroundJob.scheduleRecurrently("recurring-job", "*/5 * * * * *", () -> testService.doWorkThatFails());
+        try { await().atMost(Duration.ofSeconds(30)).until(() -> false); } catch (Throwable t) {}
+        List<Job> allJobs = Arrays.stream(StateName.values()).map(n -> storageProvider.getJobs(n, PageRequest.ascOnUpdatedAt(999))).flatMap(List::stream).collect(Collectors.toList());
+        List<Job> recurringJobs = allJobs.stream().filter(j -> j.getState() != StateName.FAILED && j.getState() != StateName.SUCCEEDED && j.getJobName().equals("Recurring-Job-Test")).collect(Collectors.toList());
+        assertThat(recurringJobs.size()).isEqualTo(1);
     }
 
     @Disabled
