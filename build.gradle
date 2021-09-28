@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = 'org.jobrunr'
-    version = "v3.2.1-plus-20210926"
+    version = "v4.0.0-plus-20210927"
 }
 
 def isNonStable = { String version ->

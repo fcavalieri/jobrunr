@@ -63,9 +63,9 @@
       <profile name="Gradle Imported" enabled="true">
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$PROJECT_DIR$/framework-support/jobrunr-quarkus-extension/deployment/build/libs/deployment-v3.2.1-plus-20210926.jar" />
-          <entry name="$PROJECT_DIR$/framework-support/jobrunr-quarkus-extension/runtime/build/libs/runtime-v3.2.1-plus-20210926.jar" />
-          <entry name="$PROJECT_DIR$/core/build/libs/core-v3.2.1-plus-20210926.jar" />
+          <entry name="$PROJECT_DIR$/framework-support/jobrunr-quarkus-extension/deployment/build/libs/deployment-v4.0.0-plus-20210927.jar" />
+          <entry name="$PROJECT_DIR$/framework-support/jobrunr-quarkus-extension/runtime/build/libs/runtime-v4.0.0-plus-20210927.jar" />
+          <entry name="$PROJECT_DIR$/core/build/libs/core-v4.0.0-plus-20210927.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.quarkus/quarkus-micrometer-registry-prometheus/2.1.3.Final/341a7eb9694dc42d4c375fc400735e446bf63e19/quarkus-micrometer-registry-prometheus-2.1.3.Final.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.quarkus/quarkus-arc-deployment/2.1.3.Final/f2b8b7852032a8871b3f22177352254ce1e6f91d/quarkus-arc-deployment-2.1.3.Final.jar" />
           <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.quarkus/quarkus-micrometer/2.1.3.Final/ffeef5d9998204b7983b8609e3ac062f2821903/quarkus-micrometer-2.1.3.Final.jar" />

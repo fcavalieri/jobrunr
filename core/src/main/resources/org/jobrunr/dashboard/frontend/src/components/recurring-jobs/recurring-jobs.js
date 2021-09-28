@@ -249,10 +249,10 @@ const RecurringJobs = (props) => {
                                                         {recurringJob.jobName}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {cronstrue.toString(recurringJob.cronExpression)}
+                                                        {recurringJob.cronExpression === "-" ? "" : cronstrue.toString(recurringJob.cronExpression)}
                                                     </TableCell>
                                                     <TableCell>
-                                                        {recurringJob.zoneId}
+                                                        {recurringJob.cronExpression === "-" ? "" : recurringJob.zoneId}
                                                     </TableCell>
                                                     <TableCell>
                                                         <TimeAgo date={new Date(recurringJob.nextRun)}
