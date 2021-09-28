@@ -197,6 +197,7 @@ public class JobZooKeeper implements Runnable {
 
     boolean mustSchedule(RecurringJob recurringJob) {
         return recurringJob.isEnabled() &&
+               recurringJob.getNextRun() != null &&
                recurringJob.getNextRun().isBefore(now().plus(durationPollIntervalTimeBox).plusSeconds(1)) &&
                !storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING);
 

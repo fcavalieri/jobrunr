@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 import static java.lang.Long.parseLong;
 import static java.util.Arrays.asList;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.nullsLast;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.jobrunr.jobs.states.StateName.*;
@@ -96,14 +97,15 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     @Override
     public List<BackgroundJobServerStatus> getBackgroundJobServers() {
         return backgroundJobServers.values().stream()
-                .sorted(comparing(BackgroundJobServerStatus::getFirstHeartbeat))
+                .sorted(comparing(BackgroundJobServerStatus::getFirstHeartbeat, Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(toList());
     }
 
     @Override
     public UUID getLongestRunningBackgroundJobServerId() {
         return backgroundJobServers.values().stream()
-                .min(comparing(BackgroundJobServerStatus::getFirstHeartbeat)).map(BackgroundJobServerStatus::getId)
+                .min(comparing(BackgroundJobServerStatus::getFirstHeartbeat, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(BackgroundJobServerStatus::getId)
                 .orElseThrow(() -> new IllegalStateException("No servers available?!"));
     }
 

@@ -113,7 +113,8 @@ public class RecurringJob extends AbstractJob {
     private void validateCronExpression() {
         Instant base = Instant.EPOCH;
         Instant fiveSeconds = base.plusSeconds(5);
-        if (CronExpression.create(cronExpression).next(base, ZoneOffset.UTC).isBefore(fiveSeconds)) {
+        Instant next = CronExpression.create(cronExpression).next(base, ZoneOffset.UTC);
+        if (next != null && next.isBefore(fiveSeconds)) {
             throw new IllegalArgumentException("The smallest interval for recurring jobs is 5 seconds. Please also make sure that your 'pollIntervalInSeconds' configuration matches the smallest recurring job interval.");
         }
     }

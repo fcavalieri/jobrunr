@@ -89,6 +89,13 @@ class JobSchedulerTest {
         assertThat(jobClientLogFilter.onCreated).isTrue();
     }
 
+    @Test
+    void disabledCronIsAllowed() {
+        when(storageProvider.saveRecurringJob(any(RecurringJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        jobScheduler.scheduleRecurrently(Cron.never(), () -> testService.doWork());
+    }
+
     private static class JobClientLogFilter implements JobClientFilter, ElectStateFilter, ApplyStateFilter {
 
         private boolean onCreating;
