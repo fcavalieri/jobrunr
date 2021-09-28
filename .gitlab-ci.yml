@@ -16,12 +16,23 @@ build:
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon --info clean assemble
 
-test:
+core:
   stage: test
   script:
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
-    - ./gradlew --no-daemon -info build
+    - ./gradlew --no-daemon core:test
+  artifacts:
+    paths:
+      - /tmp/reports/core/index.html
+      - /tmp/reports
+
+other:
+  stage: test
+  script:
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
+    - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
+    - ./gradlew --no-daemon test -x core:test
   artifacts:
     paths:
       - /tmp/reports/core/index.html

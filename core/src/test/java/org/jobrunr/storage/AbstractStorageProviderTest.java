@@ -148,18 +148,6 @@ class AbstractStorageProviderTest {
         assertThat(timerAfterClosingStorageProvider).isNull();
     }
 
-    @Test
-    void testEachRecurringJobsRunsOnlyOnceAtTheSameTime() {
-        TestService testService = new TestService();
-        testService.reset();
-        final Job job = aScheduledJob().build();
-        storageProvider.save(job);
-        BackgroundJob.scheduleRecurrently("recurring-job", "*/5 * * * * *", () -> testService.doWorkThatFails());
-        try { await().atMost(Duration.ofSeconds(20)).until(() -> false); } catch (Throwable t) {}
-        List<Job> allJobs = Arrays.stream(StateName.values()).map(n -> storageProvider.getJobs(n, PageRequest.ascOnUpdatedAt(999))).flatMap(List::stream).collect(Collectors.toList());
-        assertThat(allJobs).hasSize(1);
-    }
-
     private static class BackgroundJobServerStatusChangeListenerForTest implements BackgroundJobServerStatusChangeListener {
 
         private List<BackgroundJobServerStatus> changedServerStates;

@@ -7,6 +7,8 @@ import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.metadata.DisposableResource;
 import org.jobrunr.jobs.states.ScheduledState;
+import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.scheduling.cron.CronExpression;
 import org.jobrunr.server.BackgroundJobServer;
@@ -20,19 +22,23 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import static org.awaitility.Awaitility.await;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.time.Instant.now;
@@ -732,6 +738,18 @@ public abstract class StorageProviderTest {
         assertThat(jobStats.getDeleted()).isEqualTo(1);
         assertThat(jobStats.getRecurringJobs()).isEqualTo(2);
         assertThat(jobStats.getBackgroundJobServers()).isEqualTo(1);
+    }
+
+    @Test
+    void testEachRecurringJobsRunsOnlyOnceAtTheSameTime() {
+        TestService testService = new TestService();
+        testService.reset();
+        final Job job = aScheduledJob().build();
+        storageProvider.save(job);
+        BackgroundJob.scheduleRecurrently("recurring-job", "*/5 * * * * *", () -> testService.doWorkThatFails());
+        try { await().atMost(Duration.ofSeconds(20)).until(() -> false); } catch (Throwable t) {}
+        List<Job> allJobs = Arrays.stream(StateName.values()).map(n -> storageProvider.getJobs(n, PageRequest.ascOnUpdatedAt(999))).flatMap(List::stream).collect(Collectors.toList());
+        assertThat(allJobs).hasSize(1);
     }
 
     @Test
