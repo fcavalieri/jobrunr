@@ -336,7 +336,7 @@ public abstract class StorageProviderTest {
         }
 
         job.updateProcessing();
-        storageProvider.save(enqueuedJob);
+        assertThatCode(() -> storageProvider.save(enqueuedJob)).doesNotThrowAnyException();
     }
 
     @Test
@@ -732,14 +732,6 @@ public abstract class StorageProviderTest {
         assertThat(jobStats.getDeleted()).isEqualTo(1);
         assertThat(jobStats.getRecurringJobs()).isEqualTo(2);
         assertThat(jobStats.getBackgroundJobServers()).isEqualTo(1);
-    }
-
-    @Test
-    void testJobSize() {
-        final Job anEnqueuedJob = anEnqueuedJob()
-                .withMetadata("my-key", new byte[1 * 512 * 1024])
-                .build();
-        storageProvider.save(anEnqueuedJob);
     }
 
     @Test

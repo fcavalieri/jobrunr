@@ -7,16 +7,18 @@ import org.bson.Document;
 
 import static com.mongodb.client.model.Indexes.compoundIndex;
 import static org.jobrunr.storage.StorageProviderUtils.Jobs;
+import static org.jobrunr.storage.StorageProviderUtils.elementPrefixer;
 
 public class M001_CreateJobCollection extends MongoMigration {
 
     @Override
-    public void runMigration(MongoDatabase jobrunrDatabase) {
-        if (collectionExists(jobrunrDatabase, Jobs.NAME))
+    public void runMigration(MongoDatabase jobrunrDatabase, String collectionPrefix) {
+        String collectionName = elementPrefixer(collectionPrefix, Jobs.NAME);
+        if (collectionExists(jobrunrDatabase, collectionName))
             return; //why: to be compatible with existing installations not using Migrations yet
 
-        if (createCollection(jobrunrDatabase, Jobs.NAME)) {
-            MongoCollection<Document> jobCollection = jobrunrDatabase.getCollection(Jobs.NAME, Document.class);
+        if (createCollection(jobrunrDatabase, collectionName)) {
+            MongoCollection<Document> jobCollection = jobrunrDatabase.getCollection(collectionName, Document.class);
             jobCollection.createIndex(compoundIndex(Indexes.ascending(Jobs.FIELD_STATE), Indexes.ascending(Jobs.FIELD_SCHEDULED_AT)));
             jobCollection.createIndex(compoundIndex(Indexes.ascending(Jobs.FIELD_STATE), Indexes.ascending(Jobs.FIELD_UPDATED_AT)));
             jobCollection.createIndex(compoundIndex(Indexes.ascending(Jobs.FIELD_STATE), Indexes.descending(Jobs.FIELD_UPDATED_AT)));

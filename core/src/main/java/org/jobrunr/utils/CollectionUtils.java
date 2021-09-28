@@ -1,9 +1,9 @@
 package org.jobrunr.utils;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toSet;
 
 
 public class CollectionUtils {
@@ -42,6 +42,30 @@ public class CollectionUtils {
         if (existingCollection != null) {
             result.addAll(existingCollection);
         }
+        return result;
+    }
+
+    public static <T> Set<T> asSet(T... items) {
+        return Stream.of(items).collect(toSet());
+    }
+
+    public static <T> Set<T> asSet(Collection<T>... existingCollections) {
+        Set<T> result = new HashSet<>();
+        for (Collection<T> existingCollection : existingCollections) {
+            result.addAll(existingCollection);
+        }
+        return result;
+    }
+
+    public static <K, V> Map<K, V> mapOf(K key1, V value1) {
+        Map<K, V> result = new HashMap<>();
+        result.put(key1, value1);
+        return result;
+    }
+
+    public static <K, V> Map<K, V> mapOf(K key1, V value1, K key2, V value2) {
+        final Map<K, V> result = mapOf(key1, value1);
+        result.put(key2, value2);
         return result;
     }
 }

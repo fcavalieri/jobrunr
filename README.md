@@ -21,6 +21,7 @@ The main changes and extensions are:
 * Removal of messages meant more for developer than users
 * Extra controls for recurring jobs
 * The same recurring job can no longer be run in parallel
+* Exceptions are not swallowed by the dashboard logger
 * Recurring jobs scheduling allows extra arguments
 
 <p align="center">
@@ -146,7 +147,7 @@ Installation
 <dependency>
     <groupId>org.jobrunr</groupId>
     <artifactId>jobrunr</artifactId>
-    <version>3.1.2</version>
+    <version>4.0.0</version>
 </dependency>
 ```
  
@@ -154,7 +155,7 @@ Installation
  
 Just add the dependency to JobRunr:
  ```groovy
-implementation 'org.jobrunr:jobrunr:3.1.2'
+implementation 'org.jobrunr:jobrunr:4.0.0'
 ```
 
 Configuration
@@ -219,3 +220,20 @@ See [CONTRIBUTING](https://github.com/jobrunr/jobrunr/blob/master/CONTRIBUTING.m
 
 Then, in your own project you can depend on `org.jobrunr:jobrunr:1.0.0-SNAPSHOT`.
 * 
+
+
+### Merge upstream checklist
+```
+git checkout fc-master
+git reset --hard HEAD
+git clean -qdfx
+git pull origin fc-master
+git checkout master
+git reset --hard HEAD
+git clean -qdfx
+git pull upstream master
+git checkout -b fc-merge-upstream-20xx-yy-zz
+git push origin fc-merge-upstream-20xx-yy-zz
+git merge fc-master
+```
+Then fix conflicts and increase version.
