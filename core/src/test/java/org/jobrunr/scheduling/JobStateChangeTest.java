@@ -6,11 +6,15 @@ import ch.qos.logback.core.read.ListAppender;
 import com.mongodb.assertions.Assertions;
 import org.assertj.core.util.Files;
 import org.jobrunr.configuration.JobRunr;
+import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
+import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.server.BackgroundJobServer;
 import org.jobrunr.server.BackgroundJobServerConfiguration;
 import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.JobNotFoundException;
+import org.jobrunr.storage.PageRequest;
 import org.jobrunr.storage.StorageProviderForTest;
 import org.jobrunr.stubs.TestService;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +23,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static java.time.Duration.ofSeconds;
 import static java.time.Instant.now;
@@ -70,6 +77,8 @@ public class JobStateChangeTest {
     void cleanUp() {
         backgroundJobServer.stop();
     }
+
+
 
     @Test
     void testSucceededThenDeletedThenRemoved() {

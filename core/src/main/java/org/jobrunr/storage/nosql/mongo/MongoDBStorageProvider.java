@@ -369,6 +369,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
 
     @Override
     public boolean recurringJobExists(String recurringJobId, StateName... states) {
+        jobCollection.find().forEach(d -> LOGGER.info(d.toJson()));
         return jobCollection.countDocuments(and(in(Jobs.FIELD_STATE, stream(states).map(Enum::name).collect(toSet())), eq(Jobs.FIELD_RECURRING_JOB_ID, recurringJobId))) > 0;
     }
 

@@ -25,6 +25,7 @@ public class Job extends AbstractJob {
     private UUID id;
     private ArrayList<JobState> jobHistory;
     private final ConcurrentMap<String, Object> metadata;
+    private String recurringJobId;
 
     private Job() {
         // used for deserialization
@@ -173,6 +174,13 @@ public class Job extends AbstractJob {
         return metadata;
     }
 
+    public String getRecurringJobId() {
+        return recurringJobId;
+    }
+    public void setRecurringJobId(String recurringJobId) {
+        this.recurringJobId = recurringJobId;
+    }
+
     @Override
     public String toString() {
         return "Job{" +
@@ -183,6 +191,7 @@ public class Job extends AbstractJob {
                 ", jobName='" + getJobName() + '\'' +
                 ", jobState='" + getState() + '\'' +
                 ", updatedAt='" + getUpdatedAt() + '\'' +
+                ", recurringJobId='" + getRecurringJobId() + '\'' +
                 '}';
     }
 }
