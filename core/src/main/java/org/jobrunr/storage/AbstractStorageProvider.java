@@ -2,6 +2,7 @@ package org.jobrunr.storage;
 
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
+import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.metadata.DisposableResource;
 import org.jobrunr.storage.listeners.*;
 import org.jobrunr.utils.resilience.RateLimiter;
@@ -186,6 +187,15 @@ public abstract class AbstractStorageProvider implements StorageProvider, AutoCl
             }
         }
     }
+
+    public RecurringJob getRecurringJobById(String id) {
+        return getRecurringJobs()
+                .stream()
+                .filter(rj -> id.equals(rj.getId()))
+                .findFirst()
+                .orElseThrow(() -> new JobNotFoundException(id));
+    }
+
 
     class NotifyOnChangeListeners extends TimerTask {
 

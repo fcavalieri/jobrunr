@@ -9,8 +9,10 @@ import org.jobrunr.jobs.filters.JobDefaultFilters;
 import org.jobrunr.jobs.filters.JobFilter;
 import org.jobrunr.jobs.filters.JobFilterUtils;
 import org.jobrunr.jobs.states.ScheduledState;
+import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.scheduling.cron.CronExpression;
 import org.jobrunr.storage.ConcurrentJobModificationException;
+import org.jobrunr.storage.JobNotFoundException;
 import org.jobrunr.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +94,69 @@ public class AbstractJobScheduler {
     }
 
     /**
+     * Triggers the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      jobScheduler.delete("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to trigger
+     * @return the id of the Job
+     */
+    public JobId trigger(String id) {
+        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
+                .stream()
+                .filter(rj -> id.equals(rj.getId()))
+                .findFirst()
+                .orElseThrow(() -> new JobNotFoundException(id));
+        if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
+            final Job job = recurringJob.toImmediatelyScheduledJob();
+            return new JobId(storageProvider.save(job).getId());
+        }
+        return null;
+    }
+
+    /**
+     * Disables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      jobScheduler.disable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to disable
+     */
+    public void enable(String id) {
+        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
+                .stream()
+                .filter(rj -> id.equals(rj.getId()))
+                .findFirst()
+                .orElseThrow(() -> new JobNotFoundException(id));
+
+        recurringJob.setEnabled(true);
+        storageProvider.saveRecurringJob(recurringJob);
+    }
+
+    /**
+     * Disables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      jobScheduler.disable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to disable
+     */
+    public void disable(String id) {
+        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
+                .stream()
+                .filter(rj -> id.equals(rj.getId()))
+                .findFirst()
+                .orElseThrow(() -> new JobNotFoundException(id));
+
+        recurringJob.setEnabled(false);
+        storageProvider.saveRecurringJob(recurringJob);
+    }
+
+    /**
      * Deletes the recurring job based on the given id.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -103,6 +168,10 @@ public class AbstractJobScheduler {
     public void delete(String id) {
         this.storageProvider.deleteRecurringJob(id);
     }
+
+
+
+
 
     /**
      * Utility method to register the shutdown of JobRunr in various containers - it is even automatically called by Spring Framework.

@@ -861,6 +861,49 @@ public class BackgroundJob {
     }
 
     /**
+     * Triggers the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.trigger("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to trigger
+     * @return the id of the Job
+     */
+    public static JobId trigger(String id) {
+        verifyJobScheduler();
+        return jobScheduler.trigger(id);
+    }
+
+    /**
+     * Enables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.enable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to enable
+     */
+    public static void enable(String id) {
+        verifyJobScheduler();
+        jobScheduler.enable(id);
+    }
+
+    /**
+     * Disables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.disable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to disable
+     */
+    public static void disable(String id) {
+        verifyJobScheduler();
+        jobScheduler.disable(id);
+    }
+
+    /**
      * Deletes the recurring job based on the given id.
      * <h5>An example:</h5>
      * <pre>{@code
