@@ -104,11 +104,7 @@ public class AbstractJobScheduler {
      * @return the id of the Job
      */
     public JobId trigger(String id) {
-        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
-                .stream()
-                .filter(rj -> id.equals(rj.getId()))
-                .findFirst()
-                .orElseThrow(() -> new JobNotFoundException(id));
+        final RecurringJob recurringJob = storageProvider.getRecurringJobById(id);
         if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
             final Job job = recurringJob.toImmediatelyScheduledJob();
             return new JobId(storageProvider.save(job).getId());
@@ -126,11 +122,7 @@ public class AbstractJobScheduler {
      * @param id the id of the recurring job to disable
      */
     public void enable(String id) {
-        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
-                .stream()
-                .filter(rj -> id.equals(rj.getId()))
-                .findFirst()
-                .orElseThrow(() -> new JobNotFoundException(id));
+        final RecurringJob recurringJob = storageProvider.getRecurringJobById(id);
 
         recurringJob.setEnabled(true);
         storageProvider.saveRecurringJob(recurringJob);
@@ -146,11 +138,7 @@ public class AbstractJobScheduler {
      * @param id the id of the recurring job to disable
      */
     public void disable(String id) {
-        final RecurringJob recurringJob = storageProvider.getRecurringJobs()
-                .stream()
-                .filter(rj -> id.equals(rj.getId()))
-                .findFirst()
-                .orElseThrow(() -> new JobNotFoundException(id));
+        final RecurringJob recurringJob = storageProvider.getRecurringJobById(id);
 
         recurringJob.setEnabled(false);
         storageProvider.saveRecurringJob(recurringJob);

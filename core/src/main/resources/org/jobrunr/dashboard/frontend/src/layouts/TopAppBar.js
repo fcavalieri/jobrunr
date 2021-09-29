@@ -106,10 +106,6 @@ const TopAppBar = () => {
                         Servers <Chip color="secondary" label={stats.backgroundJobServers}/>
                     </Button>
                 </div>
-                <IconButton edge="start" className={classes.menuButton} color="inherit" aria-label="menu"
-                            target="_blank" href={process.env.REACT_APP_GITHUB_URL}>
-                    <GitHubIcon/>
-                </IconButton>
             </Toolbar>
         </AppBar>
     );
