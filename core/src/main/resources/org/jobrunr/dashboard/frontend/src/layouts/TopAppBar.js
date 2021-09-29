@@ -3,8 +3,6 @@ import {makeStyles} from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
 import Chip from '@material-ui/core/Chip';
 import Toolbar from '@material-ui/core/Toolbar';
-import GitHubIcon from '@material-ui/icons/GitHub';
-import IconButton from '@material-ui/core/IconButton';
 import Button from '@material-ui/core/Button';
 import {Link as RouterLink} from 'react-router-dom';
 import statsState from "StatsStateContext.js";
