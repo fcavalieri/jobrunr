@@ -14,6 +14,7 @@ public class BackgroundJobServerStatusTestBuilder {
     private int workerPoolSize = 10;
     private int pollIntervalInSeconds = BackgroundJobServerConfiguration.DEFAULT_POLL_INTERVAL_IN_SECONDS;
     private Duration deleteSucceededJobsAfter = BackgroundJobServerConfiguration.DEFAULT_DELETE_SUCCEEDED_JOBS_DURATION;
+    private Duration deleteFailedJobsAfter = BackgroundJobServerConfiguration.DEFAULT_DELETE_FAILED_JOBS_DURATION;
     private Duration permanentlyDeleteDeletedJobsAfter = BackgroundJobServerConfiguration.DEFAULT_PERMANENTLY_DELETE_JOBS_DURATION;
     private Instant firstHeartbeat;
     private Instant lastHeartbeat;
@@ -81,7 +82,7 @@ public class BackgroundJobServerStatusTestBuilder {
 
     public BackgroundJobServerStatus build() {
         return new BackgroundJobServerStatus(id, workerPoolSize, pollIntervalInSeconds,
-                deleteSucceededJobsAfter, permanentlyDeleteDeletedJobsAfter, firstHeartbeat, lastHeartbeat, running,
+                deleteSucceededJobsAfter, deleteFailedJobsAfter, permanentlyDeleteDeletedJobsAfter, firstHeartbeat, lastHeartbeat, running,
                 jobServerStats.getSystemTotalMemory(), jobServerStats.getSystemFreeMemory(), jobServerStats.getSystemCpuLoad(), jobServerStats.getProcessMaxMemory(),
                 jobServerStats.getProcessFreeMemory(), jobServerStats.getProcessAllocatedMemory(), jobServerStats.getProcessCpuLoad());
     }

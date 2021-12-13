@@ -14,6 +14,7 @@ import java.io.OutputStream;
 public class JsonbJsonMapper implements JsonMapper {
 
     private final Jsonb jsonb;
+    private final Jsonb rawJsonb;
 
     public JsonbJsonMapper() {
         this(new JsonbConfig());
@@ -30,6 +31,8 @@ public class JsonbJsonMapper implements JsonMapper {
                 .withDeserializers(new DurationTypeDeserializer())
                 .withPropertyVisibilityStrategy(new FieldAccessStrategy())
                 .withAdapters(new JobAdapter(), new RecurringJobAdapter());
+        rawJsonb = JsonbBuilder.create(new JsonbConfig()
+                .withNullValues(true));
     }
 
     @Override
@@ -44,6 +47,16 @@ public class JsonbJsonMapper implements JsonMapper {
     @Override
     public void serialize(OutputStream outputStream, Object object) {
         jsonb.toJson(object, outputStream);
+    }
+
+    @Override
+    public String serializeRaw(Object object) {
+        return rawJsonb.toJson(object);
+    }
+
+    @Override
+    public <T> T deserializeRaw(String serializedObjectAsString, Class<T> clazz) {
+        return jsonb.fromJson(serializedObjectAsString, clazz);
     }
 
     @Override

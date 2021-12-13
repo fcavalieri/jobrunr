@@ -87,7 +87,8 @@ public class FailedState extends AbstractJobState {
     }
 
     private static boolean isProblematicAndDoNotRetry(Exception exception) {
-        return exception instanceof JobRunrException && ((JobRunrException) exception).isProblematicAndDoNotRetry();
+        return (exception instanceof JobRunrException && ((JobRunrException) exception).isProblematicAndDoNotRetry()) ||
+               (exception.getCause() != null && exception.getCause() instanceof JobRunrException && ((JobRunrException) exception.getCause()).isProblematicAndDoNotRetry());
     }
 
 }

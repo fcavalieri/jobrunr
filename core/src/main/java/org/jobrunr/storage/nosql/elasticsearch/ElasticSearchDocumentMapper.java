@@ -40,6 +40,7 @@ public class ElasticSearchDocumentMapper {
             builder.field(BackgroundJobServers.FIELD_WORKER_POOL_SIZE, serverStatus.getWorkerPoolSize());
             builder.field(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, serverStatus.getPollIntervalInSeconds());
             builder.field(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, serverStatus.getDeleteSucceededJobsAfter());
+            builder.field(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, serverStatus.getDeleteFailedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, serverStatus.getPermanentlyDeleteDeletedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_FIRST_HEARTBEAT, serverStatus.getFirstHeartbeat());
             builder.field(BackgroundJobServers.FIELD_LAST_HEARTBEAT, serverStatus.getLastHeartbeat());
@@ -86,7 +87,7 @@ public class ElasticSearchDocumentMapper {
             if (job.hasState(StateName.SCHEDULED)) {
                 builder.field(Jobs.FIELD_SCHEDULED_AT, job.getLastJobStateOfType(ScheduledState.class).map(ScheduledState::getScheduledAt).orElseThrow(IllegalStateException::new));
             }
-            builder.field(Jobs.FIELD_RECURRING_JOB_ID, job.getJobStatesOfType(ScheduledState.class).findFirst().map(ScheduledState::getRecurringJobId).orElse(null));
+            builder.field(Jobs.FIELD_RECURRING_JOB_ID, job.getRecurringJobId());
             builder.endObject();
             return builder;
         } catch (IOException e) {
@@ -129,6 +130,7 @@ public class ElasticSearchDocumentMapper {
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER), Duration.class),
+                autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT), Instant.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_LAST_HEARTBEAT), Instant.class),
@@ -179,5 +181,9 @@ public class ElasticSearchDocumentMapper {
         public ShouldNotHappenException(Exception e) {
             super("Should never happen", e);
         }
+    }
+
+    public JobMapper getJobMapper() {
+        return jobMapper;
     }
 }

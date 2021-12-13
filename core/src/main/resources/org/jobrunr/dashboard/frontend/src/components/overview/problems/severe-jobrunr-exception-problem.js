@@ -61,14 +61,14 @@ const SevereJobRunrExceptionProblem = (props) => {
             {props.problem.githubIssueBodyLength < 2000
                 ? <>JobRunr encountered an exception that should not happen. To resolve this issue, can you please
                     create a <a
-                        href={`https://github.com/jobrunr/jobrunr/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=${encodeURIComponent(props.problem.githubIssueBody)}&labels=bug`}
+                        href={`${process.env.REACT_APP_GITHUB_URL}/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=${encodeURIComponent(props.problem.githubIssueBody)}&labels=bug`}
                         target="_blank" rel="noopener noreferrer">Github issue</a>?
                     To make life easy, all necessary information will already be prefilled in the Github issue. <br/>
                     <strong>You can still cancel the creation of the issue in Github if you think it contains sensitive
                         information.</strong>.<br/></>
                 : <>JobRunr encountered an exception that should not happen. To resolve this issue, can you please
                     create a <a
-                        href={`https://github.com/jobrunr/jobrunr/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=%3C%21--%20Please%20paste%20the%20issue%20content%20generated%20JobRunr%20below.%20--%3E&labels=bug`}
+                        href={`${process.env.REACT_APP_GITHUB_URL}/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=%3C%21--%20Please%20paste%20the%20issue%20content%20generated%20JobRunr%20below.%20--%3E&labels=bug`}
                         target="_blank" rel="noopener noreferrer">Github issue</a>?
                     To make life easy, you can <Link onClick={copyToClipboard} color="initial">click here</Link> to copy
                     all necessary information to your clipboard and paste it in the Github issue. <br/>

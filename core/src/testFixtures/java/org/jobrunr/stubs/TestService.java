@@ -1,5 +1,6 @@
 package org.jobrunr.stubs;
 
+import org.jobrunr.JobRunrException;
 import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobContext;
 import org.jobrunr.jobs.context.JobDashboardProgressBar;
@@ -145,6 +146,18 @@ public class TestService implements TestServiceInterface {
     public void doWorkThatFails() {
         processedJobs++;
         System.out.println("Whoopsie, an error will occur " + processedJobs);
+        throw new RuntimeException("Whoopsie, an error occcured");
+    }
+
+    @Job(name = "Doing some work", retries = 2)
+    public void doWorkThatFailsWithProblematicException() {
+        processedJobs++;
+        System.out.println("Whoopsie, a problematic error will occur " + processedJobs);
+        throw new JobRunrException("Whoopsie, a problematic error occurred", true);
+    }
+
+    @Job(name = "Doing some work that fails without retries", retries = 0)
+    public void doWorkThatFailsWithoutRetries() {
         throw new RuntimeException("Whoopsie, an error occcured");
     }
 

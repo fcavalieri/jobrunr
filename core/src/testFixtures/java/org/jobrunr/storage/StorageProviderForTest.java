@@ -23,6 +23,10 @@ public class StorageProviderForTest implements StorageProvider {
         this.storageProvider = storageProvider;
     }
 
+    public StorageProvider getStorageProvider() {
+        return storageProvider;
+    }
+
     @Override
     public String getName() {
         return storageProvider.getName();
@@ -42,6 +46,9 @@ public class StorageProviderForTest implements StorageProvider {
     public void setJobMapper(JobMapper jobMapper) {
         storageProvider.setJobMapper(jobMapper);
     }
+
+    @Override
+    public JobMapper getJobMapper() { return storageProvider.getJobMapper(); }
 
     @Override
     public void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus) {

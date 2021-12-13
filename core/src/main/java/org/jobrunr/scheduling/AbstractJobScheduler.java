@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Collections.emptyList;
 
@@ -115,12 +116,32 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails));
     }
 
+    JobId enqueue(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        return saveJob(new Job(id, jobDetails, metadata));
+    }
+
     JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails) {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)));
     }
 
+    JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
+    }
+
     String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, null, null);
+    }
+
+    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, boolean enabled, boolean deletableFromDashboard) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, enabled, deletableFromDashboard);
+    }
+
+    private String doScheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
+        if (enabled != null)
+            recurringJob.setEnabled(enabled);
+        if (deletableFromDashboard != null)
+            recurringJob.setDeletableFromDashboard(deletableFromDashboard);
         jobFilterUtils.runOnCreatingFilter(recurringJob);
         RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
         jobFilterUtils.runOnCreatedFilter(recurringJob);

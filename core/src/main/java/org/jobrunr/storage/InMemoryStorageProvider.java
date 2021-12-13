@@ -11,11 +11,13 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.lang.Long.parseLong;
 import static java.util.Arrays.asList;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.nullsLast;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.jobrunr.jobs.states.StateName.*;
@@ -45,6 +47,11 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return jobMapper;
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         this.jobMapper = jobMapper;
     }
@@ -56,6 +63,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 serverStatus.getWorkerPoolSize(),
                 serverStatus.getPollIntervalInSeconds(),
                 serverStatus.getDeleteSucceededJobsAfter(),
+                serverStatus.getDeleteFailedJobsAfter(),
                 serverStatus.getPermanentlyDeleteDeletedJobsAfter(),
                 serverStatus.getFirstHeartbeat(),
                 serverStatus.getLastHeartbeat(),
@@ -89,14 +97,15 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     @Override
     public List<BackgroundJobServerStatus> getBackgroundJobServers() {
         return backgroundJobServers.values().stream()
-                .sorted(comparing(BackgroundJobServerStatus::getFirstHeartbeat))
+                .sorted(comparing(BackgroundJobServerStatus::getFirstHeartbeat, Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(toList());
     }
 
     @Override
     public UUID getLongestRunningBackgroundJobServerId() {
         return backgroundJobServers.values().stream()
-                .min(comparing(BackgroundJobServerStatus::getFirstHeartbeat)).map(BackgroundJobServerStatus::getId)
+                .min(comparing(BackgroundJobServerStatus::getFirstHeartbeat, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(BackgroundJobServerStatus::getId)
                 .orElseThrow(() -> new IllegalStateException("No servers available?!"));
     }
 
@@ -153,9 +162,14 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public int deletePermanently(UUID id) {
-        boolean removed = jobQueue.keySet().remove(id);
-        notifyJobStatsOnChangeListenersIf(removed);
-        return removed ? 1 : 0;
+        Job job = jobQueue.remove(id);
+        boolean removed = job != null;
+        if (removed) {
+            disposeJobResources(job.getMetadata());
+            notifyJobStatsOnChangeListeners();
+            return 1;
+        }
+        return 0;
     }
 
     @Override
@@ -206,12 +220,12 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
 
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
-        List<UUID> jobsToRemove = jobQueue.values().stream()
+        List<Job> jobsToRemove = jobQueue.values().stream()
                 .filter(job -> job.hasState(state))
                 .filter(job -> job.getUpdatedAt().isBefore(updatedBefore))
-                .map(Job::getId)
                 .collect(toList());
-        jobQueue.keySet().removeAll(jobsToRemove);
+        jobQueue.keySet().removeAll(jobsToRemove.stream().map(Job::getId).collect(Collectors.toList()));
+        jobsToRemove.forEach(j -> disposeJobResources(j.getMetadata()));
         notifyJobStatsOnChangeListenersIf(!jobsToRemove.isEmpty());
         return jobsToRemove.size();
     }
@@ -238,10 +252,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return jobQueue.values().stream()
                 .anyMatch(job ->
                         asList(states).contains(job.getState())
-                                && job.getLastJobStateOfType(ScheduledState.class)
-                                .map(ScheduledState::getRecurringJobId)
-                                .map(actualRecurringJobId -> actualRecurringJobId.equals(recurringJobId))
-                                .orElse(false));
+                                && recurringJobId.equals(job.getRecurringJobId()));
     }
 
     @Override

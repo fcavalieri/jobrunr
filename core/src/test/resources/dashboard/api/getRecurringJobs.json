@@ -20,7 +20,9 @@
     "id": "recurring-job-1",
     "cronExpression": "0 0 * * *",
     "zoneId": "${json-unit.ignore}",
-    "nextRun": "${json-unit.ignore}"
+    "nextRun": "${json-unit.ignore}",
+    "enabled": true,
+    "deletableFromDashboard": true
   },
   {
     "@class": "${json-unit.ignore-element}",
@@ -43,6 +45,8 @@
     "id": "recurring-job-2",
     "cronExpression": "0 0 * * *",
     "zoneId": "${json-unit.ignore}",
-    "nextRun": "${json-unit.ignore}"
+    "nextRun": "${json-unit.ignore}",
+    "enabled": true,
+    "deletableFromDashboard": true
   }
 ]
