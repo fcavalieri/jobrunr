@@ -1,4 +1,8 @@
-image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.5
+image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v1.0.0
+
+variables:
+  DOCKER_HOST: "tcp://localhost:2375"
+  DOCKER_OPTIONS: "--tls=false --storage-driver overlay2 --data-root /var/lib/docker --registry-mirror http://192.168.178.219:5000 --registry-mirror http://192.168.178.220:5000"
 
 before_script:
   - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
@@ -19,6 +23,7 @@ build:
 core:
   stage: test
   script:
+    - /start-docker.sh $DOCKER_OPTIONS
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon core:test
@@ -30,6 +35,7 @@ core:
 other:
   stage: test
   script:
+    - /start-docker.sh $DOCKER_OPTIONS
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon test -x core:test
@@ -41,6 +47,7 @@ other:
 publish:
   stage: publish
   script:
+    - /start-docker.sh $DOCKER_OPTIONS
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon -info publish
