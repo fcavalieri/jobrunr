@@ -39,6 +39,7 @@ public class JacksonJsonMapper implements JsonMapper {
     }
 
     public JacksonJsonMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
+        this.rawObjectMapper = new ObjectMapper();
         this.objectMapper = initObjectMapper(objectMapper, moduleAutoDiscover);
     }
 
@@ -52,8 +53,6 @@ public class JacksonJsonMapper implements JsonMapper {
                 .activateDefaultTypingAsProperty(LaissezFaireSubTypeValidator.instance,
                         ObjectMapper.DefaultTyping.NON_CONCRETE_AND_ARRAYS,
                         "@class");
-
-        rawObjectMapper = new ObjectMapper();
     }
 
     @Override

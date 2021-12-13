@@ -36,11 +36,13 @@ public class GsonJsonMapper implements JsonMapper {
     }
 
     public GsonJsonMapper(GsonBuilder gsonBuilder) {
+        this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = initGson(gsonBuilder);
         fixGsonNotBeingExtensible(gson);
     }
 
     public GsonJsonMapper(Gson gson) {
+        this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = gson;
         fixGsonNotBeingExtensible(gson);
     }
@@ -55,9 +57,6 @@ public class GsonJsonMapper implements JsonMapper {
                 .registerTypeAdapter(Instant.class, new InstantAdapter().nullSafe())
                 .registerTypeAdapter(Duration.class, new DurationAdapter())
                 .registerTypeAdapter(JobParameter.class, new JobParameterDeserializer())
-                .create();
-        rawGson = new GsonBuilder()
-                .serializeNulls()
                 .create();
     }
 

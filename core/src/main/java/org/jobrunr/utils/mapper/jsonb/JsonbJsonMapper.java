@@ -21,6 +21,7 @@ public class JsonbJsonMapper implements JsonMapper {
     }
 
     public JsonbJsonMapper(JsonbConfig jsonbConfig) {
+        this.rawJsonb = JsonbBuilder.create(new JsonbConfig().withNullValues(true));
         this.jsonb = JsonbBuilder.create(initJsonbConfig(jsonbConfig));
     }
 
@@ -31,8 +32,6 @@ public class JsonbJsonMapper implements JsonMapper {
                 .withDeserializers(new DurationTypeDeserializer())
                 .withPropertyVisibilityStrategy(new FieldAccessStrategy())
                 .withAdapters(new JobAdapter(), new RecurringJobAdapter());
-        rawJsonb = JsonbBuilder.create(new JsonbConfig()
-                .withNullValues(true));
     }
 
     @Override
