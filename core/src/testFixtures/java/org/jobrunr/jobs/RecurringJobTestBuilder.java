@@ -17,6 +17,8 @@ public class RecurringJobTestBuilder {
     private JobDetails jobDetails;
     private CronExpression cronExpression;
     private ZoneId zoneId;
+    private boolean deletableFromDashboard = true;
+    private boolean enabled = true;
 
     private RecurringJobTestBuilder() {
 
@@ -80,9 +82,21 @@ public class RecurringJobTestBuilder {
         return this;
     }
 
+    public RecurringJobTestBuilder withDeletableFromDashboard(boolean deletableFromDashboard) {
+        this.deletableFromDashboard = deletableFromDashboard;
+        return this;
+    }
+
+    public RecurringJobTestBuilder withEnabled(boolean enabled) {
+        this.enabled = enabled;
+        return this;
+    }
+
     public RecurringJob build() {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
         recurringJob.setJobName(name);
+        recurringJob.setDeletableFromDashboard(deletableFromDashboard);
+        recurringJob.setEnabled(enabled);
         return recurringJob;
     }
 

@@ -3,11 +3,15 @@ package org.jobrunr.scheduling.cron;
 import java.time.DayOfWeek;
 import java.time.Month;
 
+import static org.jobrunr.scheduling.cron.CronExpression.CRON_DISABLED;
+
 @SuppressWarnings("SameReturnValue")
 public class Cron {
 
     private Cron() {
     }
+
+    public static String never() { return CRON_DISABLED; }
 
     public static String daily() {
         return "0 0 * * *";

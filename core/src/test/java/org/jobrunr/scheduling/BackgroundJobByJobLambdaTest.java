@@ -27,6 +27,7 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -130,6 +131,16 @@ public class BackgroundJobByJobLambdaTest {
     }
 
     @Test
+    void testEnqueueWithIdAndMetadata() {
+        UUID id = UUID.randomUUID();
+        ConcurrentHashMap<String, Object> metadata = new ConcurrentHashMap<>();
+        metadata.put("a", 1);
+        metadata.put("b", "two");
+        JobId jobId = BackgroundJob.enqueue(id, () -> testService.doWork(), metadata);
+        assertThat(storageProvider.getJobById(jobId).getMetadata()).isEqualTo(metadata);
+    }
+
+    @Test
     void testEnqueueWithInterfaceImplementationThrowsNiceException() {
         assertThatThrownBy(() -> BackgroundJob.enqueue(new JobImplementation()))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -209,6 +220,13 @@ public class BackgroundJobByJobLambdaTest {
     }
 
     @Test
+    void testFailedJobWithProblematicExceptionIsNotRescheduled() {
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatFailsWithProblematicException());
+        await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED));
+        assertThat(storageProvider.getJobById(jobId).getLastJobStateOfType(FailedState.class).get().mustNotRetry()).isTrue();
+    }
+
+    @Test
     void testScheduleWithId() {
         UUID id = UUID.randomUUID();
         JobId jobId1 = BackgroundJob.schedule(id, now(), () -> testService.doWork());
@@ -217,6 +235,16 @@ public class BackgroundJobByJobLambdaTest {
 
         assertThat(jobId1).isEqualTo(jobId2);
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId1)).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED));
+    }
+
+    @Test
+    void testScheduleWithIdAndMetadata() {
+        UUID id = UUID.randomUUID();
+        ConcurrentHashMap<String, Object> metadata = new ConcurrentHashMap<>();
+        metadata.put("a", 1);
+        metadata.put("b", "two");
+        JobId jobId = BackgroundJob.schedule(id, now(), () -> testService.doWork(), metadata);
+        assertThat(storageProvider.getJobById(jobId).getMetadata()).isEqualTo(metadata);
     }
 
     @Test

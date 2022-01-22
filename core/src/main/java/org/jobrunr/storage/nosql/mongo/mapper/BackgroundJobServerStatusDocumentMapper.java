@@ -17,6 +17,7 @@ public class BackgroundJobServerStatusDocumentMapper {
         document.put(FIELD_WORKER_POOL_SIZE, serverStatus.getWorkerPoolSize());
         document.put(FIELD_POLL_INTERVAL_IN_SECONDS, serverStatus.getPollIntervalInSeconds());
         document.put(FIELD_DELETE_SUCCEEDED_JOBS_AFTER, serverStatus.getDeleteSucceededJobsAfter().toString());
+        document.put(FIELD_DELETE_FAILED_JOBS_AFTER, serverStatus.getDeleteFailedJobsAfter().toString());
         document.put(FIELD_DELETE_DELETED_JOBS_AFTER, serverStatus.getPermanentlyDeleteDeletedJobsAfter().toString());
         document.put(FIELD_FIRST_HEARTBEAT, serverStatus.getFirstHeartbeat());
         document.put(FIELD_LAST_HEARTBEAT, serverStatus.getLastHeartbeat());
@@ -50,6 +51,7 @@ public class BackgroundJobServerStatusDocumentMapper {
                 document.getInteger(FIELD_WORKER_POOL_SIZE),
                 document.getInteger(FIELD_POLL_INTERVAL_IN_SECONDS),
                 Duration.parse(document.getString(FIELD_DELETE_SUCCEEDED_JOBS_AFTER)),
+                Duration.parse(document.getString(FIELD_DELETE_FAILED_JOBS_AFTER)),
                 Duration.parse(document.getString(FIELD_DELETE_DELETED_JOBS_AFTER)),
                 document.get(FIELD_FIRST_HEARTBEAT, Date.class).toInstant(),
                 document.get(FIELD_LAST_HEARTBEAT, Date.class).toInstant(),

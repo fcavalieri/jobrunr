@@ -27,6 +27,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
                 .with(FIELD_WORKER_POOL_SIZE, BackgroundJobServerStatus::getWorkerPoolSize)
                 .with(FIELD_POLL_INTERVAL_IN_SECONDS, BackgroundJobServerStatus::getPollIntervalInSeconds)
                 .with(FIELD_DELETE_SUCCEEDED_JOBS_AFTER, BackgroundJobServerStatus::getDeleteSucceededJobsAfter)
+                .with(FIELD_DELETE_FAILED_JOBS_AFTER, BackgroundJobServerStatus::getDeleteFailedJobsAfter)
                 .with(FIELD_PERMANENTLY_DELETE_JOBS_AFTER, BackgroundJobServerStatus::getPermanentlyDeleteDeletedJobsAfter)
                 .with(FIELD_FIRST_HEARTBEAT, BackgroundJobServerStatus::getFirstHeartbeat)
                 .with(FIELD_LAST_HEARTBEAT, BackgroundJobServerStatus::getLastHeartbeat)
@@ -45,7 +46,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
                 .with(FIELD_ID, serverStatus.getId())
                 .delete("from jobrunr_backgroundjobservers where id = :id");
         this
-                .insert(serverStatus, "into jobrunr_backgroundjobservers values (:id, :workerPoolSize, :pollIntervalInSeconds, :firstHeartbeat, :lastHeartbeat, :running, :systemTotalMemory, :systemFreeMemory, :systemCpuLoad, :processMaxMemory, :processFreeMemory, :processAllocatedMemory, :processCpuLoad, :deleteSucceededJobsAfter, :permanentlyDeleteJobsAfter)");
+                .insert(serverStatus, "into jobrunr_backgroundjobservers values (:id, :workerPoolSize, :pollIntervalInSeconds, :firstHeartbeat, :lastHeartbeat, :running, :systemTotalMemory, :systemFreeMemory, :systemCpuLoad, :processMaxMemory, :processFreeMemory, :processAllocatedMemory, :processCpuLoad, :deleteSucceededJobsAfter, :deleteFailedJobsAfter, :permanentlyDeleteJobsAfter)");
     }
 
     public boolean signalServerAlive(BackgroundJobServerStatus serverStatus) throws SQLException {
@@ -104,6 +105,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
                 resultSet.asInt(FIELD_WORKER_POOL_SIZE),
                 resultSet.asInt(FIELD_POLL_INTERVAL_IN_SECONDS),
                 resultSet.asDuration(FIELD_DELETE_SUCCEEDED_JOBS_AFTER),
+                resultSet.asDuration(FIELD_DELETE_FAILED_JOBS_AFTER),
                 resultSet.asDuration(FIELD_PERMANENTLY_DELETE_JOBS_AFTER),
                 resultSet.asInstant(FIELD_FIRST_HEARTBEAT),
                 resultSet.asInstant(FIELD_LAST_HEARTBEAT),

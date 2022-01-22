@@ -14,6 +14,8 @@ public class RecurringJob extends AbstractJob {
     private String id;
     private String cronExpression;
     private String zoneId;
+    private boolean enabled = true;
+    private boolean deletableFromDashboard = true;
 
     private RecurringJob() {
         // used for deserialization
@@ -31,6 +33,22 @@ public class RecurringJob extends AbstractJob {
         validateCronExpression();
     }
 
+    public void setDeletableFromDashboard(boolean deletableFromDashboard) {
+        this.deletableFromDashboard = deletableFromDashboard;
+    }
+
+    public boolean isDeletableFromDashboard() {
+        return deletableFromDashboard;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     @Override
     public String getId() {
         return id;
@@ -41,15 +59,23 @@ public class RecurringJob extends AbstractJob {
     }
 
     public Job toScheduledJob() {
-        Instant nextRun = getNextRun();
-        final Job job = new Job(getJobDetails(), new ScheduledState(nextRun, this));
+        return toScheduledJob(getNextRun());
+    }
+
+    public Job toImmediatelyScheduledJob() {
+        return toScheduledJob(Instant.now());
+    }
+    private Job toScheduledJob(Instant scheduledAt) {
+        final Job job = new Job(getJobDetails(), new ScheduledState(scheduledAt, this));
         job.setJobName(getJobName());
+        job.setRecurringJobId(this.getId());
         return job;
     }
 
     public Job toEnqueuedJob() {
         final Job job = new Job(getJobDetails(), new EnqueuedState());
         job.setJobName(getJobName());
+        job.setRecurringJobId(this.getId());
         return job;
     }
 
@@ -58,7 +84,10 @@ public class RecurringJob extends AbstractJob {
     }
 
     public Instant getNextRun() {
-        return CronExpression.create(cronExpression).next(ZoneId.of(zoneId));
+        if (isEnabled())
+            return CronExpression.create(cronExpression).next(ZoneId.of(zoneId));
+        else
+            return null;
     }
 
     private String validateAndSetId(String input) {
@@ -78,13 +107,16 @@ public class RecurringJob extends AbstractJob {
                 ", identity='" + System.identityHashCode(this) + '\'' +
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
+                ", deletableFromDashboard='" + isDeletableFromDashboard() + '\'' +
+                ", enabled='" + isEnabled() + '\'' +
                 '}';
     }
 
     private void validateCronExpression() {
         Instant base = Instant.EPOCH;
         Instant fiveSeconds = base.plusSeconds(5);
-        if (CronExpression.create(cronExpression).next(base, ZoneOffset.UTC).isBefore(fiveSeconds)) {
+        Instant next = CronExpression.create(cronExpression).next(base, ZoneOffset.UTC);
+        if (next != null && next.isBefore(fiveSeconds)) {
             throw new IllegalArgumentException("The smallest interval for recurring jobs is 5 seconds. Please also make sure that your 'pollIntervalInSeconds' configuration matches the smallest recurring job interval.");
         }
     }

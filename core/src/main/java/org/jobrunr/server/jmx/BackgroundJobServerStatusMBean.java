@@ -17,6 +17,8 @@ public interface BackgroundJobServerStatusMBean {
 
     Duration getDeleteSucceededJobsAfter();
 
+    Duration getDeleteFailedJobsAfter();
+
     Duration getPermanentlyDeleteDeletedJobsAfter();
 
     boolean isRunning();
