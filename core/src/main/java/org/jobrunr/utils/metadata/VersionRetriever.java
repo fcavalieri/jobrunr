@@ -14,6 +14,15 @@ public class VersionRetriever {
         return getManifest(clazz).getMainAttributes().getValue("Bundle-Version");
     }
 
+    public static String tryGetVersion(Class<?> clazz) {
+        try {
+            return getVersion(clazz);
+        } catch (Throwable t) {
+            return null;
+        }
+
+    }
+
     private static Manifest getManifest(Class<?> clazz) {
         String resource = "/" + clazz.getName().replace(".", "/") + ".class";
         String fullPath = clazz.getResource(resource).toString();

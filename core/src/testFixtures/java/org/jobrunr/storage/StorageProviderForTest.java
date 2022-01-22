@@ -165,6 +165,11 @@ public class StorageProviderForTest implements StorageProvider {
     }
 
     @Override
+    public RecurringJob getRecurringJobById(String id) {
+        return storageProvider.getRecurringJobById(id);
+    }
+
+    @Override
     public RecurringJob saveRecurringJob(RecurringJob recurringJob) {
         return storageProvider.saveRecurringJob(recurringJob);
     }
