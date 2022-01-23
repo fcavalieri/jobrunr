@@ -3,16 +3,11 @@ package org.jobrunr.storage.nosql.marklogic;
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.DatabaseClientFactory;
 import com.marklogic.client.MarkLogicIOException;
-import com.mongodb.MongoException;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import org.bson.Document;
-import org.bson.conversions.Bson;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.StorageProviderTest;
 import org.jobrunr.storage.StorageProviderUtils;
-import org.jobrunr.storage.nosql.mongo.AbstractMongoDBStorageProviderTest;
+import org.jobrunr.testcontainers.MarklogicWaitStrategy;
 import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -25,14 +20,13 @@ import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.internal.util.reflection.Whitebox.setInternalState;
 
 @Testcontainers
 class MarklogicStorageProviderTest extends StorageProviderTest {
     @Container
     private static final GenericContainer marklogicContainer = new GenericContainer(MARKLOGIC_IMAGE)
-            .withExposedPorts(8000, 8001, 8002)
+            .withExposedPorts(8000, 8001, 8002, 9000)
             .withEnv("MARKLOGIC_INIT", "true")
             .withEnv("MARKLOGIC_ADMIN_USERNAME", "admin")
             .withEnv("MARKLOGIC_ADMIN_PASSWORD", "admin")
