@@ -22,5 +22,5 @@ mkdir -p "$RELEASE_DIR"
   . "$HOME/.sdkman/bin/sdkman-init.sh"
   sdk use java 11.0.8-open
   set -x
-  ./gradlew publish
+  ./gradlew clean publish
 )
