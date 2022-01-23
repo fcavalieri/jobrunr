@@ -4,7 +4,7 @@ set -u
 
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 IMAGE_NAME="registry.gitlab.com/fcavalieri/jobrunr/ci"
-IMAGE_VERSION="v0.0.5"
+IMAGE_VERSION="v0.0.6"
 TAG="$IMAGE_NAME:$IMAGE_VERSION"
 
 (
