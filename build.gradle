@@ -62,8 +62,8 @@ configure(subprojects.findAll {it.name != 'platform'}) {
 
     test {
         finalizedBy jacocoTestReport
-        reports.junitXml.destination = file("/tmp/reports/$project.name")
-        reports.html.destination = file("/tmp/reports/$project.name")
+        reports.junitXml.destination = file("build/reports/tests")
+        reports.html.destination = file("build/reports/tests")
 
         useJUnitPlatform()
         testLogging {

@@ -32,8 +32,9 @@ core:
     - ./gradlew --no-daemon core:test
   artifacts:
     paths:
-      - /tmp/reports/core/index.html
-      - /tmp/reports
+      - ./**/build/reports/tests
+    reports:
+      junit: ./**/TEST-*.xml
 
 other:
   stage: test
@@ -44,8 +45,9 @@ other:
     - ./gradlew --no-daemon test -x core:test
   artifacts:
     paths:
-      - /tmp/reports/core/index.html
-      - /tmp/reports
+      - ./**/build/reports/tests
+    reports:
+      junit: ./**/TEST-*.xml
 
 publish:
   stage: publish
