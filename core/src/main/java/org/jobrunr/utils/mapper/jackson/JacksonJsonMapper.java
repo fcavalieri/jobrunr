@@ -3,6 +3,7 @@ package org.jobrunr.utils.mapper.jackson;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
@@ -10,13 +11,15 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import org.jobrunr.JobRunrException;
 import org.jobrunr.utils.mapper.JobParameterJsonMapperException;
 import org.jobrunr.utils.mapper.JsonMapper;
+import org.jobrunr.utils.mapper.jackson.modules.JobRunrModule;
 import org.jobrunr.utils.mapper.jackson.modules.JobRunrTimeModule;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
-
-import static org.jobrunr.utils.reflection.ReflectionUtils.newInstanceOrElse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 public class JacksonJsonMapper implements JsonMapper {
 
@@ -24,17 +27,32 @@ public class JacksonJsonMapper implements JsonMapper {
     private final ObjectMapper rawObjectMapper;
 
     public JacksonJsonMapper() {
-        objectMapper = new ObjectMapper()
+        this(true);
+    }
+
+    public JacksonJsonMapper(boolean moduleAutoDiscover) {
+        this(new ObjectMapper(), moduleAutoDiscover);
+    }
+
+    public JacksonJsonMapper(ObjectMapper objectMapper) {
+        this(objectMapper, true);
+    }
+
+    public JacksonJsonMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
+        this.objectMapper = initObjectMapper(objectMapper, moduleAutoDiscover);
+        this.rawObjectMapper = new ObjectMapper();
+    }
+
+    protected ObjectMapper initObjectMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
+        return objectMapper
                 .setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
                 .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
                 .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
-                .registerModule(getModule())
+                .registerModules(findModules(moduleAutoDiscover))
                 .setDateFormat(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"))
                 .activateDefaultTypingAsProperty(LaissezFaireSubTypeValidator.instance,
                         ObjectMapper.DefaultTyping.NON_CONCRETE_AND_ARRAYS,
                         "@class");
-
-        rawObjectMapper = new ObjectMapper();
     }
 
     @Override
@@ -86,7 +104,17 @@ public class JacksonJsonMapper implements JsonMapper {
         }
     }
 
-    protected com.fasterxml.jackson.databind.Module getModule() {
-        return newInstanceOrElse("com.fasterxml.jackson.datatype.jsr310.JavaTimeModule", new JobRunrTimeModule());
+    private static List<Module> findModules(boolean moduleAutoDiscover) {
+        List<Module> modules = moduleAutoDiscover ? ObjectMapper.findModules() : new ArrayList<>();
+        if (modules.stream().noneMatch(isJSR310JavaTimeModule)) {
+            modules.add(new JobRunrTimeModule());
+        }
+        if (modules.stream().noneMatch(isJobRunrModule)) {
+            modules.add(new JobRunrModule());
+        }
+        return modules;
     }
+
+    private static final Predicate<Module> isJSR310JavaTimeModule = m -> "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule".equals(m.getTypeId());
+    private static final Predicate<Module> isJobRunrModule = m -> "org.jobrunr.utils.mapper.jackson.modules.JobRunrModule".equals(m.getTypeId());
 }

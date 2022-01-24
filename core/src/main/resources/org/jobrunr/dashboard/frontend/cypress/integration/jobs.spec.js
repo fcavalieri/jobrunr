@@ -26,7 +26,7 @@ context('Actions', () => {
     const jobNameTitle = () => cy.get('#job-name-title');
 
     const jobHistoryPanel = () => cy.get('#job-history-panel');
-    const jobHistoryPanelItems = () => jobHistoryPanel().find('div.MuiExpansionPanel-root');
+    const jobHistoryPanelItems = () => jobHistoryPanel().find('div.MuiAccordion-root');
     const jobHistorySortAscBtn = () => cy.get('#jobhistory-sort-asc-btn');
     const jobHistorySortDescBtn = () => cy.get('#jobhistory-sort-desc-btn');
 

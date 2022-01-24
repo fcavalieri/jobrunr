@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#set -x
 set -e
 set -u
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -9,9 +9,12 @@ mkdir -p "$RELEASE_DIR"
 
 (
   cd "$SCRIPT_DIR/core/src/main/resources/org/jobrunr/dashboard/frontend"
+  rm -rf node_modules
   . ~/.nvm/nvm.sh
   nvm use 16
   npm install
+  npm install browserslist@latest
+  npx browserslist@latest --update-db
   npm run build
 )
 
@@ -22,5 +25,5 @@ mkdir -p "$RELEASE_DIR"
   . "$HOME/.sdkman/bin/sdkman-init.sh"
   sdk use java 11.0.8-open
   set -x
-  ./gradlew publish
+  ./gradlew clean publish
 )

@@ -1,4 +1,11 @@
-image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.5
+image: $CI_REGISTRY/fcavalieri/jobrunr/ci:v0.0.6
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dhttp.proxyHost=192.168.178.221 -Dhttp.proxyPort=3128 -Dhttps.proxyHost=192.168.178.221 -Dhttps.proxyPort=3128 -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.keyStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.keyStorePassword=changeit -Dorg.gradle.jvmargs=-Xmx4192m -Dorg.gradle.vfs.watch=false"
+  JAVA_OPTS: "-Xmx4192m"
+  DOCKER_HOST: "tcp://localhost:2375"
+  DOCKER_OPTIONS: "--tls=false --storage-driver overlay2 --data-root /var/lib/docker --registry-mirror http://192.168.178.219:5000 --registry-mirror http://192.168.178.220:5000"
+  GIT_SUBMODULE_STRATEGY: none
 
 before_script:
   - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
@@ -19,24 +26,28 @@ build:
 core:
   stage: test
   script:
+    - /start-docker.sh $DOCKER_OPTIONS
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon core:test
   artifacts:
     paths:
-      - /tmp/reports/core/index.html
-      - /tmp/reports
+      - ./**/build/reports/tests
+    reports:
+      junit: ./**/TEST-*.xml
 
 other:
   stage: test
   script:
+    - /start-docker.sh $DOCKER_OPTIONS
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm install --cache $CI_PROJECT_DIR/.npm --prefer-offline)
     - (cd core/src/main/resources/org/jobrunr/dashboard/frontend && npm run build)
     - ./gradlew --no-daemon test -x core:test
   artifacts:
     paths:
-      - /tmp/reports/core/index.html
-      - /tmp/reports
+      - ./**/build/reports/tests
+    reports:
+      junit: ./**/TEST-*.xml
 
 publish:
   stage: publish

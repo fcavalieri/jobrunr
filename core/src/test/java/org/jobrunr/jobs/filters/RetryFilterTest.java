@@ -34,7 +34,7 @@ class RetryFilterTest {
     }
 
     @Test
-    void enqueuesJobAgainIfItIsFailed() {
+    void retryFilterSchedulesJobAgainIfItIsFailed() {
         final Job job = aFailedJob().build();
         int beforeVersion = job.getJobStates().size();
 
@@ -46,7 +46,39 @@ class RetryFilterTest {
     }
 
     @Test
-    void doesNotEnqueuesJobAgainIfItExceptionIsProblematic() {
+    void retryFilterSchedulesJobAgainIfItIsFailedButMaxNumberOfRetriesIsNotReached() {
+        final Job job = aJob()
+                .withJobDetails((IocJobLambda<TestService>) (ts -> ts.doWorkThatFails()))
+                .withState(new FailedState("a message", new RuntimeException("boem")))
+                .build();
+        int beforeVersion = job.getJobStates().size();
+
+        retryFilter.onStateElection(job, job.getJobState());
+        int afterVersion = job.getJobStates().size();
+
+        assertThat(afterVersion).isEqualTo(beforeVersion + 1);
+        assertThat(job.getState()).isEqualTo(SCHEDULED);
+    }
+
+
+    @Test
+    void retryFilterDoesNotScheduleJobAgainIfMaxNumberOfRetriesIsReached() {
+        final Job job = aJob()
+                .withJobDetails((IocJobLambda<TestService>) (ts -> ts.doWorkThatFails()))
+                .withState(new FailedState("a message", new RuntimeException("boem")))
+                .withState(new FailedState("firstRetry", new RuntimeException("boem")))
+                .build();
+        int beforeVersion = job.getJobStates().size();
+
+        retryFilter.onStateElection(job, job.getJobState());
+        int afterVersion = job.getJobStates().size();
+
+        assertThat(afterVersion).isEqualTo(beforeVersion);
+        assertThat(job.getState()).isEqualTo(FAILED);
+    }
+
+    @Test
+    void retryFilterDoesNotScheduleJobAgainIfTheExceptionIsProblematic() {
         final Job job = aFailedJob().withState(new FailedState("a message", problematicConfigurationException("big problem"))).build();
         int beforeVersion = job.getJobStates().size();
 
@@ -58,7 +90,7 @@ class RetryFilterTest {
     }
 
     @Test
-    void doesNotEnqueueJobAgainIfItHasFailed10Times() {
+    void retryFilterDoesNotScheduleJobAgainIfItHasFailed10Times() {
         final Job job = aFailedJobWithRetries().build();
         int beforeVersion = job.getJobStates().size();
 
@@ -68,22 +100,4 @@ class RetryFilterTest {
         assertThat(afterVersion).isEqualTo(beforeVersion);
         assertThat(job.getState()).isEqualTo(FAILED);
     }
-
-    @Test
-    void retryFilterTakesIntoAccountNbrOfRetriesOfAnnotation() {
-        final Job job = aJob()
-                .withJobDetails((IocJobLambda<TestService>) (ts -> ts.doWorkThatFails()))
-                .withState(new FailedState("a message", new RuntimeException("boem")))
-                .withState(new FailedState("firstRetry", new RuntimeException("boem")))
-                .withState(new FailedState("secondRetry", new RuntimeException("boem")))
-                .build();
-        int beforeVersion = job.getJobStates().size();
-
-        retryFilter.onStateElection(job, job.getJobState());
-        int afterVersion = job.getJobStates().size();
-
-        assertThat(afterVersion).isEqualTo(beforeVersion);
-        assertThat(job.getState()).isEqualTo(FAILED);
-    }
-
 }

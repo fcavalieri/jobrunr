@@ -2,7 +2,7 @@ plugins {
   id 'java-library'
   id 'maven-publish'
   id 'signing'
-  id 'org.jetbrains.kotlin.jvm' version '1.5.30'
+  id 'org.jetbrains.kotlin.jvm' version '1.5.31'
 }
 
 dependencies {
@@ -13,6 +13,7 @@ dependencies {
   testImplementation testFixtures(project(":core"))
 
   testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+  testImplementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
   testImplementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 }
 

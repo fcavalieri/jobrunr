@@ -25,6 +25,7 @@ import java.util.List;
 
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
+import static org.jobrunr.utils.mapper.JsonMapperValidator.validateJsonMapper;
 import static org.jobrunr.utils.reflection.ReflectionUtils.classExists;
 
 /**
@@ -35,7 +36,7 @@ public class JobRunrConfiguration {
     public enum JsonMapperKind {GSON, JACKSON, JSONB}
 
     JobActivator jobActivator;
-    final JsonMapper jsonMapper;
+    JsonMapper jsonMapper;
     final JobMapper jobMapper;
     final List<JobFilter> jobFilters;
     JobDetailsGenerator jobDetailsGenerator;
@@ -57,6 +58,23 @@ public class JobRunrConfiguration {
         this.jobMapper = new JobMapper(jsonMapper);
         this.jobDetailsGenerator = new CachingJobDetailsGenerator();
         this.jobFilters = new ArrayList<>();
+    }
+
+    /**
+     * The {@link JsonMapper} to transform jobs to json in the database
+     *
+     * @param jsonMapper the {@link JsonMapper} to use
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrConfiguration useJsonMapper(JsonMapper jsonMapper) {
+        if (this.storageProvider != null) {
+            throw new IllegalStateException("Please configure the JobActivator before the StorageProvider.");
+        }
+        if (this.dashboardWebServer != null) {
+            throw new IllegalStateException("Please configure the JobActivator before the DashboardWebServer.");
+        }
+        this.jsonMapper = validateJsonMapper(jsonMapper);
+        return this;
     }
 
     /**
