@@ -30,9 +30,6 @@ dependencies {
 }
 
 test {
-    reports.junitXml.destination = file("/tmp/reports/$project.name")
-    reports.html.destination = file("/tmp/reports/$project.name")
-
     useJUnitPlatform()
     testLogging {
         events "passed", "skipped", "failed"

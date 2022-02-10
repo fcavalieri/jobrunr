@@ -21,6 +21,8 @@ import static java.time.Instant.now;
  */
 public class CronExpression implements Comparable<CronExpression> {
 
+    public static String CRON_DISABLED = "-";
+
     private enum DaysAndDaysOfWeekRelation {
         INTERSECT, UNION
     }
@@ -99,6 +101,11 @@ public class CronExpression implements Comparable<CronExpression> {
         if (expression.isEmpty()) {
             throw new InvalidCronExpressionException("empty expression");
         }
+        if (CRON_DISABLED.equals(expression)) {
+            CronExpression ret = new CronExpression();
+            ret.expression = CRON_DISABLED;
+            return ret;
+        }
         String[] fields = expression.trim().toLowerCase().split("\\s+");
         int count = fields.length;
         if (count > 6 || count < 5) {
@@ -173,6 +180,8 @@ public class CronExpression implements Comparable<CronExpression> {
      * @return Instant of the next occurrence.
      */
     public Instant next(Instant baseInstant, ZoneId zoneId) {
+        if (CRON_DISABLED.equals(expression))
+            return null;
         LocalDateTime baseDate = LocalDateTime.ofInstant(baseInstant, zoneId);
         int baseSecond = baseDate.getSecond();
         int baseMinute = baseDate.getMinute();

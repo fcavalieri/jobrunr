@@ -16,6 +16,7 @@
     "cacheable": true
   },
   "id": "${json-unit.ignore}",
+  "recurringJobId": "${json-unit.ignore}",
   "jobHistory": [
     {
       "@class": "org.jobrunr.jobs.states.EnqueuedState",

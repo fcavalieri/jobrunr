@@ -17,7 +17,7 @@ import Succeeded from "./states/succeeded-state";
 import Failed from "./states/failed-state";
 import Deleted from "./states/deleted-state";
 import JobCode from "./job-code";
-import {Snackbar, Tooltip, withStyles} from "@material-ui/core";
+import {Snackbar} from "@material-ui/core";
 import {SortAscending, SortDescending} from "mdi-material-ui";
 import IconButton from "@material-ui/core/IconButton";
 import NavigateNextIcon from "@material-ui/icons/NavigateNext";
@@ -26,6 +26,7 @@ import Box from "@material-ui/core/Box";
 import LoadingIndicator from "../LoadingIndicator";
 import {jobStateToHumanReadableName} from "../utils/job-utils";
 import SucceededNotification from "./notifications/succeeded-notification";
+import FailedNotification from "./notifications/failed-notification";
 import DeletedNotification from "./notifications/deleted-notification";
 import VersionFooter from "../utils/version-footer";
 
@@ -155,16 +156,6 @@ const JobView = (props) => {
         setOrder(!order);
     };
 
-    const HtmlTooltip = withStyles((theme) => ({
-        tooltip: {
-            backgroundColor: '#f5f5f9',
-            color: 'rgba(0, 0, 0, 0.87)',
-            maxWidth: 320,
-            fontSize: theme.typography.pxToRem(13),
-            border: '1px solid #dadde9',
-        },
-    }))(Tooltip);
-
     return (
         <main className={classes.content}>
             {isLoading
@@ -193,20 +184,6 @@ const JobView = (props) => {
                                         </Grid>
                                         <Grid item xs={4} container className={classes.jobDetails}
                                               justify="flex-end">
-                                            {job.jobDetails.cacheable === false &&
-                                            <HtmlTooltip
-                                                title={
-                                                    <React.Fragment>
-                                                        <Typography color="inherit">Job details not cacheable!</Typography>
-                                                        The analysis for this job cannot be cached as the provided lambda is too complex.<br /><br />
-                                                        This means that <b>enqueueing jobs take more time</b> than if they would be cached.<br /><br />
-                                                        More info can be found on the best practices page of JobRunr.
-                                                    </React.Fragment>
-                                                }
-                                            >
-                                                <Alert severity="error" style={{marginRight: '1em'}}>Job details not cacheable!</Alert>
-                                            </HtmlTooltip>
-                                            }
                                             <ButtonGroup>
                                                 {stateBreadcrumb.state !== 'ENQUEUED' &&
                                                 <Button variant="outlined" color="primary" onClick={requeueJob}>
@@ -231,9 +208,13 @@ const JobView = (props) => {
                         </Box>
 
                         <Grid container spacing={3}>
-                            <JobCode job={job}/>
+                            { (process.env.REACT_APP_DISPLAY_JOB_CODE === 'true')
+                              ? <JobCode job={job}/>
+                              : <Grid item xs={12}/>
+                            }
 
                             {stateBreadcrumb.state === 'SUCCEEDED' && <SucceededNotification job={job}/>}
+                            {stateBreadcrumb.state === 'FAILED' && <FailedNotification job={job}/>}
                             {stateBreadcrumb.state === 'DELETED' && <DeletedNotification job={job}/>}
 
                             <Grid item xs={12}>

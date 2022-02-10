@@ -28,7 +28,7 @@ public class CypressTestContainer extends GenericContainer<CypressTestContainer>
                     .withStartupTimeout(Duration.ofMinutes(5));
             //.waitingFor(Wait.forLogMessage(".*(Run Finished).*", 1));
 
-            if (Files.exists(Paths.get("/drone"))) {
+            if (Files.exists(Paths.get("/drone")) || System.getenv().containsKey("GITLAB_CI")) {
                 this
                         .withCopyFileToContainer(MountableFile.forClasspathResource("/org/jobrunr/dashboard/frontend"), "/e2e");
             } else {

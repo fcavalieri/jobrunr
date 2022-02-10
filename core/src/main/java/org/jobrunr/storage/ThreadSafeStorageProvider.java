@@ -39,6 +39,11 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
+    public JobMapper getJobMapper() {
+        return storageProvider.getJobMapper();
+    }
+
+    @Override
     public void setJobMapper(JobMapper jobMapper) {
         storageProvider.setJobMapper(jobMapper);
     }
@@ -155,6 +160,11 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     @Override
     public boolean recurringJobExists(String recurringJobId, StateName... states) {
         return storageProvider.recurringJobExists(recurringJobId, states);
+    }
+
+    @Override
+    public RecurringJob getRecurringJobById(String id) {
+        return storageProvider.getRecurringJobById(id);
     }
 
     @Override

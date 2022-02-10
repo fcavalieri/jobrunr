@@ -42,7 +42,7 @@ public class JobTable extends Sql<Job> {
                 .with(FIELD_JOB_AS_JSON, jobMapper::serializeJob)
                 .with(FIELD_JOB_SIGNATURE, JobUtils::getJobSignature)
                 .with(FIELD_SCHEDULED_AT, job -> job.hasState(StateName.SCHEDULED) ? job.<ScheduledState>getJobState().getScheduledAt() : null)
-                .with(FIELD_RECURRING_JOB_ID, job -> job.hasState(StateName.SCHEDULED) ? job.<ScheduledState>getJobState().getRecurringJobId() : null);
+                .with(FIELD_RECURRING_JOB_ID, Job::getRecurringJobId);
     }
 
     public JobTable withId(UUID id) {
@@ -158,6 +158,12 @@ public class JobTable extends Sql<Job> {
                 .delete("from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore");
     }
 
+    public List<Job> getJobsByStateAndUpdatedBefore(StateName state, Instant updatedBefore) {
+        return withState(state)
+                .withUpdatedBefore(updatedBefore)
+                .selectJobs("jobAsJson from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore")
+                .collect(toList());
+    }
     @Override
     public JobTable withOrderLimitAndOffset(String order, int limit, long offset) {
         super.withOrderLimitAndOffset(order, limit, offset);

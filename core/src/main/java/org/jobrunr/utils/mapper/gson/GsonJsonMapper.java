@@ -29,17 +29,20 @@ import static java.util.Collections.unmodifiableList;
 public class GsonJsonMapper implements JsonMapper {
 
     private final Gson gson;
+    private final Gson rawGson;
 
     public GsonJsonMapper() {
         this(new GsonBuilder());
     }
 
     public GsonJsonMapper(GsonBuilder gsonBuilder) {
+        this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = initGson(gsonBuilder);
         fixGsonNotBeingExtensible(gson);
     }
 
     public GsonJsonMapper(Gson gson) {
+        this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = gson;
         fixGsonNotBeingExtensible(gson);
     }
@@ -78,6 +81,16 @@ public class GsonJsonMapper implements JsonMapper {
     @Override
     public <T> T deserialize(String serializedObjectAsString, Class<T> clazz) {
         return gson.fromJson(serializedObjectAsString, clazz);
+    }
+
+    @Override
+    public String serializeRaw(Object object) {
+        return rawGson.toJson(object);
+    }
+
+    @Override
+    public <T> T deserializeRaw(String serializedObjectAsString, Class<T> clazz) {
+        return rawGson.fromJson(serializedObjectAsString, clazz);
     }
 
     // I'm really sorry for this

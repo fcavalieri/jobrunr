@@ -5,16 +5,9 @@ plugins {
     id 'signing'
 }
 
-nexusPublishing {
-    packageGroup = "org.jobrunr"
-    repositories {
-        sonatype()
-    }
-}
-
 subprojects {
     group = 'org.jobrunr'
-    version = System.getenv('DRONE_TAG') ?: "v1.0.0-SNAPSHOT"
+    version = "v4.0.6-plus-2022-01-22"
 }
 
 def isNonStable = { String version ->
@@ -50,6 +43,7 @@ configure(subprojects.findAll {it.name != 'platform'}) {
     repositories {
         mavenCentral()
         mavenLocal()
+        jcenter()
     }
 
     dependencies {
@@ -68,8 +62,8 @@ configure(subprojects.findAll {it.name != 'platform'}) {
 
     test {
         finalizedBy jacocoTestReport
-        reports.junitXml.destination = file("/tmp/reports/$project.name")
-        reports.html.destination = file("/tmp/reports/$project.name")
+        reports.junitXml.destination = file("build/reports/tests")
+        reports.html.destination = file("build/reports/tests")
 
         useJUnitPlatform()
         testLogging {
