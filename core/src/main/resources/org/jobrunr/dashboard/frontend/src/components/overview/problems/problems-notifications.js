@@ -5,7 +5,7 @@ import JobNotFoundProblem from "./job-not-found-problem";
 import SevereJobRunrExceptionProblem from "./severe-jobrunr-exception-problem";
 import Grid from '@material-ui/core/Grid';
 import CpuAllocationIrregularityProblem from "./cpu-allocation-irregularity-problem";
-import NewJobRunrVersionAvailable from "./new-jobrunr-version-available";
+//import NewJobRunrVersionAvailable from "./new-jobrunr-version-available";
 import JobRunrApiNotification from "./jobrunr-api-notification";
 
 const useStyles = makeStyles(theme => ({
@@ -62,8 +62,6 @@ const Problems = () => {
                         case 'cpu-allocation-irregularity':
                             return <Grid item xs={12} key={index}><CpuAllocationIrregularityProblem problem={problem}
                                                                                                     refresh={refresh}/></Grid>
-                        case 'new-jobrunr-version':
-                            return <Grid item xs={12} key={index}><NewJobRunrVersionAvailable problem={problem} /></Grid>
                         default:
                             return <Grid item xs={12} key={index}>Unknown error</Grid>
                     }

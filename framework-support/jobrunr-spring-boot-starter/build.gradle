@@ -3,7 +3,6 @@ import java.text.SimpleDateFormat
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'signing'
 }
 
 dependencies {
@@ -27,6 +26,7 @@ dependencies {
     compileOnly 'io.lettuce:lettuce-core'
     compileOnly 'org.mongodb:mongodb-driver-sync'
     compileOnly 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    compileOnly 'com.marklogic:marklogic-client-api'
 
     testImplementation testFixtures(project(":core"))
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -37,6 +37,7 @@ dependencies {
     testImplementation 'org.mongodb:mongodb-driver-sync'
     testImplementation 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
     testImplementation 'io.micrometer:micrometer-core'
+    testImplementation 'com.marklogic:marklogic-client-api'
 }
 
 java {
@@ -111,12 +112,16 @@ publishing {
             }
         }
     }
-}
-
-signing {
-    String base64Key = System.getenv('SIGNING_KEY')
-    if (base64Key) {
-        useInMemoryPgpKeys(new String(Base64.decoder.decode(base64Key)), System.getenv('SIGNING_PASSWORD'))
-        sign publishing.publications.mavenJava
+    repositories {
+        maven {
+            url "https://gitlab.com/api/v4/projects/26366632/packages/maven"
+            credentials(HttpHeaderCredentials) {
+                name = System.getenv("PRIVATE_TOKEN") != null ? "Private-Token" : "Job-Token"
+                value = System.getenv("PRIVATE_TOKEN") != null ? System.getenv("PRIVATE_TOKEN") : System.getenv("CI_JOB_TOKEN")
+            }
+            authentication {
+                header(HttpHeaderAuthentication)
+            }
+        }
     }
 }

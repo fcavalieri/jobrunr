@@ -38,12 +38,13 @@ const SevereJobRunrExceptionProblem = (props) => {
     }
 
     const copyToClipboard = () => {
+        console.log(props.problem.githubIssueBody);
         if (navigator.clipboard) {
             navigator.clipboard.writeText(props.problem.githubIssueBody)
                 .then(
                     () => setCopyStatus({
                         severity: 'success',
-                        message: 'Successfully copied Github issue data to the clipboard'
+                        message: 'Successfully copied issue data to the clipboard'
                     }),
                     showDialogAsContentCouldNotBeCopied
                 );
@@ -59,22 +60,11 @@ const SevereJobRunrExceptionProblem = (props) => {
             </Button>
         }>
             <AlertTitle><h4 className={classes.alertTitle}>Fatal</h4></AlertTitle>
-            {props.problem.githubIssueBodyLength < 2000
-                ? <>JobRunr encountered an exception that should not happen. To resolve this issue, can you please
-                    create a <a
-                        href={`https://github.com/jobrunr/jobrunr/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=${encodeURIComponent(props.problem.githubIssueBody)}&labels=bug`}
-                        target="_blank" rel="noopener noreferrer">Github issue</a>?
-                    To make life easy, all necessary information will already be prefilled in the Github issue. <br/>
-                    <strong>You can still cancel the creation of the issue in Github if you think it contains sensitive
-                        information.</strong>.<br/></>
-                : <>JobRunr encountered an exception that should not happen. To resolve this issue, can you please
-                    create a <a
-                        href={`https://github.com/jobrunr/jobrunr/issues/new?title=${encodeURIComponent(props.problem.githubIssueTitle)}&body=%3C%21--%20Please%20paste%20the%20issue%20content%20generated%20JobRunr%20below.%20--%3E&labels=bug`}
-                        target="_blank" rel="noopener noreferrer">Github issue</a>?
+            {
+                <>JobRunr encountered an exception that should not happen. To resolve this issue, can you please
+                    report the issue details to <a href="mailto:f@reportix.com" target="_blank" rel="noopener noreferrer">f@reportix.com</a>?
                     To make life easy, you can <Link onClick={copyToClipboard} color="initial">click here</Link> to copy
-                    all necessary information to your clipboard and paste it in the Github issue. <br/>
-                    <strong>You can still cancel the creation of the issue in Github if you think it contains sensitive
-                        information.</strong>.<br/></>
+                    all necessary information to your clipboard and paste it in the Github issue. <br/></>
             }
             {copyStatus &&
                 <Snackbar open={true} autoHideDuration={3000} onClose={handleCloseSnackbar}>

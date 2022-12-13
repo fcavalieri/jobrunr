@@ -14,7 +14,7 @@ public class MariaDbJacksonBackgroundJobContainer extends AbstractBackgroundJobS
     @Override
     protected StorageProvider initStorageProvider(JdbcDatabaseContainer sqlContainer) throws Exception {
         MariaDbPoolDataSource dataSource = new MariaDbPoolDataSource();
-        dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useBulkStmts=false");
+        dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useSSL=false&useBulkStmts=false");
         dataSource.setUser(sqlContainer.getUsername());
         dataSource.setPassword(sqlContainer.getPassword());
         return SqlStorageProviderFactory.using(dataSource);

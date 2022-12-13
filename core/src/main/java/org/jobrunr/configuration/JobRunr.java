@@ -46,6 +46,12 @@ public class JobRunr {
         return jobRunrConfiguration;
     }
 
+    public static JobRunrConfiguration configure(JobRunrConfiguration.JsonMapperKind jsonMapperKind) {
+        jobRunrConfiguration = new JobRunrConfiguration(jsonMapperKind);
+        Runtime.getRuntime().addShutdownHook(new Thread(JobRunr::destroy, "extShutdownHook"));
+        return jobRunrConfiguration;
+    }
+
     public static JobRunrConfiguration destroy() {
         if (jobRunrConfiguration != null) {
             if (jobRunrConfiguration.backgroundJobServer != null) jobRunrConfiguration.backgroundJobServer.stop();

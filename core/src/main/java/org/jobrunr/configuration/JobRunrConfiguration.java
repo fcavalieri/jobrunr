@@ -34,6 +34,8 @@ import static org.jobrunr.utils.reflection.ReflectionUtils.classExists;
  */
 public class JobRunrConfiguration {
 
+    public enum JsonMapperKind {GSON, JACKSON, JSONB}
+
     JobActivator jobActivator;
     JsonMapper jsonMapper;
     JobMapper jobMapper;
@@ -46,7 +48,15 @@ public class JobRunrConfiguration {
     JobRunrMicroMeterIntegration microMeterIntegration;
 
     JobRunrConfiguration() {
-        this.jsonMapper = determineJsonMapper();
+        JsonMapperKind jsonMapperKind = determineJsonMapperKind();
+        this.jsonMapper = initializeJsonMapper(jsonMapperKind);
+        this.jobMapper = new JobMapper(jsonMapper);
+        this.jobDetailsGenerator = new CachingJobDetailsGenerator();
+        this.jobFilters = new ArrayList<>();
+    }
+
+    JobRunrConfiguration(JsonMapperKind jsonMapperKind) {
+        this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
         this.jobDetailsGenerator = new CachingJobDetailsGenerator();
         this.jobFilters = new ArrayList<>();
@@ -325,15 +335,28 @@ public class JobRunrConfiguration {
         return new JobRunrConfigurationResult(jobScheduler, jobRequestScheduler);
     }
 
-    private static JsonMapper determineJsonMapper() {
+    private static JsonMapperKind determineJsonMapperKind() {
         if (classExists("com.fasterxml.jackson.databind.ObjectMapper")) {
-            return new JacksonJsonMapper();
+            return JsonMapperKind.JACKSON;
         } else if (classExists("com.google.gson.Gson")) {
-            return new GsonJsonMapper();
+            return JsonMapperKind.GSON;
         } else if (classExists("javax.json.bind.JsonbBuilder")) {
-            return new JsonbJsonMapper();
+            return JsonMapperKind.JSONB;
         } else {
             throw new JsonMapperException("No JsonMapper class is found. Make sure you have either Jackson, Gson or a JsonB compliant library available on your classpath");
+        }
+    }
+
+    private static JsonMapper initializeJsonMapper(JsonMapperKind jsonMapperKind) {
+        switch (jsonMapperKind) {
+            case JACKSON:
+                return new JacksonJsonMapper();
+            case GSON:
+                return new GsonJsonMapper();
+            case JSONB:
+                return new JsonbJsonMapper();
+            default:
+                throw new JsonMapperException("Unsupported JSON mapper kind " + jsonMapperKind);
         }
     }
 

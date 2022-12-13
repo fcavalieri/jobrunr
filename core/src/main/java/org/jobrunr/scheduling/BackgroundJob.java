@@ -8,6 +8,7 @@ import org.jobrunr.jobs.lambdas.JobLambdaFromStream;
 
 import java.time.*;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
 /**
@@ -59,6 +60,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new fire-and-forget job based on a given lambda.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     *
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *            MyService service = new MyService();
+     *            BackgroundJob.enqueue(id, () -> service.doWork());
+     *       }</pre>
+     *
+     * @param id  the uuid with which to save the job
+     * @param job the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the job
+     */
+    public static JobId enqueue(UUID id, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.enqueue(id, job, metadata);
+    }
+
+    /**
      * Creates new fire-and-forget jobs for each item in the input stream using the lambda passed as {@code jobFromStream}.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -105,6 +127,25 @@ public class BackgroundJob {
     public static <S> JobId enqueue(UUID id, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.enqueue(id, iocJob);
+    }
+
+    /**
+     * Creates a new fire-and-forget job based on a given lambda. The IoC container will be used to resolve {@code MyService}.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *            BackgroundJob.<MyService>enqueue(id, x -> x.doWork());
+     *       }</pre>
+     *
+     * @param id     the uuid with which to save the job
+     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the job
+     */
+    public static <S> JobId enqueue(UUID id, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.enqueue(id, iocJob, metadata);
     }
 
     /**
@@ -160,6 +201,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.schedule(id, ZonedDateTime.now().plusHours(5), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id            the uuid with which to save the job
+     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param job           the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static JobId schedule(UUID id, ZonedDateTime zonedDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, zonedDateTime, job, metadata);
+    }
+
+    /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -191,6 +253,26 @@ public class BackgroundJob {
     public static <S> JobId schedule(UUID id, ZonedDateTime zonedDateTime, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.schedule(id, zonedDateTime, iocJob);
+    }
+
+    /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>schedule(id, ZonedDateTime.now().plusHours(5), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id            the uuid with which to save the job
+     * @param zonedDateTime The moment in time at which the job will be enqueued.
+     * @param iocJob        the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static <S> JobId schedule(UUID id, ZonedDateTime zonedDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, zonedDateTime, iocJob, metadata);
     }
 
     /**
@@ -230,6 +312,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.schedule(id, OffsetDateTime.now().plusHours(5), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id             the uuid with which to save the job
+     * @param offsetDateTime The moment in time at which the job will be enqueued.
+     * @param job            the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static JobId schedule(UUID id, OffsetDateTime offsetDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, offsetDateTime, job, metadata);
+    }
+
+    /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -261,6 +364,26 @@ public class BackgroundJob {
     public static <S> JobId schedule(UUID id, OffsetDateTime offsetDateTime, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.schedule(id, offsetDateTime, iocJob);
+    }
+
+    /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>schedule(id, OffsetDateTime.now().plusHours(5), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id             the uuid with which to save the job
+     * @param offsetDateTime The moment in time at which the job will be enqueued.
+     * @param iocJob         the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static <S> JobId schedule(UUID id, OffsetDateTime offsetDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, offsetDateTime, iocJob, metadata);
     }
 
     /**
@@ -300,6 +423,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.schedule(id, LocalDateTime.now().plusHours(5), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id            the uuid with which to save the job
+     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param job           the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static JobId schedule(UUID id, LocalDateTime localDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, localDateTime, job, metadata);
+    }
+
+    /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -331,6 +475,26 @@ public class BackgroundJob {
     public static <S> JobId schedule(UUID id, LocalDateTime localDateTime, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.schedule(id, localDateTime, iocJob);
+    }
+
+    /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>schedule(id, LocalDateTime.now().plusHours(5), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id            the uuid with which to save the job
+     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
+     * @param iocJob        the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static <S> JobId schedule(UUID id, LocalDateTime localDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, localDateTime, iocJob, metadata);
     }
 
     /**
@@ -370,6 +534,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.schedule(id, Instant.now().plusHours(5), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id      the uuid with which to save the job
+     * @param instant The moment in time at which the job will be enqueued.
+     * @param job     the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static JobId schedule(UUID id, Instant instant, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, instant, job, metadata);
+    }
+
+    /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      *
      * <h5>An example:</h5>
@@ -402,6 +587,26 @@ public class BackgroundJob {
     public static <S> JobId schedule(UUID id, Instant instant, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.schedule(id, instant, iocJob);
+    }
+
+    /**
+     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
+     * If a job with that id already exists, JobRunr will not save it again.
+     * Additionally sets the given job metadata.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>schedule(id, Instant.now().plusHours(5), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id      the uuid with which to save the job
+     * @param instant The moment in time at which the job will be enqueued.
+     * @param iocJob  the lambda which defines the fire-and-forget job
+     * @param metadata the job metadata
+     * @return the id of the Job
+     */
+    public static <S> JobId schedule(UUID id, Instant instant, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        verifyJobScheduler();
+        return jobScheduler.schedule(id, instant, iocJob, metadata);
     }
 
     /**
@@ -440,6 +645,26 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new recurring job based on the given cron expression and the given lambda. The jobs will be scheduled using the systemDefault timezone.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.scheduleRecurrently(Cron.daily(), () -> service.doWork());
+     * }</pre>
+     *
+     * @param cron The cron expression defining when to run this recurring job
+     * @param job  the lambda which defines the fire-and-forget job
+     * @param enabled whether the job is enabled
+     * @param deletableFromDashboard whether the job is deletable from the dashboard
+     * @return the id of this recurring job which can be used to alter or delete it
+     * @see org.jobrunr.scheduling.cron.Cron
+     */
+    public static String scheduleRecurrently(String cron, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
+        verifyJobScheduler();
+        return jobScheduler.scheduleRecurrently(cron, job, enabled, deletableFromDashboard);
+    }
+
+    /**
      * Creates a new recurring job based on the given cron expression and the given lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone.
      * <h5>An example:</h5>
      * <pre>{@code
@@ -454,6 +679,25 @@ public class BackgroundJob {
     public static <S> String scheduleRecurrently(String cron, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.scheduleRecurrently(cron, iocJob);
+    }
+
+    /**
+     * Creates a new recurring job based on the given cron expression and the given lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>scheduleRecurrently(Cron.daily(), x -> x.doWork());
+     * }</pre>
+     *
+     * @param cron   The cron expression defining when to run this recurring job
+     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param enabled whether the job is enabled
+     * @param deletableFromDashboard whether the job is deletable from the dashboard
+     * @return the id of this recurring job which can be used to alter or delete it
+     * @see org.jobrunr.scheduling.cron.Cron
+     */
+    public static <S> String scheduleRecurrently(String cron, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
+        verifyJobScheduler();
+        return jobScheduler.scheduleRecurrently(cron, iocJob, enabled, deletableFromDashboard);
     }
 
     /**
@@ -476,6 +720,27 @@ public class BackgroundJob {
     }
 
     /**
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.scheduleRecurrently("my-recurring-job", Cron.daily(), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id   the id of this recurring job which can be used to alter or delete it
+     * @param cron The cron expression defining when to run this recurring job
+     * @param job  the lambda which defines the fire-and-forget job
+     * @param enabled whether the job is enabled
+     * @param deletableFromDashboard whether the job is deletable from the dashboard
+     * @return the id of this recurring job which can be used to alter or delete it
+     * @see org.jobrunr.scheduling.cron.Cron
+     */
+    public static String scheduleRecurrently(String id, String cron, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
+        verifyJobScheduler();
+        return jobScheduler.scheduleRecurrently(id, cron, job, enabled, deletableFromDashboard);
+    }
+
+    /**
      * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
      * <h5>An example:</h5>
      * <pre>{@code
@@ -491,6 +756,26 @@ public class BackgroundJob {
     public static <S> String scheduleRecurrently(String id, String cron, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.scheduleRecurrently(id, cron, iocJob);
+    }
+
+    /**
+     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily(), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id     the id of this recurring job which can be used to alter or delete it
+     * @param cron   The cron expression defining when to run this recurring job
+     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param enabled whether the job is enabled
+     * @param deletableFromDashboard whether the job is deletable from the dashboard
+     * @return the id of this recurring job which can be used to alter or delete it
+     * @see org.jobrunr.scheduling.cron.Cron
+     */
+    public static <S> String scheduleRecurrently(String id, String cron, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
+        verifyJobScheduler();
+        return jobScheduler.scheduleRecurrently(id, cron, iocJob, enabled, deletableFromDashboard);
     }
 
     /**
@@ -511,6 +796,28 @@ public class BackgroundJob {
     public static String scheduleRecurrently(String id, String cron, ZoneId zoneId, JobLambda job) {
         verifyJobScheduler();
         return jobScheduler.scheduleRecurrently(id, cron, zoneId, job);
+    }
+
+    /**
+     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.scheduleRecurrently("my-recurring-job", Cron.daily(), ZoneId.of("Europe/Brussels"), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id     the id of this recurring job which can be used to alter or delete it
+     * @param cron   The cron expression defining when to run this recurring job
+     * @param zoneId The zoneId (timezone) of when to run this recurring job
+     * @param job    the lambda which defines the fire-and-forget job
+     * @param enabled whether the job is enabled
+     * @param deletableFromDashboard whether the job is deletable from the dashboard
+     * @return the id of this recurring job which can be used to alter or delete it
+     * @see org.jobrunr.scheduling.cron.Cron
+     */
+    public static String scheduleRecurrently(String id, String cron, ZoneId zoneId, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
+        verifyJobScheduler();
+        return jobScheduler.scheduleRecurrently(id, cron, zoneId, job, enabled, deletableFromDashboard);
     }
 
     /**
@@ -598,6 +905,49 @@ public class BackgroundJob {
     public static <S> String scheduleRecurrently(String id, Duration duration, IocJobLambda<S> iocJob) {
         verifyJobScheduler();
         return jobScheduler.scheduleRecurrently(id, duration, iocJob);
+    }
+
+    /**
+     * Triggers the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.trigger("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to trigger
+     * @return the id of the Job
+     */
+    public static JobId trigger(String id) {
+        verifyJobScheduler();
+        return jobScheduler.trigger(id);
+    }
+
+    /**
+     * Enables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.enable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to enable
+     */
+    public static void enable(String id) {
+        verifyJobScheduler();
+        jobScheduler.enable(id);
+    }
+
+    /**
+     * Disables the recurring job based on the given id.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.disable("my-recurring-job"));
+     * }</pre>
+     *
+     * @param id the id of the recurring job to disable
+     */
+    public static void disable(String id) {
+        verifyJobScheduler();
+        jobScheduler.disable(id);
     }
 
     /**

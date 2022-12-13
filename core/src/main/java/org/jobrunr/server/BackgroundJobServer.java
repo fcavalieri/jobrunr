@@ -8,7 +8,6 @@ import org.jobrunr.server.jmx.BackgroundJobServerMBean;
 import org.jobrunr.server.jmx.JobServerStats;
 import org.jobrunr.server.runner.*;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
-import org.jobrunr.server.tasks.CheckForNewJobRunrVersion;
 import org.jobrunr.server.tasks.CheckIfAllJobsExistTask;
 import org.jobrunr.server.tasks.CreateClusterIdIfNotExists;
 import org.jobrunr.server.tasks.UpdateRecurringJobsTask;
@@ -177,7 +176,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     public BackgroundJobServerStatus getServerStatus() {
         return new BackgroundJobServerStatus(
                 backgroundJobServerId, workDistributionStrategy.getWorkerCount(),
-                configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
+                configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.deleteFailedJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
                 firstHeartbeat, Instant.now(), isRunning, jobServerStats.getSystemTotalMemory(), jobServerStats.getSystemFreeMemory(),
                 jobServerStats.getSystemCpuLoad(), jobServerStats.getProcessMaxMemory(), jobServerStats.getProcessFreeMemory(),
                 jobServerStats.getProcessAllocatedMemory(), jobServerStats.getProcessCpuLoad()
@@ -281,7 +280,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
             List<Runnable> startupTasks = asList(
                     new CreateClusterIdIfNotExists(this),
                     new CheckIfAllJobsExistTask(this),
-                    new CheckForNewJobRunrVersion(this),
+                    //new CheckForNewJobRunrVersion(this),
                     new UpdateRecurringJobsTask(this));
             startupTasks.forEach(jobExecutor::execute);
         } catch (Exception notImportant) {

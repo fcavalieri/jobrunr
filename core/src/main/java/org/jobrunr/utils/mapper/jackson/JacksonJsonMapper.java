@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 public class JacksonJsonMapper implements JsonMapper {
 
     private final ObjectMapper objectMapper;
+    private final ObjectMapper rawObjectMapper;
 
     public JacksonJsonMapper() {
         this(true);
@@ -40,6 +41,7 @@ public class JacksonJsonMapper implements JsonMapper {
 
     public JacksonJsonMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
         this.objectMapper = initObjectMapper(objectMapper, moduleAutoDiscover);
+        this.rawObjectMapper = new ObjectMapper();
     }
 
     protected ObjectMapper initObjectMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
@@ -69,6 +71,26 @@ public class JacksonJsonMapper implements JsonMapper {
     public void serialize(OutputStream outputStream, Object object) {
         try {
             objectMapper.writeValue(outputStream, object);
+        } catch (IOException e) {
+            throw JobRunrException.shouldNotHappenException(e);
+        }
+    }
+
+    @Override
+    public String serializeRaw(Object object) {
+        try {
+            return rawObjectMapper.writeValueAsString(object);
+        } catch (IOException e) {
+            throw JobRunrException.shouldNotHappenException(e);
+        }
+    }
+
+    @Override
+    public <T> T deserializeRaw(String serializedObjectAsString, Class<T> clazz) {
+        try {
+            return rawObjectMapper.readValue(serializedObjectAsString, clazz);
+        } catch (InvalidDefinitionException e) {
+            throw JobRunrException.configurationException("Did you register all necessary Jackson Modules?", e);
         } catch (IOException e) {
             throw JobRunrException.shouldNotHappenException(e);
         }

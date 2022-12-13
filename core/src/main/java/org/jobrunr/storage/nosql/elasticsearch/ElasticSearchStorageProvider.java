@@ -21,6 +21,8 @@ import org.elasticsearch.client.core.CountResponse;
 import org.elasticsearch.index.VersionType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.script.Script;
@@ -45,6 +47,7 @@ import org.jobrunr.utils.resilience.RateLimiter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.singletonMap;
@@ -57,6 +60,7 @@ import static org.elasticsearch.search.aggregations.AggregationBuilders.sum;
 import static org.elasticsearch.search.aggregations.AggregationBuilders.terms;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.jobrunr.jobs.states.StateName.*;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.jobrunr.storage.JobRunrMetadata.toId;
 import static org.jobrunr.storage.StorageProviderUtils.BackgroundJobServers.*;
 import static org.jobrunr.storage.StorageProviderUtils.DatabaseOptions.CREATE;
@@ -134,6 +138,10 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
     @Override
     public void setJobMapper(final JobMapper jobMapper) {
         this.documentMapper = new ElasticSearchDocumentMapper(jobMapper);
+    }
+
+    public JobMapper getJobMapper() {
+        return documentMapper != null ? documentMapper.getJobMapper() : null;
     }
 
     @Override
@@ -349,8 +357,8 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
                     .setRefreshPolicy(IMMEDIATE);
 
             final DeleteResponse response = client.delete(request, DEFAULT);
+            disposeJobResources(job.getMetadata());
             final int amountDeleted = response.getShardInfo().getSuccessful();
-
             notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
             return amountDeleted;
         } catch (final IOException e) {
@@ -478,14 +486,19 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
                     .must(matchQuery(FIELD_STATE, state))
                     .must(rangeQuery(Jobs.FIELD_UPDATED_AT).to(updatedBefore));
 
+            SearchResponse searchResponse = searchJobs(query, PageRequest.ascOnUpdatedAt(1000));
+            List<Job> jobsToDelete = Stream.of(searchResponse.getHits().getHits())
+                    .map(documentMapper::toJob)
+                    .collect(toList());
+
             final DeleteByQueryRequest request = new DeleteByQueryRequest(jobIndexName)
                     .setQuery(query)
                     .setRefresh(true);
 
             final BulkByScrollResponse response = client.deleteByQuery(request, DEFAULT);
+            jobsToDelete.forEach(j ->disposeJobResources(j.getMetadata()));
 
             final int amountDeleted = (int) response.getDeleted();
-
             notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
             return amountDeleted;
         } catch (IOException e) {

@@ -20,6 +20,8 @@ public class RecurringJob extends AbstractJob {
     private String scheduleExpression;
     private String zoneId;
     private Instant createdAt;
+    private boolean enabled = true;
+    private boolean deletableFromDashboard = true;
 
     private RecurringJob() {
         // used for deserialization
@@ -44,6 +46,22 @@ public class RecurringJob extends AbstractJob {
         this.zoneId = zoneId.getId();
         this.scheduleExpression = schedule.toString();
         this.createdAt = createdAt;
+    }
+
+    public void setDeletableFromDashboard(boolean deletableFromDashboard) {
+        this.deletableFromDashboard = deletableFromDashboard;
+    }
+
+    public boolean isDeletableFromDashboard() {
+        return deletableFromDashboard;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
     }
 
     @Override
@@ -97,9 +115,12 @@ public class RecurringJob extends AbstractJob {
     }
 
     public Instant getNextRun(Instant sinceInstant) {
-        return ScheduleExpressionType
-                .getSchedule(scheduleExpression)
-                .next(createdAt, sinceInstant, ZoneId.of(zoneId));
+        if (isEnabled())
+            return ScheduleExpressionType
+                    .getSchedule(scheduleExpression)
+                    .next(createdAt, sinceInstant, ZoneId.of(zoneId));
+        else
+            return null;
     }
 
     private String validateAndSetId(String input) {
@@ -132,6 +153,8 @@ public class RecurringJob extends AbstractJob {
                 ", identity='" + System.identityHashCode(this) + '\'' +
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
+                ", deletableFromDashboard='" + isDeletableFromDashboard() + '\'' +
+                ", enabled='" + isEnabled() + '\'' +
                 '}';
     }
 }

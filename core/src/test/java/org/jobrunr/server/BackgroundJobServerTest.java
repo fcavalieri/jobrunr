@@ -7,10 +7,12 @@ import org.jobrunr.JobRunrException;
 import org.jobrunr.configuration.JobRunr;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
+import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.lambdas.IocJobLambda;
 import org.jobrunr.jobs.states.ProcessingState;
 import org.jobrunr.jobs.stubs.SimpleJobActivator;
 import org.jobrunr.scheduling.BackgroundJob;
+import org.jobrunr.scheduling.cron.Cron;
 import org.jobrunr.server.runner.BackgroundJobWithIocRunner;
 import org.jobrunr.server.runner.BackgroundJobWithoutIocRunner;
 import org.jobrunr.server.runner.BackgroundStaticJobWithoutIocRunner;
@@ -49,6 +51,7 @@ import static org.jobrunr.jobs.states.StateName.*;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
 
 class BackgroundJobServerTest {
 
@@ -346,6 +349,21 @@ class BackgroundJobServerTest {
 
         await().atMost(10, SECONDS)
                 .untilAsserted(() -> assertThat(logger).hasErrorMessage("JobRunr BackgroundJobServer failed to start"));
+    }
+
+    @Test
+    void enableDisableTriggerRecurringJob() {
+        backgroundJobServer.start();
+
+        String recurringJobId = BackgroundJob.scheduleRecurrently(Cron.daily(), () -> testService.doWork());
+        assertThat(storageProvider.getRecurringJobById(recurringJobId).isEnabled()).isTrue();
+
+        BackgroundJob.disable(recurringJobId);
+        assertThat(storageProvider.getRecurringJobById(recurringJobId).isEnabled()).isFalse();
+        JobId jobId = BackgroundJob.trigger(recurringJobId);
+        assertThat(storageProvider.getJobById(jobId).getRecurringJobId()).isEqualTo(recurringJobId);
+        BackgroundJob.enable(recurringJobId);
+        assertThat(storageProvider.getRecurringJobById(recurringJobId).isEnabled()).isTrue();
     }
 
     private boolean containsNoBackgroundJobThreads(Map<Thread, StackTraceElement[]> threadMap) {

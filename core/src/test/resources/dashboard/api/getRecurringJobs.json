@@ -49,7 +49,9 @@
       "scheduleExpression": "0 0 * * *",
       "zoneId": "${json-unit.ignore}",
       "nextRun": "${json-unit.ignore}",
-      "createdAt": "${json-unit.ignore}"
+      "createdAt": "${json-unit.ignore}",
+      "enabled": true,
+      "deletableFromDashboard": true
     }
   ],
   "limit": 20,

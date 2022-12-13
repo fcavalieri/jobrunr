@@ -36,6 +36,8 @@ public class JobDocumentMapper {
         document.put(Jobs.FIELD_STATE, job.getState().name());
         document.put(Jobs.FIELD_CREATED_AT, toMicroSeconds(job.getCreatedAt()));
         document.put(Jobs.FIELD_UPDATED_AT, toMicroSeconds(job.getUpdatedAt()));
+        if (job.getRecurringJobId() != null)
+            document.put(Jobs.FIELD_RECURRING_JOB_ID, job.getRecurringJobId());
         if (job.hasState(StateName.SCHEDULED)) {
             document.put(Jobs.FIELD_SCHEDULED_AT, toMicroSeconds(job.<ScheduledState>getJobState().getScheduledAt()));
         }
@@ -94,5 +96,9 @@ public class JobDocumentMapper {
 
     private long toMicroSeconds(Instant instant) {
         return ChronoUnit.MICROS.between(Instant.EPOCH, instant);
+    }
+
+    public JobMapper getJobMapper() {
+        return jobMapper;
     }
 }

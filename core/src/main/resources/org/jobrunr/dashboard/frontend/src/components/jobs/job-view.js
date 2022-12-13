@@ -26,6 +26,7 @@ import Box from "@material-ui/core/Box";
 import LoadingIndicator from "../LoadingIndicator";
 import {jobStateToHumanReadableName} from "../utils/job-utils";
 import SucceededNotification from "./notifications/succeeded-notification";
+import FailedNotification from "./notifications/failed-notification";
 import DeletedNotification from "./notifications/deleted-notification";
 import JobDetailsNotCacheableNotification from "./notifications/job-details-not-cacheable-notification";
 import VersionFooter from "../utils/version-footer";
@@ -207,10 +208,14 @@ const JobView = (props) => {
                         </Box>
 
                         <Grid container spacing={3}>
-                            <JobCode job={job}/>
+                            { (process.env.REACT_APP_DISPLAY_JOB_CODE === 'true')
+                              ? <JobCode job={job}/>
+                              : <Grid item xs={12}/>
+                            }
 
                             {job.jobDetails.cacheable === false && <JobDetailsNotCacheableNotification job={job}/>}
                             {stateBreadcrumb.state === 'SUCCEEDED' && <SucceededNotification job={job}/>}
+                            {stateBreadcrumb.state === 'FAILED' && <FailedNotification job={job}/>}
                             {stateBreadcrumb.state === 'DELETED' && <DeletedNotification job={job}/>}
 
                             <Grid item xs={12}>

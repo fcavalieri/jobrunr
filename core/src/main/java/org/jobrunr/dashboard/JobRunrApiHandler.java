@@ -6,8 +6,11 @@ import org.jobrunr.dashboard.ui.model.RecurringJobUIModel;
 import org.jobrunr.dashboard.ui.model.VersionUIModel;
 import org.jobrunr.dashboard.ui.model.problems.ProblemsManager;
 import org.jobrunr.jobs.Job;
+import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.scheduling.BackgroundJob;
+import org.jobrunr.scheduling.JobScheduler;
 import org.jobrunr.storage.*;
 import org.jobrunr.utils.mapper.JsonMapper;
 
@@ -40,6 +43,8 @@ public class JobRunrApiHandler extends RestHttpHandler {
         get("/recurring-jobs", getRecurringJobs());
         delete("/recurring-jobs/:id", deleteRecurringJob());
         post("/recurring-jobs/:id/trigger", triggerRecurringJob());
+        post("/recurring-jobs/:id/enable", enableRecurringJob());
+        post("/recurring-jobs/:id/disable", disableRecurringJob());
 
         get("/servers", getBackgroundJobServers());
         get("/version", getVersion());
@@ -108,8 +113,12 @@ public class JobRunrApiHandler extends RestHttpHandler {
 
     private HttpRequestHandler deleteRecurringJob() {
         return (request, response) -> {
-            storageProvider.deleteRecurringJob(request.param(":id"));
-            response.statusCode(204);
+            if (storageProvider.getRecurringJobs().stream().anyMatch(j -> j.getId().equals(request.param(":id")) && !j.isDeletableFromDashboard())) {
+                response.statusCode(409);
+            } else {
+                storageProvider.deleteRecurringJob(request.param(":id"));
+                response.statusCode(204);
+            }
         };
     }
 
@@ -120,9 +129,30 @@ public class JobRunrApiHandler extends RestHttpHandler {
                     .filter(rj -> request.param(":id").equals(rj.getId()))
                     .findFirst()
                     .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+            if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
+                final Job job = recurringJob.toImmediatelyScheduledJob();
+                storageProvider.save(job);
+            }
+            response.statusCode(204);
+        };
+    }
 
-            final Job job = recurringJob.toEnqueuedJob();
-            storageProvider.save(job);
+    private HttpRequestHandler enableRecurringJob() {
+        return (request, response) -> {
+            final RecurringJob recurringJob = storageProvider.getRecurringJobById(request.param(":id"));
+            recurringJob.setEnabled(true);
+            storageProvider.saveRecurringJob(recurringJob);
+
+            response.statusCode(204);
+        };
+    }
+
+    private HttpRequestHandler disableRecurringJob() {
+        return (request, response) -> {
+            final RecurringJob recurringJob = storageProvider.getRecurringJobById(request.param(":id"));
+            recurringJob.setEnabled(false);
+            storageProvider.saveRecurringJob(recurringJob);
+
             response.statusCode(204);
         };
     }

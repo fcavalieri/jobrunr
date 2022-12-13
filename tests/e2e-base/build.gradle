@@ -15,7 +15,9 @@ dependencies {
     testImplementation testFixtures(project(":core"))
 
     testFixturesApi project(':core')
-    testFixturesApi testFixtures(project(":core"))
+    testFixturesApi testFixtures(project(":core")) {
+        exclude group: 'com.marklogic', module: 'marklogic-client-api'
+    }
     testFixturesApi 'org.awaitility:awaitility'
     testFixturesApi 'org.assertj:assertj-core'
     testFixturesApi 'net.javacrumbs.json-unit:json-unit-assertj'

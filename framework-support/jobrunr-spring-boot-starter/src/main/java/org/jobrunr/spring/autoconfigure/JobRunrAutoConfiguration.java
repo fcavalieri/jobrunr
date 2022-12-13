@@ -83,6 +83,7 @@ public class JobRunrAutoConfiguration {
         map.from(backgroundJobServerProperties::getWorkerCount).whenNonNull().to(backgroundJobServerConfiguration::andWorkerCount);
         map.from(backgroundJobServerProperties::getPollIntervalInSeconds).to(backgroundJobServerConfiguration::andPollIntervalInSeconds);
         map.from(backgroundJobServerProperties::getDeleteSucceededJobsAfter).to(backgroundJobServerConfiguration::andDeleteSucceededJobsAfter);
+        map.from(backgroundJobServerProperties::getDeleteFailedJobsAfter).to(backgroundJobServerConfiguration::andDeleteFailedJobsAfter);
         map.from(backgroundJobServerProperties::getPermanentlyDeleteDeletedJobsAfter).to(backgroundJobServerConfiguration::andPermanentlyDeleteDeletedJobsAfter);
         map.from(backgroundJobServerProperties::getScheduledJobsRequestSize).to(backgroundJobServerConfiguration::andScheduledJobsRequestSize);
         map.from(backgroundJobServerProperties::getOrphanedJobsRequestSize).to(backgroundJobServerConfiguration::andOrphanedJobsRequestSize);
@@ -105,9 +106,13 @@ public class JobRunrAutoConfiguration {
     @ConditionalOnProperty(prefix = "org.jobrunr.dashboard", name = "enabled", havingValue = "true")
     public JobRunrDashboardWebServerConfiguration dashboardWebServerConfiguration(JobRunrProperties properties) {
         return usingStandardDashboardConfiguration()
+                .andEnableHttp(properties.getDashboard().isHttpEnabled())
                 .andPort(properties.getDashboard().getPort())
                 .andBasicAuthentication(properties.getDashboard().getUsername(), properties.getDashboard().getPassword())
-                .andAllowAnonymousDataUsage(properties.getMiscellaneous().isAllowAnonymousDataUsage());
+                .andAllowAnonymousDataUsage(properties.getMiscellaneous().isAllowAnonymousDataUsage())
+                .andEnableHttps(properties.getDashboard().isHttpsEnabled())
+                .andPortHttps(properties.getDashboard().getPortHttps())
+                .andKeyStoreHttps(properties.getDashboard().getKeyStorePathHttps(), properties.getDashboard().getKeyStorePasswordHttps());
     }
 
     @Bean

@@ -2,12 +2,14 @@ package org.jobrunr.scheduling;
 
 import org.jobrunr.jobs.AbstractJob;
 import org.jobrunr.jobs.Job;
+import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.filters.ApplyStateFilter;
 import org.jobrunr.jobs.filters.ElectStateFilter;
 import org.jobrunr.jobs.filters.JobClientFilter;
 import org.jobrunr.jobs.states.JobState;
 import org.jobrunr.scheduling.cron.Cron;
+import org.jobrunr.storage.JobNotFoundException;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.stubs.TestService;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,6 +104,13 @@ class JobSchedulerTest {
 
         assertThat(jobClientLogFilter.onCreating).isTrue();
         assertThat(jobClientLogFilter.onCreated).isTrue();
+    }
+
+    @Test
+    void disabledCronIsAllowed() {
+        when(storageProvider.saveRecurringJob(any(RecurringJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        jobScheduler.scheduleRecurrently(Cron.never(), () -> testService.doWork());
     }
 
     private static class JobClientLogFilter implements JobClientFilter, ElectStateFilter, ApplyStateFilter {

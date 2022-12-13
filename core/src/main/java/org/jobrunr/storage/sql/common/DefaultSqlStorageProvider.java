@@ -19,8 +19,10 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.jobrunr.storage.StorageProviderUtils.DatabaseOptions.CREATE;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
@@ -67,6 +69,11 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
             getDatabaseCreator()
                     .validateTables();
         }
+    }
+
+    @Override
+    public JobMapper getJobMapper() {
+        return jobMapper;
     }
 
     @Override
@@ -250,7 +257,9 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
     @Override
     public int deletePermanently(UUID id) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
+            Optional<Job> jobToDelete = jobTable(conn).selectJobById(id);
             final int amountDeleted = jobTable(conn).deletePermanently(id);
+            jobToDelete.ifPresent(job -> disposeJobResources(job.getMetadata()));
             transaction.commit();
             notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
             return amountDeleted;
@@ -262,10 +271,16 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
-            final int amountDeleted = jobTable(conn).deleteJobsByStateAndUpdatedBefore(state, updatedBefore);
-            transaction.commit();
-            notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
-            return amountDeleted;
+            List<Job> jobsToDelete = jobTable(conn).getJobsByStateAndUpdatedBefore(state, updatedBefore);
+            if (jobsToDelete.size() > 0) {
+                UUID[] jobIdsToDelete = jobsToDelete.stream().map(j -> j.getId()).collect(Collectors.toList()).toArray(new UUID[0]);
+                final int amountDeleted = jobTable(conn).deletePermanently(jobIdsToDelete);
+                jobsToDelete.forEach(j -> disposeJobResources(j.getMetadata()));
+                transaction.commit();
+                notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
+                return amountDeleted;
+            }
+            return 0;
         } catch (SQLException e) {
             throw new StorageException(e);
         }

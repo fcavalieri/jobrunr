@@ -8,6 +8,9 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import org.jobrunr.JobRunrException;
 import org.jobrunr.architecture.PackageDependenciesTest.DoNotIncludeTestFixtures;
+import org.jobrunr.configuration.JobRunrConfiguration;
+import org.jobrunr.dashboard.server.WebServerHttp;
+import org.jobrunr.dashboard.server.WebServerHttps;
 import org.jobrunr.server.BackgroundJobPerformer;
 import org.jobrunr.server.dashboard.DashboardNotification;
 import org.jobrunr.utils.reflection.autobox.InstantForOracleTypeAutoboxer;
@@ -35,12 +38,21 @@ class PackageDependenciesTest {
     @ArchTest
     ArchRule jobRunrConfigurationDependenciesTest = classes()
             .that().resideInAPackage("org.jobrunr.configuration..").and().haveSimpleName("JobRunrConfiguration")
-            .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "java..");
+            .should().onlyDependOnClassesThat(resideInAnyPackage("org.jobrunr..", "java..")
+            .or(are(type(int[].class))));
+    // see: https://github.com/TNG/ArchUnit/issues/570
+    // Problem is triggered by the switch on JsonMapperKind in the class JobRunrConfiguration
 
     @ArchTest
     ArchRule jobRunrDashboardClassesDependenciesTest = classes()
-            .that().resideInAPackage("org.jobrunr.dashboard..")
+            .that().resideInAPackage("org.jobrunr.dashboard..").and().doNotBelongToAnyOf(WebServerHttps.class)
             .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "com.sun..", "org.slf4j..", "java..");
+
+    @ArchTest
+    ArchRule jobRunrDashboardHttpsClassesDependenciesTest = classes()
+            .that().belongToAnyOf(WebServerHttps.class)
+            .should().onlyDependOnClassesThat(resideInAnyPackage("org.jobrunr..", "com.sun..", "org.slf4j..", "java..", "javax.net.ssl..", "org.bouncycastle..")
+                .or(type(char[].class)));
 
     @ArchTest
     ArchRule jobDashboardClassesShouldNotDependOnServerClasses = noClasses()

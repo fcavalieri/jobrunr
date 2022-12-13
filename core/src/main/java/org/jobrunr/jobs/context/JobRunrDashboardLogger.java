@@ -3,6 +3,7 @@ package org.jobrunr.jobs.context;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.context.JobDashboardLogger.Level;
 import org.jobrunr.server.runner.RunnerJobContext;
+import org.jobrunr.utils.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.helpers.FormattingTuple;
@@ -188,7 +189,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void info(String msg, Throwable t) {
         logger.info(msg, t);
-        logInfoToJobDashboard(msg);
+        logInfoToJobDashboard(msg, t);
     }
 
     @Override
@@ -223,7 +224,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void info(Marker marker, String msg, Throwable t) {
         logger.info(marker, msg, t);
-        logInfoToJobDashboard(msg);
+        logInfoToJobDashboard(msg, t);
     }
 
     @Override
@@ -258,7 +259,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void warn(String msg, Throwable t) {
         logger.warn(msg, t);
-        logWarnToJobDashboard(msg);
+        logWarnToJobDashboard(msg, t);
     }
 
     @Override
@@ -293,7 +294,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void warn(Marker marker, String msg, Throwable t) {
         logger.warn(marker, msg, t);
-        logWarnToJobDashboard(msg);
+        logWarnToJobDashboard(msg, t);
     }
 
     @Override
@@ -328,7 +329,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void error(String msg, Throwable t) {
         logger.error(msg, t);
-        logErrorToJobDashboard(msg);
+        logErrorToJobDashboard(msg, t);
     }
 
     @Override
@@ -363,13 +364,21 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void error(Marker marker, String msg, Throwable t) {
         logger.error(marker, msg, t);
-        logErrorToJobDashboard(msg);
+        logErrorToJobDashboard(msg, t);
     }
 
     private void logInfoToJobDashboard(String message) {
         if (threshold.compareTo(Level.INFO) > 0) return;
         if (jobDashboardLoggerThreadLocal.get() != null) {
             jobDashboardLoggerThreadLocal.get().info(message);
+        }
+    }
+
+    private void logInfoToJobDashboard(String message, Throwable t) {
+        if (threshold.compareTo(Level.INFO) > 0) return;
+        if (jobDashboardLoggerThreadLocal.get() != null) {
+            String stackTrace = Exceptions.getStackTraceAsString(t);
+            jobDashboardLoggerThreadLocal.get().info(message + (stackTrace != null ? ("\n" + stackTrace) : ""));
         }
     }
 
@@ -388,6 +397,14 @@ public class JobRunrDashboardLogger implements Logger {
         }
     }
 
+    private void logWarnToJobDashboard(String message, Throwable t) {
+        if (threshold.compareTo(Level.WARN) > 0) return;
+        if (jobDashboardLoggerThreadLocal.get() != null) {
+            String stackTrace = Exceptions.getStackTraceAsString(t);
+            jobDashboardLoggerThreadLocal.get().warn(message + (stackTrace != null ? ("\n" + stackTrace) : ""));
+        }
+    }
+
     private void logWarnToJobDashboard(String format, Object... args) {
         if (threshold.compareTo(Level.WARN) > 0) return;
         if (jobDashboardLoggerThreadLocal.get() != null) {
@@ -399,6 +416,13 @@ public class JobRunrDashboardLogger implements Logger {
     private void logErrorToJobDashboard(String message) {
         if (jobDashboardLoggerThreadLocal.get() != null) {
             jobDashboardLoggerThreadLocal.get().error(message);
+        }
+    }
+
+    private void logErrorToJobDashboard(String message, Throwable t) {
+        if (jobDashboardLoggerThreadLocal.get() != null) {
+            String stackTrace = Exceptions.getStackTraceAsString(t);
+            jobDashboardLoggerThreadLocal.get().error(message + (stackTrace != null ? ("\n" + stackTrace) : ""));
         }
     }
 

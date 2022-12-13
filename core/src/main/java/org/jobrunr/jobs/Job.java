@@ -171,6 +171,7 @@ public class Job extends AbstractJob {
                 ", jobName='" + getJobName() + '\'' +
                 ", jobState='" + getState() + '\'' +
                 ", updatedAt='" + getUpdatedAt() + '\'' +
+                ", recurringJobId='" + getRecurringJobId() + '\'' +
                 '}';
     }
 
