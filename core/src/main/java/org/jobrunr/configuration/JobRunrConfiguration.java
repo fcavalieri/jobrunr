@@ -34,6 +34,7 @@ import static org.jobrunr.utils.reflection.ReflectionUtils.classExists;
  */
 public class JobRunrConfiguration {
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     public enum JsonMapperKind {GSON, JACKSON, JSONB}
 
     JobActivator jobActivator;
@@ -48,6 +49,7 @@ public class JobRunrConfiguration {
     JobRunrMicroMeterIntegration microMeterIntegration;
 
     JobRunrConfiguration() {
+        //JobRunrPlus: support explicit choice of JsonMapper
         JsonMapperKind jsonMapperKind = determineJsonMapperKind();
         this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
@@ -55,6 +57,7 @@ public class JobRunrConfiguration {
         this.jobFilters = new ArrayList<>();
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     JobRunrConfiguration(JsonMapperKind jsonMapperKind) {
         this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
@@ -335,6 +338,20 @@ public class JobRunrConfiguration {
         return new JobRunrConfigurationResult(jobScheduler, jobRequestScheduler);
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
+    //private static JsonMapper determineJsonMapper() {
+        //if (classExists("com.fasterxml.jackson.databind.ObjectMapper")) {
+            //return new JacksonJsonMapper();
+        //} else if (classExists("com.google.gson.Gson")) {
+            //return new GsonJsonMapper();
+        //} else if (classExists("javax.json.bind.JsonbBuilder")) {
+            //return new JsonbJsonMapper();
+        //} else {
+            //throw new JsonMapperException("No JsonMapper class is found. Make sure you have either Jackson, Gson or a JsonB compliant library available on your classpath");
+        //}
+    //}
+
+    //JobRunrPlus: support explicit choice of JsonMapper
     private static JsonMapperKind determineJsonMapperKind() {
         if (classExists("com.fasterxml.jackson.databind.ObjectMapper")) {
             return JsonMapperKind.JACKSON;
@@ -347,6 +364,7 @@ public class JobRunrConfiguration {
         }
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     private static JsonMapper initializeJsonMapper(JsonMapperKind jsonMapperKind) {
         switch (jsonMapperKind) {
             case JACKSON:

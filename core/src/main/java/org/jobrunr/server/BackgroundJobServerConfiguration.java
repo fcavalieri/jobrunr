@@ -112,7 +112,7 @@ public class BackgroundJobServerConfiguration {
      * @param duration the duration to wait before deleting failed jobs
      * @return the same configuration instance which provides a fluent api
      */
-    blic BackgroundJobServerConfiguration andDeleteFailedJobsAfter(Duration duration) {
+    public BackgroundJobServerConfiguration andDeleteFailedJobsAfter(Duration duration) {
         this.deleteFailedJobsAfter = duration;
         return this;
     }

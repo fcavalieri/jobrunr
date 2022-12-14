@@ -86,6 +86,7 @@ public class FailedState extends AbstractJobState {
         return exception.getCause() != null && exception.getCause() != exception;
     }
 
+    //JobRunrPlus: consider also exception cause to determine if an exception prevents a job from being retried
     private static boolean isProblematicAndDoNotRetry(Exception exception) {
         return (exception instanceof JobRunrException && ((JobRunrException) exception).isProblematicAndDoNotRetry()) ||
                (exception.getCause() != null && exception.getCause() instanceof JobRunrException && ((JobRunrException) exception.getCause()).isProblematicAndDoNotRetry());

@@ -28,6 +28,7 @@ public class JobMapper {
         return jsonMapper.deserialize(serializedJobAsString, RecurringJob.class);
     }
 
+    //JobRunrPlus: support retrieval of JsonMapper
     public JsonMapper getJsonMapper() {
        return jsonMapper;
     }

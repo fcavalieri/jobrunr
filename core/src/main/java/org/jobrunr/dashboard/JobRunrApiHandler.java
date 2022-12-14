@@ -43,6 +43,8 @@ public class JobRunrApiHandler extends RestHttpHandler {
         get("/recurring-jobs", getRecurringJobs());
         delete("/recurring-jobs/:id", deleteRecurringJob());
         post("/recurring-jobs/:id/trigger", triggerRecurringJob());
+        
+        //JobRunrPlus: support extra operations on recurring jobs
         post("/recurring-jobs/:id/enable", enableRecurringJob());
         post("/recurring-jobs/:id/disable", disableRecurringJob());
 
@@ -111,9 +113,16 @@ public class JobRunrApiHandler extends RestHttpHandler {
         };
     }
 
+    //JobRunrPlus: optionally disable deletion of recurring jobs from interface
     private HttpRequestHandler deleteRecurringJob() {
         return (request, response) -> {
-            if (storageProvider.getRecurringJobs().stream().anyMatch(j -> j.getId().equals(request.param(":id")) && !j.isDeletableFromDashboard())) {
+            final RecurringJob recurringJob = recurringJobResults()
+                    .stream()
+                    .filter(rj -> request.param(":id").equals(rj.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+
+            if (!recurringJob.isDeletableFromDashboard()) {
                 response.statusCode(409);
             } else {
                 storageProvider.deleteRecurringJob(request.param(":id"));
@@ -122,6 +131,7 @@ public class JobRunrApiHandler extends RestHttpHandler {
         };
     }
 
+    //JobRunrPlus: triggering a recurring job does not schedule it, if it is already being run or it is scheduled to be run
     private HttpRequestHandler triggerRecurringJob() {
         return (request, response) -> {
             final RecurringJob recurringJob = recurringJobResults()
@@ -129,14 +139,19 @@ public class JobRunrApiHandler extends RestHttpHandler {
                     .filter(rj -> request.param(":id").equals(rj.getId()))
                     .findFirst()
                     .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
-            if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
-                final Job job = recurringJob.toImmediatelyScheduledJob();
-                storageProvider.save(job);
+            if (storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
+                response.statusCode(409);
             }
-            response.statusCode(204);
+            else {
+                final Job job = recurringJob.toEnqueuedJob();
+                storageProvider.save(job);
+                response.statusCode(204);
+              
+            }
         };
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
     private HttpRequestHandler enableRecurringJob() {
         return (request, response) -> {
             final RecurringJob recurringJob = storageProvider.getRecurringJobById(request.param(":id"));

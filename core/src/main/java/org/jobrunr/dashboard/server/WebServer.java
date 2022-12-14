@@ -1,8 +1,6 @@
 package org.jobrunr.dashboard.server;
 
-import com.sun.net.httpserver.HttpsConfigurator;
-import com.sun.net.httpserver.HttpsParameters;
-import com.sun.net.httpserver.HttpsServer;
+import com.sun.net.httpserver.*;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -10,37 +8,51 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.SSLParameters;
-import javax.net.ssl.TrustManagerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
-import java.security.KeyManagementException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PrivateKey;
-import java.security.Security;
-import java.security.UnrecoverableKeyException;
+import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-public class WebServerHttps extends AbstractWebServer {
+public class WebServer {
 
-    public WebServerHttps(int tlsPort, Path keyStorePath, String keyStorePass) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebServer.class);
+
+    private final HttpServer httpServer;
+    private final ExecutorService executorService;
+    private final Set<HttpExchangeHandler> httpHandlers;
+    //JobRunrPlus: support HTTPS dashboard
+    private final boolean https;
+
+    public WebServer(int port) {
+        try {
+            httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+            executorService = Executors.newCachedThreadPool();
+            httpServer.setExecutor(executorService);
+            httpHandlers = new HashSet<>();
+            https = false;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    //JobRunrPlus: support HTTPS dashboard
+    public WebServer(int tlsPort, Path keyStorePath, String keyStorePass) {
         try {
             httpServer = HttpsServer.create(new InetSocketAddress(tlsPort), 0);
             SSLContext sslContext = initializeSslContext(keyStorePath, keyStorePass);
@@ -64,15 +76,63 @@ public class WebServerHttps extends AbstractWebServer {
             executorService = Executors.newCachedThreadPool();
             httpServer.setExecutor(executorService);
             httpHandlers = new HashSet<>();
+            https = true;
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
     }
 
+    public HttpContext createContext(HttpExchangeHandler httpHandler) {
+        httpHandlers.add(httpHandler);
+        return httpServer.createContext(httpHandler.getContextPath(), httpHandler);
+    }
+
+    public void start() {
+        httpServer.start();
+    }
+
+    public void stop() {
+        httpHandlers.forEach(this::closeHttpHandler);
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(2, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        httpServer.stop(0);
+    }
+
+    public String getWebServerHostAddress() {
+        if (httpServer.getAddress().getAddress().isAnyLocalAddress()) {
+            return "localhost";
+        }
+        return httpServer.getAddress().getAddress().getHostAddress();
+    }
+
+    public int getWebServerHostPort() {
+        return httpServer.getAddress().getPort();
+    }
+
+    private void closeHttpHandler(HttpExchangeHandler httpHandler) {
+        try {
+            httpHandler.close();
+        } catch (Exception shouldNotHappen) {
+            LOGGER.warn("Error closing HttpHandler", shouldNotHappen);
+        }
+    }
+
+    //JobRunrPlus: support HTTPS dashboard
+    public String getWebServerProtocol() {
+        return https ? "https" : "http";
+    }
+
     private SSLContext initializeSslContext(Path keyStorePath, String keyStorePass)  {
         char[] keyStorePassArray = (keyStorePass != null ? keyStorePass : "").toCharArray();
         KeyStore keyStore = keyStorePath == null ? generateSelfSignedCertificate(getWebServerHostAddress())
-                                                 : loadCertificate(keyStorePath, keyStorePassArray);
+                : loadCertificate(keyStorePath, keyStorePassArray);
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
@@ -102,16 +162,17 @@ public class WebServerHttps extends AbstractWebServer {
             JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
                     dnName, certSerialNumber, Date.from(startDate), Date.from(endDate), dnName,
                     keyPair.getPublic());
-            Certificate certificate = new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            java.security.cert.Certificate certificate = new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
                     .getCertificate(certBuilder.build(contentSigner));
             PrivateKey privateKey = keyPair.getPrivate();
 
             KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(null, null);
-            Certificate[] chain = new Certificate[]{certificate};
+            java.security.cert.Certificate[] chain = new Certificate[]{certificate};
             keyStore.setKeyEntry("alias", privateKey, new char[]{}, chain);
             return keyStore;
-        } catch (CertificateException | NoSuchAlgorithmException | KeyStoreException | IOException | NoSuchProviderException | OperatorCreationException e) {
+        } catch (CertificateException | NoSuchAlgorithmException | KeyStoreException | IOException | NoSuchProviderException |
+                 OperatorCreationException e) {
             throw new IllegalStateException("Cannot create self signed certificate", e);
         }
     }

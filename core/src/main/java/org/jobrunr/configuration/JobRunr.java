@@ -46,6 +46,7 @@ public class JobRunr {
         return jobRunrConfiguration;
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     public static JobRunrConfiguration configure(JobRunrConfiguration.JsonMapperKind jsonMapperKind) {
         jobRunrConfiguration = new JobRunrConfiguration(jsonMapperKind);
         Runtime.getRuntime().addShutdownHook(new Thread(JobRunr::destroy, "extShutdownHook"));
