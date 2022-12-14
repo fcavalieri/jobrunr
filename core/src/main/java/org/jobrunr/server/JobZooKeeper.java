@@ -98,6 +98,7 @@ public class JobZooKeeper implements Runnable {
             checkForScheduledJobs();
             checkForOrphanedJobs();
             checkForSucceededJobsThanCanGoToDeletedState();
+            //JobRunrPlus: support automatic deletion of failed jobs
             checkForFailedJobsThanCanGoToDeletedState();
             checkForJobsThatCanBeDeleted();
         }
@@ -129,6 +130,7 @@ public class JobZooKeeper implements Runnable {
     }
 
     void checkForSucceededJobsThanCanGoToDeletedState() {
+        //JobRunrPlus: allow disabling of automatic deletion of succeeded jobs
         if (backgroundJobServer.getServerStatus().getDeleteSucceededJobsAfter() == Duration.ZERO)
             return;
         LOGGER.debug("Looking for succeeded jobs that can go to the deleted state... ");
@@ -147,6 +149,7 @@ public class JobZooKeeper implements Runnable {
         }
     }
 
+    //JobRunrPlus: support automatic deletion of failed jobs
     void checkForFailedJobsThanCanGoToDeletedState() {
         if (backgroundJobServer.getServerStatus().getDeleteFailedJobsAfter() == Duration.ZERO)
             return;
@@ -159,7 +162,9 @@ public class JobZooKeeper implements Runnable {
         });
     }
 
+
     void checkForJobsThatCanBeDeleted() {
+        //JobRunrPlus: allow disabling of automatic deletion of job permanent deletion
         if (backgroundJobServer.getServerStatus().getPermanentlyDeleteDeletedJobsAfter() == Duration.ZERO)
             return;
 
@@ -204,22 +209,23 @@ public class JobZooKeeper implements Runnable {
 
     List<Job> recurringJobToScheduledJobs(RecurringJob recurringJob) {
         List<Job> jobs = recurringJobRunHelper.getJobsToSchedule(recurringJob, runStartTime, runStartTime.plusSeconds(backgroundJobServerStatus().getPollIntervalInSeconds()));
-        if (jobs.size() == 1) {
+        if(jobs.size() == 1) {
             boolean isAlreadyScheduled = storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, PROCESSING);
-            if (isAlreadyScheduled) {
+            if(isAlreadyScheduled) {
                 LOGGER.debug("Recurring job '{}' resulted in {} scheduled job but it is already scheduled, enqueued or processing. Run will be skipped as job is taking too long.", recurringJob.getJobName(), jobs.size());
                 return Collections.emptyList();
             } else {
                 LOGGER.debug("Recurring job '{}' resulted in {} scheduled job.", recurringJob.getJobName(), jobs.size());
             }
-        } else if (jobs.size() > 1) {
+        } else if(jobs.size() > 1) {
             LOGGER.info("Recurring job '{}' resulted in {} scheduled jobs. This means a long GC happened and JobRunr is catching up.", recurringJob.getJobName(), jobs.size());
         } else {
             LOGGER.debug("Recurring job '{}' resulted in {} scheduled job.", recurringJob.getJobName(), jobs.size());
         }
         return jobs;
     }
-
+    
+    //JobRunrPlus: support extra recurring job options
     boolean mustSchedule(RecurringJob recurringJob) {
         return recurringJob.isEnabled() &&
                recurringJob.getNextRun() != null &&

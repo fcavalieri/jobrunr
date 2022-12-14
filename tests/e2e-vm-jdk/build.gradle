@@ -30,6 +30,10 @@ dependencies {
 }
 
 test {
+    //JobRunrPlus: allow collection of reports as artifacts using gitlab ci
+    reports.junitXml.destination = file("/tmp/reports/$project.name")
+    reports.html.destination = file("/tmp/reports/$project.name")
+
     useJUnitPlatform()
     testLogging {
         events "passed", "skipped", "failed"

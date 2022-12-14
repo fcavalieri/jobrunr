@@ -64,6 +64,23 @@ public class Job extends AbstractJob {
         this.metadata = metadata;
     }
 
+    //JobRunrPlus: allow the specification of the job metadata in all constructors
+    public Job(JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        this(jobDetails, new EnqueuedState(), metadata);
+    }
+
+    public Job(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        this(id, jobDetails, new EnqueuedState(), metadata);
+    }
+
+    public Job(JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
+        this(null, 0, jobDetails, singletonList(jobState), metadata);
+    }
+
+    public Job(UUID id, JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
+        this(id, 0, jobDetails, singletonList(jobState), metadata);
+    }
+
     @Override
     public UUID getId() {
         return id;
@@ -171,6 +188,7 @@ public class Job extends AbstractJob {
                 ", jobName='" + getJobName() + '\'' +
                 ", jobState='" + getState() + '\'' +
                 ", updatedAt='" + getUpdatedAt() + '\'' +
+                //JobRunrPlus: display recurring job id in job ToString
                 ", recurringJobId='" + getRecurringJobId() + '\'' +
                 '}';
     }

@@ -78,8 +78,6 @@ configure(subprojects.findAll {it.name != 'platform'}) {
     test {
         finalizedBy jacocoTestReport
         //JobRunrPlus: Produce reports under the repository root to allow their upload as artifacts in GitlabCI 
-        //reports.junitXml.destination = file("/tmp/reports/$project.name")
-        //reports.html.destination = file("/tmp/reports/$project.name")
         reports.junitXml.destination = file("build/reports/tests")
         reports.html.destination = file("build/reports/tests")
 

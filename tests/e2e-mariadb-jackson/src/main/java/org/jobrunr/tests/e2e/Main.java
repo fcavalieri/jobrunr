@@ -18,6 +18,7 @@ public class Main extends AbstractSqlMain {
     @Override
     protected DataSource createDataSource(String jdbcUrl, String userName, String password) throws SQLException {
         MariaDbPoolDataSource dataSource = new MariaDbPoolDataSource();
+        //JobRunrPlus: disable SSL to fix tests
         dataSource.setUrl(jdbcUrl + "?rewriteBatchedStatements=true&pool=true&useSSL=false&useBulkStmts=false");
         dataSource.setUser(userName);
         dataSource.setPassword(password);

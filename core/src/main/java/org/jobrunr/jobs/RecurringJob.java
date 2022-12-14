@@ -20,6 +20,8 @@ public class RecurringJob extends AbstractJob {
     private String scheduleExpression;
     private String zoneId;
     private Instant createdAt;
+
+    //JobRunrPlus: extend recurring jobs
     private boolean enabled = true;
     private boolean deletableFromDashboard = true;
 
@@ -48,6 +50,7 @@ public class RecurringJob extends AbstractJob {
         this.createdAt = createdAt;
     }
 
+    //JobRunrPlus: extend recurring jobs
     public void setDeletableFromDashboard(boolean deletableFromDashboard) {
         this.deletableFromDashboard = deletableFromDashboard;
     }
@@ -114,6 +117,7 @@ public class RecurringJob extends AbstractJob {
         return getNextRun(Instant.now());
     }
 
+    //JobRunrPlus: extend recurring jobs, disabled jobs have no next run Instant
     public Instant getNextRun(Instant sinceInstant) {
         if (isEnabled())
             return ScheduleExpressionType
@@ -153,6 +157,7 @@ public class RecurringJob extends AbstractJob {
                 ", identity='" + System.identityHashCode(this) + '\'' +
                 ", jobSignature='" + getJobSignature() + '\'' +
                 ", jobName='" + getJobName() + '\'' +
+                //JobRunrPlus: extend recurring jobs
                 ", deletableFromDashboard='" + isDeletableFromDashboard() + '\'' +
                 ", enabled='" + isEnabled() + '\'' +
                 '}';

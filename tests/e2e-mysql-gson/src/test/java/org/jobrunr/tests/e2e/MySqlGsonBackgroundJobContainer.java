@@ -14,6 +14,7 @@ public class MySqlGsonBackgroundJobContainer extends AbstractBackgroundJobSqlCon
     @Override
     protected StorageProvider initStorageProvider(JdbcDatabaseContainer sqlContainer) {
         MysqlDataSource dataSource = new MysqlDataSource();
+        //JobRunrPlus: disable SSL to fix tests
         dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useSSL=false");
         dataSource.setUser(sqlContainer.getUsername());
         dataSource.setPassword(sqlContainer.getPassword());

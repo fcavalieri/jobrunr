@@ -14,7 +14,8 @@ public class MariaDbGsonBackgroundJobContainer extends AbstractBackgroundJobSqlC
     @Override
     protected StorageProvider initStorageProvider(JdbcDatabaseContainer sqlContainer) throws Exception {
         MariaDbPoolDataSource dataSource = new MariaDbPoolDataSource();
-        dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useSSL=false&useBulkStmts=false");
+        //JobRunrPlus: disable SSL to fix tests
+        dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useBulkStmts=false&useSSL=false");
         dataSource.setUser(sqlContainer.getUsername());
         dataSource.setPassword(sqlContainer.getPassword());
         return SqlStorageProviderFactory.using(dataSource);

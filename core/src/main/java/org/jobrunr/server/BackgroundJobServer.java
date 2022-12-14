@@ -8,6 +8,7 @@ import org.jobrunr.server.jmx.BackgroundJobServerMBean;
 import org.jobrunr.server.jmx.JobServerStats;
 import org.jobrunr.server.runner.*;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
+import org.jobrunr.server.tasks.CheckForNewJobRunrVersion;
 import org.jobrunr.server.tasks.CheckIfAllJobsExistTask;
 import org.jobrunr.server.tasks.CreateClusterIdIfNotExists;
 import org.jobrunr.server.tasks.UpdateRecurringJobsTask;
@@ -176,6 +177,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     public BackgroundJobServerStatus getServerStatus() {
         return new BackgroundJobServerStatus(
                 backgroundJobServerId, workDistributionStrategy.getWorkerCount(),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.deleteFailedJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
                 firstHeartbeat, Instant.now(), isRunning, jobServerStats.getSystemTotalMemory(), jobServerStats.getSystemFreeMemory(),
                 jobServerStats.getSystemCpuLoad(), jobServerStats.getProcessMaxMemory(), jobServerStats.getProcessFreeMemory(),
@@ -280,6 +282,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
             List<Runnable> startupTasks = asList(
                     new CreateClusterIdIfNotExists(this),
                     new CheckIfAllJobsExistTask(this),
+                    //JobRunrPlus: do not check for new jobrunr version
                     //new CheckForNewJobRunrVersion(this),
                     new UpdateRecurringJobsTask(this));
             startupTasks.forEach(jobExecutor::execute);

@@ -93,6 +93,7 @@ public class AbstractJobScheduler {
         LOGGER.debug("Deleted Job with id {}", deletedJob.getId());
     }
 
+     //JobRunrPlus: support extra operations on recurring jobs
     /**
      * Triggers the recurring job based on the given id.
      * <h5>An example:</h5>
@@ -157,10 +158,6 @@ public class AbstractJobScheduler {
         this.storageProvider.deleteRecurringJob(id);
     }
 
-
-
-
-
     /**
      * Utility method to register the shutdown of JobRunr in various containers - it is even automatically called by Spring Framework.
      * Note that this will stop the BackgroundJobServer, the Dashboard and the StorageProvider. JobProcessing will stop and enqueueing new jobs will fail.
@@ -173,6 +170,7 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails));
     }
 
+    //JobRunrPlus: support specification of metadata while saving a job
     JobId enqueue(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
         return saveJob(new Job(id, jobDetails, metadata));
     }
@@ -181,8 +179,28 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)));
     }
 
+    //JobRunrPlus: support specification of metadata while saving a job
+    JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)), metadata);
+    }
+
+    //JobRunrPlus: support specification of metadata while saving a job
     String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, null, null);
+    }
+
+    //JobRunrPlus: support specification of metadata while saving a job
+    String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
+        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, enabled, deletableFromDashboard);
+    }
+
+    //JobRunrPlus: support specification of metadata while saving a job
+    private String doScheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, schedule, zoneId);
+        if (enabled != null)
+            recurringJob.setEnabled(enabled);
+        if (deletableFromDashboard != null)
+            recurringJob.setDeletableFromDashboard(deletableFromDashboard);
         jobFilterUtils.runOnCreatingFilter(recurringJob);
         RecurringJob savedRecurringJob = this.storageProvider.saveRecurringJob(recurringJob);
         jobFilterUtils.runOnCreatedFilter(recurringJob);

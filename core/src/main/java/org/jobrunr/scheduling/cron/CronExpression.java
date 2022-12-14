@@ -21,6 +21,7 @@ import java.util.Calendar;
  */
 public class CronExpression extends Schedule {
 
+    //JobRunrPlus: support disabled recurring job
     public static String CRON_DISABLED = "-";
 
     private enum DaysAndDaysOfWeekRelation {
@@ -103,6 +104,7 @@ public class CronExpression extends Schedule {
         if (expression.isEmpty()) {
             throw new InvalidCronExpressionException("empty expression");
         }
+        //JobRunrPlus: support disabled recurring job
         if (CRON_DISABLED.equals(expression)) {
             CronExpression ret = new CronExpression();
             ret.expression = CRON_DISABLED;
@@ -174,6 +176,7 @@ public class CronExpression extends Schedule {
      */
     @Override
     public Instant next(Instant createdAtInstant, Instant currentInstant, ZoneId zoneId) {
+        //JobRunrPlus: support disabled recurring job
         if (CRON_DISABLED.equals(expression))
             return null;
         LocalDateTime baseDate = LocalDateTime.ofInstant(currentInstant, zoneId);

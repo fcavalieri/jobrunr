@@ -15,19 +15,19 @@ include ':language-support:jobrunr-kotlin-17-support'
 include ':framework-support:jobrunr-micronaut-feature'
 include ':framework-support:jobrunr-quarkus-extension:deployment'
 include ':framework-support:jobrunr-quarkus-extension:runtime'
-//include ':framework-support:jobrunr-quarkus-extension:tests'
-// Disabled because IntelliJIdea does not load the gradle project with this enabled.
-// Also disabled because these tests fail on the CI
+include ':framework-support:jobrunr-quarkus-extension:tests'
 include ':framework-support:jobrunr-spring-boot-starter'
 include ':framework-support:jobrunr-spring-boot-native'
 include ':tests:e2e-base'
 include ':tests:e2e-vm-jdk'
 include ':tests:e2e-elasticsearch-gson'
 include ':tests:e2e-elasticsearch-jackson'
+//JobRunrPlus: allow specification of JsonMapper
 include ':tests:e2e-force-gson'
 include ':tests:e2e-force-jackson'
 include ':tests:e2e-mariadb-gson'
 include ':tests:e2e-mariadb-jackson'
+//JobRunrPlus: allow specification of JsonMapper
 include ':tests:e2e-marklogic-gson'
 include ':tests:e2e-marklogic-jackson'
 include ':tests:e2e-mongo-gson'
