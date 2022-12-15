@@ -140,6 +140,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
         this.documentMapper = new ElasticSearchDocumentMapper(jobMapper);
     }
 
+    //JobRunrPlus: support retrieval of job mapper
     public JobMapper getJobMapper() {
         return documentMapper != null ? documentMapper.getJobMapper() : null;
     }
@@ -348,9 +349,11 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
         }
     }
 
+    //JobRunrPlus: support automatic disposal of job resources
     @Override
     public int deletePermanently(final UUID id) {
         try {
+            Job job = getJobById(id);
             final DeleteRequest request = new DeleteRequest()
                     .index(jobIndexName)
                     .id(id.toString())
@@ -359,6 +362,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
             final DeleteResponse response = client.delete(request, DEFAULT);
             disposeJobResources(job.getMetadata());
             final int amountDeleted = response.getShardInfo().getSuccessful();
+
             notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
             return amountDeleted;
         } catch (final IOException e) {
@@ -479,6 +483,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
         }
     }
 
+    //JobRunrPlus: support automatic disposal of job resources
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         try {
@@ -499,6 +504,7 @@ public class ElasticSearchStorageProvider extends AbstractStorageProvider implem
             jobsToDelete.forEach(j ->disposeJobResources(j.getMetadata()));
 
             final int amountDeleted = (int) response.getDeleted();
+
             notifyJobStatsOnChangeListenersIf(amountDeleted > 0);
             return amountDeleted;
         } catch (IOException e) {

@@ -105,7 +105,7 @@ class JobRunrConfigurationTest {
                 .hasMessage("A StorageProvider is required to use a JobRunrDashboardWebServer. Please see the documentation on how to setup a job StorageProvider.");
     }
 
-    @Disabled
+    //@Disabled
     @Test
     void dashboardCanBeConfigured() {
         assertThatCode(() -> JobRunr.configure()
@@ -121,6 +121,7 @@ class JobRunrConfigurationTest {
         ).doesNotThrowAnyException();
     }
 
+    //JobRunrPlus: support https dashboard
     @Test
     void dashboardPortCanBeConfigured() {
         JobRunrConfiguration configuration = JobRunr.configure()

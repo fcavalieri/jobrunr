@@ -14,7 +14,7 @@ const useStyles = makeStyles(() => ({
     }
 }));
 
-
+//JobRunrPlus: support disabling of succeeded jobs removal
 const SucceededNotification = (props) => {
     const classes = useStyles();
 

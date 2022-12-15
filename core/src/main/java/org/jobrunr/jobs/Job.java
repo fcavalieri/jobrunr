@@ -44,16 +44,36 @@ public class Job extends AbstractJob {
         this(jobDetails, new EnqueuedState());
     }
 
+    //JobRunrPlus: allow the specification of the job metadata in all constructors
+    public Job(JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        this(jobDetails, new EnqueuedState(), metadata);
+    }
+
     public Job(UUID id, JobDetails jobDetails) {
         this(id, jobDetails, new EnqueuedState());
+    }
+
+    //JobRunrPlus: allow the specification of the job metadata in all constructors
+    public Job(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
+        this(id, jobDetails, new EnqueuedState(), metadata);
     }
 
     public Job(JobDetails jobDetails, JobState jobState) {
         this(null, 0, jobDetails, singletonList(jobState), new ConcurrentHashMap<>());
     }
 
+    //JobRunrPlus: allow the specification of the job metadata in all constructors
+    public Job(JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
+        this(null, 0, jobDetails, singletonList(jobState), metadata);
+    }
+
     public Job(UUID id, JobDetails jobDetails, JobState jobState) {
         this(id, 0, jobDetails, singletonList(jobState), new ConcurrentHashMap<>());
+    }
+
+    //JobRunrPlus: allow the specification of the job metadata in all constructors
+    public Job(UUID id, JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
+        this(id, 0, jobDetails, singletonList(jobState), metadata);
     }
 
     public Job(UUID id, int version, JobDetails jobDetails, List<JobState> jobHistory, ConcurrentMap<String, Object> metadata) {
@@ -62,23 +82,6 @@ public class Job extends AbstractJob {
         this.id = id != null ? id : UUID.randomUUID();
         this.jobHistory = new CopyOnWriteArrayList<>(jobHistory);
         this.metadata = metadata;
-    }
-
-    //JobRunrPlus: allow the specification of the job metadata in all constructors
-    public Job(JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
-        this(jobDetails, new EnqueuedState(), metadata);
-    }
-
-    public Job(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
-        this(id, jobDetails, new EnqueuedState(), metadata);
-    }
-
-    public Job(JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
-        this(null, 0, jobDetails, singletonList(jobState), metadata);
-    }
-
-    public Job(UUID id, JobDetails jobDetails, JobState jobState, ConcurrentMap<String, Object> metadata) {
-        this(id, 0, jobDetails, singletonList(jobState), metadata);
     }
 
     @Override

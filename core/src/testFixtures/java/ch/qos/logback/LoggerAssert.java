@@ -75,6 +75,7 @@ public class LoggerAssert extends AbstractAssert<LoggerAssert, ListAppender<ILog
         return this;
     }
 
+    //JobRunrPlus: allow to trace exceptions in logs
     public LoggerAssert hasErrorMessageContaining(String message) {
         Assertions.assertThat(actual.list).areAtLeastOne(logsWithLevelAndMessageContaining(ERROR, message));
         return this;

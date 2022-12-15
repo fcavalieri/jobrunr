@@ -106,6 +106,7 @@ class JobSchedulerTest {
         assertThat(jobClientLogFilter.onCreated).isTrue();
     }
 
+    //JobRunrPlus: extra operations on recurring jobs
     @Test
     void disabledCronIsAllowed() {
         when(storageProvider.saveRecurringJob(any(RecurringJob.class))).thenAnswer(invocation -> invocation.getArgument(0));

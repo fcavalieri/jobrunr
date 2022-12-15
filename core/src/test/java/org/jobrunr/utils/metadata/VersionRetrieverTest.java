@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class VersionRetrieverTest {
 
+    //JobRunrPlus: change version
     @Disabled
     @Test
     void jobRunrVersion() {

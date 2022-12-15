@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 public class JacksonJsonMapper implements JsonMapper {
 
     private final ObjectMapper objectMapper;
+    //JobRunrPlus: support marklogic
     private final ObjectMapper rawObjectMapper;
 
     public JacksonJsonMapper() {
@@ -41,6 +42,7 @@ public class JacksonJsonMapper implements JsonMapper {
 
     public JacksonJsonMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
         this.objectMapper = initObjectMapper(objectMapper, moduleAutoDiscover);
+        //JobRunrPlus: support marklogic
         this.rawObjectMapper = new ObjectMapper();
     }
 
@@ -76,6 +78,7 @@ public class JacksonJsonMapper implements JsonMapper {
         }
     }
 
+    //JobRunrPlus: support marklogic
     @Override
     public String serializeRaw(Object object) {
         try {

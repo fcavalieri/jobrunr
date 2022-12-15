@@ -47,6 +47,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         publishTotalAmountOfSucceededJobs(0);
     }
 
+    //JobRunrPlus: support retrieval of job mapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
@@ -67,6 +68,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 serverStatus.getWorkerPoolSize(),
                 serverStatus.getPollIntervalInSeconds(),
                 serverStatus.getDeleteSucceededJobsAfter(),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 serverStatus.getDeleteFailedJobsAfter(),
                 serverStatus.getPermanentlyDeleteDeletedJobsAfter(),
                 serverStatus.getFirstHeartbeat(),
@@ -98,6 +100,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         backgroundJobServers.remove(serverStatus.getId());
     }
 
+    //JobRunrPlus: improve sorting of job servers
     @Override
     public List<BackgroundJobServerStatus> getBackgroundJobServers() {
         return backgroundJobServers.values().stream()
@@ -105,6 +108,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 .collect(toList());
     }
 
+    //JobRunrPlus: improve sorting of job servers
     @Override
     public UUID getLongestRunningBackgroundJobServerId() {
         return backgroundJobServers.values().stream()
@@ -164,6 +168,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return job;
     }
 
+   //JobRunrPlus: automatic disposal of job resources on deletion
     @Override
     public int deletePermanently(UUID id) {
         Job job = jobQueue.remove(id);
@@ -222,6 +227,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         );
     }
 
+    //JobRunrPlus: automatic disposal of job resources on deletion
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         List<Job> jobsToRemove = jobQueue.values().stream()

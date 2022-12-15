@@ -29,6 +29,7 @@ import static java.util.Collections.unmodifiableList;
 public class GsonJsonMapper implements JsonMapper {
 
     private final Gson gson;
+    //JobRunrPlus: support marklogic
     private final Gson rawGson;
 
     public GsonJsonMapper() {
@@ -36,12 +37,14 @@ public class GsonJsonMapper implements JsonMapper {
     }
 
     public GsonJsonMapper(GsonBuilder gsonBuilder) {
+        //JobRunrPlus: support marklogic
         this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = initGson(gsonBuilder);
         fixGsonNotBeingExtensible(gson);
     }
 
     public GsonJsonMapper(Gson gson) {
+        //JobRunrPlus: support marklogic
         this.rawGson = new GsonBuilder().serializeNulls().create();
         this.gson = gson;
         fixGsonNotBeingExtensible(gson);
@@ -83,6 +86,7 @@ public class GsonJsonMapper implements JsonMapper {
         return gson.fromJson(serializedObjectAsString, clazz);
     }
 
+    //JobRunrPlus: support marklogic
     @Override
     public String serializeRaw(Object object) {
         return rawGson.toJson(object);

@@ -9,6 +9,7 @@ import WithSidebar from "../components/utils/with-sidebar";
 import JobView from "../components/jobs/job-view";
 import JobsView from "../components/jobs/jobs-view";
 import Sidebar from "../components/jobs/sidebar";
+import GithubStarPopup from "../components/utils/github-star-popup";
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -39,6 +40,8 @@ const AdminUI = function () {
     return (
         <MuiThemeProvider theme={theme}>
             <div className={classes.root}>
+                //JobRunrPlus: support github-independent operation
+                //<GithubStarPopup/>
                 <TopAppBar/>
                 <main className={classes.content}>
                     <Switch>

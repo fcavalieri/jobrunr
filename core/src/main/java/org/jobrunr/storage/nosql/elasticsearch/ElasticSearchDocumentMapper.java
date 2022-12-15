@@ -40,6 +40,7 @@ public class ElasticSearchDocumentMapper {
             builder.field(BackgroundJobServers.FIELD_WORKER_POOL_SIZE, serverStatus.getWorkerPoolSize());
             builder.field(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, serverStatus.getPollIntervalInSeconds());
             builder.field(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, serverStatus.getDeleteSucceededJobsAfter());
+            //JobRunrPlus: support automatic deletion of failed jobs
             builder.field(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, serverStatus.getDeleteFailedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, serverStatus.getPermanentlyDeleteDeletedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_FIRST_HEARTBEAT, serverStatus.getFirstHeartbeat());
@@ -133,6 +134,7 @@ public class ElasticSearchDocumentMapper {
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER), Duration.class),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT), Instant.class),
@@ -188,6 +190,7 @@ public class ElasticSearchDocumentMapper {
         }
     }
 
+    //JobRunrPlus: support retrieval of jobmapper
     public JobMapper getJobMapper() {
         return jobMapper;
     }

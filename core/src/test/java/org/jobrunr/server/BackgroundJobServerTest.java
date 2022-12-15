@@ -351,6 +351,7 @@ class BackgroundJobServerTest {
                 .untilAsserted(() -> assertThat(logger).hasErrorMessage("JobRunr BackgroundJobServer failed to start"));
     }
 
+    //JobRunrPlus: extra operations on recurring jobs
     @Test
     void enableDisableTriggerRecurringJob() {
         backgroundJobServer.start();

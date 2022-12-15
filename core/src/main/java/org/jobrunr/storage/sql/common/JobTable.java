@@ -158,6 +158,7 @@ public class JobTable extends Sql<Job> {
                 .delete("from jobrunr_jobs where state = :state AND updatedAt <= :updatedBefore");
     }
 
+    //JobRunrPlus: support automatical disposal of job resources
     public List<Job> getJobsByStateAndUpdatedBefore(StateName state, Instant updatedBefore) {
         return withState(state)
                 .withUpdatedBefore(updatedBefore)

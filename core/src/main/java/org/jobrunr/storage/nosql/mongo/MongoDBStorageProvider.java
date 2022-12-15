@@ -131,6 +131,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
         metadataCollection = jobrunrDatabase.getCollection(elementPrefixer(collectionPrefix, Metadata.NAME), Document.class);
     }
 
+    //JobRunrPlus: support jobmapper retrieval
     @Override
     public JobMapper getJobMapper() {
         return jobDocumentMapper != null ? jobDocumentMapper.getJobMapper() : null;
@@ -249,6 +250,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
         return job;
     }
 
+    //JobRunrPlus: support automatic disposal of job resources
     @Override
     public int deletePermanently(UUID id) {
         final Document document = jobCollection.findOneAndDelete(eq(toMongoId(Jobs.FIELD_ID), id));
@@ -327,6 +329,7 @@ public class MongoDBStorageProvider extends AbstractStorageProvider implements N
         return getJobPage(eq(Jobs.FIELD_STATE, state.name()), pageRequest);
     }
 
+    //JobRunrPlus: support automatic disposal of job resources
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         final ArrayList<Document> jobsToDelete = jobCollection

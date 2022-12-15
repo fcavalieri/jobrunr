@@ -27,6 +27,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
                 .with(FIELD_WORKER_POOL_SIZE, BackgroundJobServerStatus::getWorkerPoolSize)
                 .with(FIELD_POLL_INTERVAL_IN_SECONDS, BackgroundJobServerStatus::getPollIntervalInSeconds)
                 .with(FIELD_DELETE_SUCCEEDED_JOBS_AFTER, BackgroundJobServerStatus::getDeleteSucceededJobsAfter)
+                 //JobRunrPlus: support automatical deletion of failed jobs
                 .with(FIELD_DELETE_FAILED_JOBS_AFTER, BackgroundJobServerStatus::getDeleteFailedJobsAfter)
                 .with(FIELD_PERMANENTLY_DELETE_JOBS_AFTER, BackgroundJobServerStatus::getPermanentlyDeleteDeletedJobsAfter)
                 .with(FIELD_FIRST_HEARTBEAT, BackgroundJobServerStatus::getFirstHeartbeat)
@@ -45,6 +46,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
         this
                 .with(FIELD_ID, serverStatus.getId())
                 .delete("from jobrunr_backgroundjobservers where id = :id");
+        //JobRunrPlus: support automatical deletion of failed jobs
         this
                 .insert(serverStatus, "into jobrunr_backgroundjobservers values (:id, :workerPoolSize, :pollIntervalInSeconds, :firstHeartbeat, :lastHeartbeat, :running, :systemTotalMemory, :systemFreeMemory, :systemCpuLoad, :processMaxMemory, :processFreeMemory, :processAllocatedMemory, :processCpuLoad, :deleteSucceededJobsAfter, :deleteFailedJobsAfter, :permanentlyDeleteJobsAfter)");
     }
@@ -105,6 +107,7 @@ public class BackgroundJobServerTable extends Sql<BackgroundJobServerStatus> {
                 resultSet.asInt(FIELD_WORKER_POOL_SIZE),
                 resultSet.asInt(FIELD_POLL_INTERVAL_IN_SECONDS),
                 resultSet.asDuration(FIELD_DELETE_SUCCEEDED_JOBS_AFTER),
+                //JobRunrPlus: support automatical deletion of failed jobs
                 resultSet.asDuration(FIELD_DELETE_FAILED_JOBS_AFTER),
                 resultSet.asDuration(FIELD_PERMANENTLY_DELETE_JOBS_AFTER),
                 resultSet.asInstant(FIELD_FIRST_HEARTBEAT),

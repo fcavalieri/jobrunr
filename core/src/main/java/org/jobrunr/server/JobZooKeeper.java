@@ -225,14 +225,6 @@ public class JobZooKeeper implements Runnable {
         return jobs;
     }
     
-    //JobRunrPlus: support extra recurring job options
-    boolean mustSchedule(RecurringJob recurringJob) {
-        return recurringJob.isEnabled() &&
-               recurringJob.getNextRun() != null &&
-               recurringJob.getNextRun().isBefore(now().plus(durationPollIntervalTimeBox).plusSeconds(1)) &&
-               !storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING);
-    }
-
     void processJobList(Supplier<List<Job>> jobListSupplier, Consumer<Job> jobConsumer) {
         List<Job> jobs = getJobsToProcess(jobListSupplier);
         while (!jobs.isEmpty()) {

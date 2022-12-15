@@ -11,6 +11,7 @@ public class JsonbJobRunrDashboardWebserverTest extends JobRunrDashboardWebServe
         return new JsonbJsonMapper();
     }
 
+    //JobRunrPlus: support https dashboard
     @Override
     public JobRunrDashboardWebServerConfiguration getDashboardConfiguration() {
         int portHttp = FreePortFinder.nextFreePort(8000);

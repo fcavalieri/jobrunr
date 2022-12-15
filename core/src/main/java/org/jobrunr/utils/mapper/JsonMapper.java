@@ -16,6 +16,7 @@ public interface JsonMapper {
 
     <T> T deserialize(String serializedObjectAsString, Class<T> clazz);
 
+    //JobRunrPlus: support marklogic
     String serializeRaw(Object object);
 
     <T> T deserializeRaw(String serializedObjectAsString, Class<T> clazz);

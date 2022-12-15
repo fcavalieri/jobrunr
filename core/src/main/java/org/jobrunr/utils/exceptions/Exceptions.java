@@ -15,6 +15,7 @@ public class Exceptions {
     }
 
     public static String getStackTraceAsString(Throwable exception) {
+        //JobRunrPlus: do not crash if exception is null
         if (exception == null)
             return null;
         StringWriter sw = new StringWriter();

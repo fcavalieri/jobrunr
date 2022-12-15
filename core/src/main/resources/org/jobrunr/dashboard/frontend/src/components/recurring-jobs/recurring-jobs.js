@@ -98,6 +98,7 @@ const RecurringJobs = (props) => {
         setApiStatus(null);
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const deleteSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -150,6 +151,7 @@ const RecurringJobs = (props) => {
         })
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const enableSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -174,6 +176,7 @@ const RecurringJobs = (props) => {
         })
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const disableSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -216,6 +219,7 @@ const RecurringJobs = (props) => {
                                 <Grid item xs={3} container>
                                     <ButtonGroup className={classes.recurringJobActions}
                                                  disabled={recurringJobs.every(recurringJob => !recurringJob.selected)}>
+                                        //JobRunrPlus: support extra operations on recurring jobs
                                         <Button variant="outlined" color="primary"
                                                 onClick={disableSelectedRecurringJobs}>
                                             Disable
@@ -243,6 +247,7 @@ const RecurringJobs = (props) => {
                                                         checked={recurringJobs.every(recurringJob => recurringJob.selected)}
                                                         onClick={selectAll}/>
                                                 </TableCell>
+                                                //JobRunrPlus: support extra operations on recurring jobs
                                                 <TableCell padding="checkbox">Enabled?</TableCell>
                                                 <TableCell padding="checkbox">Deletable?</TableCell>
                                                 <TableCell className={classes.idColumn}>Id</TableCell>
@@ -259,6 +264,7 @@ const RecurringJobs = (props) => {
                                                         <Checkbox checked={recurringJob.selected}
                                                                   onClick={(event) => selectRecurringJob(event, recurringJob)}/>
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
                                                         {recurringJob.enabled ? <AlarmCheck/> : <AlarmOff/> }
                                                     </TableCell>
@@ -271,6 +277,7 @@ const RecurringJobs = (props) => {
                                                     <TableCell>
                                                         {recurringJob.jobName}
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
                                                         {recurringJob.cronExpression === "-" ? "" : (
                                                             recurringJob.scheduleExpression.startsWith('P')
@@ -278,6 +285,7 @@ const RecurringJobs = (props) => {
                                                             : cronstrue.toString(recurringJob.scheduleExpression))
                                                         }
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
                                                         {recurringJob.cronExpression === "-" ? "" : recurringJob.zoneId}
                                                     </TableCell>

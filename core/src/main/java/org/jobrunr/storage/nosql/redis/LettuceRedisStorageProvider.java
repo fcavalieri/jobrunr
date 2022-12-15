@@ -78,6 +78,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
         setUpStorageProvider(DatabaseOptions.CREATE);
     }
 
+    //JobRunrPlus: support retrieval of jobmapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
@@ -103,6 +104,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_WORKER_POOL_SIZE, String.valueOf(serverStatus.getWorkerPoolSize()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, String.valueOf(serverStatus.getPollIntervalInSeconds()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteSucceededJobsAfter()));
+            //JobRunrPlus: support automatical removal of failed jobs
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteFailedJobsAfter()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, String.valueOf(serverStatus.getPermanentlyDeleteDeletedJobsAfter()));
             commands.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_FIRST_HEARTBEAT, String.valueOf(serverStatus.getFirstHeartbeat()));
@@ -168,6 +170,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE)),
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER)),
+                            //JobRunrPlus: support automatical removal of failed jobs
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER)),
                             Instant.parse(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT)),
@@ -312,6 +315,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
             commands.del(jobVersionKey(keyPrefix, job));
             deleteJobMetadata(commands, job);
             final TransactionResult result = commands.exec();
+            //JobRunrPlus: support automatical disposal of job resources
             disposeJobResources(job.getMetadata());
             int amount = result == null || result.isEmpty() ? 0 : 1;
             notifyJobStatsOnChangeListenersIf(amount > 0);
@@ -438,6 +442,7 @@ public class LettuceRedisStorageProvider extends AbstractStorageProvider impleme
                     deleteJobMetadata(commands, job);
 
                     final TransactionResult exec = commands.exec();
+                    //JobRunrPlus: support automatical disposal of job resources
                     disposeJobResources(job.getMetadata());
                     if (exec != null && !exec.isEmpty()) amount++;
                 }

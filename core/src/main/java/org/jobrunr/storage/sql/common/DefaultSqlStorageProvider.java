@@ -71,6 +71,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    //JobRunrPlus: support retrieval of jobmapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
@@ -254,6 +255,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    //JobRunrPlus: support automatical disposal of job resources
     @Override
     public int deletePermanently(UUID id) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
@@ -268,6 +270,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    //JobRunrPlus: support automatical disposal of job resources
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {

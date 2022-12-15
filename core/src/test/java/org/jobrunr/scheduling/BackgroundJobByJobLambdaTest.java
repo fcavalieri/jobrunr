@@ -129,6 +129,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, SUCCEEDED));
     }
 
+    //JobRunrPlus: allow to specify metadata when saving job
     @Test
     void testEnqueueWithIdAndMetadata() {
         UUID id = UUID.randomUUID();
@@ -221,6 +222,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED, SCHEDULED));
     }
 
+    //JobRunrPlus: detect retryability from nested exceptions
     @Test
     void testFailedJobWithProblematicExceptionIsNotRescheduled() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatFailsWithProblematicException());
@@ -239,6 +241,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId1)).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED));
     }
 
+    //JobRunrPlus: allow to specify metadata when saving job
     @Test
     void testScheduleWithIdAndMetadata() {
         UUID id = UUID.randomUUID();

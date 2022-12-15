@@ -85,11 +85,11 @@ public class JobRunrDashboardWebServer {
     //JobRunrPlus: support Https dashboard
     public void start() {
         if (enableHttp) {
-            webServerHttp = new WebServerHttp(portHttp);
+            webServerHttp = new WebServer(portHttp);
             initWebServer(webServerHttp);
         }
         if (enableHttps) {
-            webServerHttps = new WebServerHttps(portHttps, keyStorePathHttps, keyStorePasswordHttps);
+            webServerHttps = new WebServer(portHttps, keyStorePathHttps, keyStorePasswordHttps);
             initWebServer(webServerHttps);
         }
     }

@@ -14,6 +14,7 @@ import java.io.OutputStream;
 public class JsonbJsonMapper implements JsonMapper {
 
     private final Jsonb jsonb;
+    //JobRunrPlus: support marklogic
     private final Jsonb rawJsonb;
 
     public JsonbJsonMapper() {
@@ -21,6 +22,7 @@ public class JsonbJsonMapper implements JsonMapper {
     }
 
     public JsonbJsonMapper(JsonbConfig jsonbConfig) {
+        //JobRunrPlus: support marklogic
         this.rawJsonb = JsonbBuilder.create(new JsonbConfig().withNullValues(true));
         this.jsonb = JsonbBuilder.create(initJsonbConfig(jsonbConfig));
     }
@@ -48,6 +50,7 @@ public class JsonbJsonMapper implements JsonMapper {
         jsonb.toJson(object, outputStream);
     }
 
+    //JobRunrPlus: support marklogic
     @Override
     public String serializeRaw(Object object) {
         return rawJsonb.toJson(object);

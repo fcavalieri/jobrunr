@@ -65,6 +65,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
         setUpStorageProvider(DatabaseOptions.CREATE);
     }
 
+    //JobRunrPlus: support retrieval of jobmapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
@@ -88,6 +89,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_WORKER_POOL_SIZE, String.valueOf(serverStatus.getWorkerPoolSize()));
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, String.valueOf(serverStatus.getPollIntervalInSeconds()));
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteSucceededJobsAfter()));
+            //JobRunrPlus: support deletion of failed jobs
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, String.valueOf(serverStatus.getDeleteFailedJobsAfter()));
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, String.valueOf(serverStatus.getPermanentlyDeleteDeletedJobsAfter()));
             t.hset(backgroundJobServerKey(keyPrefix, serverStatus), BackgroundJobServers.FIELD_FIRST_HEARTBEAT, String.valueOf(serverStatus.getFirstHeartbeat()));
@@ -150,6 +152,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE)),
                             Integer.parseInt(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER)),
+                            //JobRunrPlus: support deletion of failed jobs
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER)),
                             Duration.parse(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER)),
                             Instant.parse(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT)),
@@ -285,6 +288,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
             transaction.del(jobVersionKey(keyPrefix, job));
             deleteJobMetadata(transaction, job);
             final List<Object> result = transaction.exec();
+            //JobRunrPlus: support disposal of job resources
             disposeJobResources(job.getMetadata());
             int amount = result == null || result.isEmpty() ? 0 : 1;
             notifyJobStatsOnChangeListenersIf(amount > 0);
@@ -406,6 +410,7 @@ public class JedisRedisStorageProvider extends AbstractStorageProvider implement
                         deleteJobMetadata(transaction, job);
 
                         final List<Object> exec = transaction.exec();
+                        //JobRunrPlus: support disposal of job resources
                         disposeJobResources(job.getMetadata());
                         if (exec != null && !exec.isEmpty()) amount++;
                     }

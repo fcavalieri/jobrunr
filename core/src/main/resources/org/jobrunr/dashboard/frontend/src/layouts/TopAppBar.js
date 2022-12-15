@@ -3,6 +3,8 @@ import {makeStyles} from '@material-ui/core/styles';
 import AppBar from '@material-ui/core/AppBar';
 import Chip from '@material-ui/core/Chip';
 import Toolbar from '@material-ui/core/Toolbar';
+import GitHubIcon from '@material-ui/icons/GitHub';
+import IconButton from '@material-ui/core/IconButton';
 import Button from '@material-ui/core/Button';
 import {Link as RouterLink} from 'react-router-dom';
 import statsState from "StatsStateContext.js";
@@ -13,7 +15,6 @@ const useStyles = makeStyles(theme => ({
         flexGrow: 1,
     },
     menuButton: {
-        //paddingTop: "0px",
         marginRight: theme.spacing(2),
     },
     appBar: {
@@ -23,8 +24,6 @@ const useStyles = makeStyles(theme => ({
         maxHeight: `48px`
     },
     toolBar: {
-        //zIndex: theme.zIndex.drawer + 1,
-        //background: `linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(2,0,36,1) 60%, rgb(0, 62, 126) 100%)`,
         minHeight: `48px`,
         maxHeight: `48px`
     },

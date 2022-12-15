@@ -14,7 +14,7 @@ const useStyles = makeStyles(() => ({
     }
 }));
 
-
+//JobRunrPlus: support disabling of deleted jobs removal
 const DeletedNotification = (props) => {
     const classes = useStyles();
 
@@ -45,7 +45,7 @@ const DeletedNotification = (props) => {
                 </Alert>
             </Paper>
         </Grid>
-    );
+    )
 };
 
 export default DeletedNotification;

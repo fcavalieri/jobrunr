@@ -43,6 +43,7 @@ public interface StorageProvider extends AutoCloseable {
 
     void removeJobStorageOnChangeListener(StorageProviderChangeListener listener);
 
+    //JobRunrPlus: support retrieval of job mapper
     JobMapper getJobMapper();
 
     void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus);
@@ -89,6 +90,7 @@ public interface StorageProvider extends AutoCloseable {
 
     boolean recurringJobExists(String recurringJobId, StateName... states);
 
+    //JobRunrPlus: support getting
     RecurringJob getRecurringJobById(String id);
 
     RecurringJob saveRecurringJob(RecurringJob recurringJob);

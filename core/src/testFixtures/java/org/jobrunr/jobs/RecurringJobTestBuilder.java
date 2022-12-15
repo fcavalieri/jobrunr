@@ -22,6 +22,7 @@ public class RecurringJobTestBuilder {
     private Schedule schedule;
     private ZoneId zoneId;
     private Instant createdAt = Instant.now();
+    //JobRunrPlus: support extra recurring job features
     private boolean deletableFromDashboard = true;
     private boolean enabled = true;
 
@@ -97,6 +98,7 @@ public class RecurringJobTestBuilder {
         return this;
     }
 
+    //JobRunrPlus: support extra recurring job features
     public RecurringJobTestBuilder withDeletableFromDashboard(boolean deletableFromDashboard) {
         this.deletableFromDashboard = deletableFromDashboard;
         return this;
@@ -110,6 +112,7 @@ public class RecurringJobTestBuilder {
     public RecurringJob build() {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, schedule, zoneId, createdAt);
         recurringJob.setJobName(name);
+        //JobRunrPlus: support extra recurring job features
         recurringJob.setDeletableFromDashboard(deletableFromDashboard);
         recurringJob.setEnabled(enabled);
         return recurringJob;

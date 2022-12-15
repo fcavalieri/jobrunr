@@ -44,6 +44,7 @@ public class ThreadSafeStorageProvider implements StorageProvider {
         storageProvider.removeJobStorageOnChangeListener(listener);
     }
 
+    //JobRunrPlus: support retrieval of job mapper
     @Override
     public JobMapper getJobMapper() {
         return storageProvider.getJobMapper();
@@ -168,6 +169,7 @@ public class ThreadSafeStorageProvider implements StorageProvider {
         return storageProvider.recurringJobExists(recurringJobId, states);
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
     @Override
     public RecurringJob getRecurringJobById(String id) {
         return storageProvider.getRecurringJobById(id);
