@@ -181,21 +181,21 @@ public class AbstractJobScheduler {
 
     //JobRunrPlus: support specification of metadata while saving a job
     JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
-        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)), metadata);
+        return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
     }
 
     //JobRunrPlus: support specification of metadata while saving a job
     String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId) {
-        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, null, null);
+        return doScheduleRecurrently(id, jobDetails, schedule, zoneId, null, null);
     }
 
     //JobRunrPlus: support specification of metadata while saving a job
     String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
-        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, enabled, deletableFromDashboard);
+        return doScheduleRecurrently(id, jobDetails, schedule, zoneId, enabled, deletableFromDashboard);
     }
 
     //JobRunrPlus: support specification of metadata while saving a job
-    private String doScheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
+    private String doScheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
         final RecurringJob recurringJob = new RecurringJob(id, jobDetails, schedule, zoneId);
         if (enabled != null)
             recurringJob.setEnabled(enabled);

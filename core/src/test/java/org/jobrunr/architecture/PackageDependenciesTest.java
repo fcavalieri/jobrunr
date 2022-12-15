@@ -9,6 +9,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import org.jobrunr.JobRunrException;
 import org.jobrunr.architecture.PackageDependenciesTest.DoNotIncludeTestFixtures;
 import org.jobrunr.configuration.JobRunrConfiguration;
+import org.jobrunr.dashboard.server.WebServer;
 import org.jobrunr.server.BackgroundJobPerformer;
 import org.jobrunr.server.dashboard.DashboardNotification;
 import org.jobrunr.utils.reflection.autobox.InstantForOracleTypeAutoboxer;

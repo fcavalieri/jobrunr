@@ -76,6 +76,11 @@ public class RecurringJob extends AbstractJob {
         return scheduleExpression;
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
+    public Job toImmediatelyScheduledJob() {
+        return toJob(new ScheduledState(Instant.now(), this));
+    }
+
     /**
      * Returns the next job to for this recurring job based on the current instant.
      * @return the next job to for this recurring job based on the current instant.
