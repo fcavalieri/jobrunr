@@ -47,7 +47,8 @@ class PackageDependenciesTest {
     //JobRunrPlus: support https dashboard
     @ArchTest
     ArchRule jobRunrDashboardClassesDependenciesTest = classes()
-            .that().resideInAPackage("org.jobrunr.dashboard..").and().doNotBelongToAnyOf(WebServer.class)
+            .that().resideInAPackage("org.jobrunr.dashboard..").and().doNotBelongToAnyOf(
+                    WebServer.class)
             .should().onlyDependOnClassesThat().resideInAnyPackage("org.jobrunr..", "com.sun..", "org.slf4j..", "java..");
 
     //JobRunrPlus: support https dashboard
