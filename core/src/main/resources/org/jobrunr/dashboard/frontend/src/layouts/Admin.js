@@ -1,5 +1,5 @@
 import React from 'react';
-import {createMuiTheme, makeStyles, MuiThemeProvider} from '@material-ui/core/styles';
+import {createTheme, makeStyles, MuiThemeProvider} from '@material-ui/core/styles';
 import {Redirect, Route, Switch} from 'react-router-dom';
 import TopAppBar from "./TopAppBar";
 import Overview from "../components/overview/overview";
@@ -9,6 +9,7 @@ import WithSidebar from "../components/utils/with-sidebar";
 import JobView from "../components/jobs/job-view";
 import JobsView from "../components/jobs/jobs-view";
 import Sidebar from "../components/jobs/sidebar";
+import GithubStarPopup from "../components/utils/github-star-popup";
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -27,7 +28,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 const AdminUI = function () {
-    const theme = createMuiTheme({
+    const theme = createTheme({
         palette: {
             primary: {
                 main: '#000'
@@ -39,6 +40,8 @@ const AdminUI = function () {
     return (
         <MuiThemeProvider theme={theme}>
             <div className={classes.root}>
+                //JobRunrPlus: support github-independent operation
+                //<GithubStarPopup/>
                 <TopAppBar/>
                 <main className={classes.content}>
                     <Switch>

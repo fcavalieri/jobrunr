@@ -1,35 +1,25 @@
 package org.jobrunr.storage;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import org.assertj.core.api.Condition;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.mappers.JobMapper;
-import org.jobrunr.jobs.states.StateName;
-import org.jobrunr.scheduling.BackgroundJob;
-import org.jobrunr.server.BackgroundJobServer;
 import org.jobrunr.storage.listeners.BackgroundJobServerStatusChangeListener;
 import org.jobrunr.storage.listeners.JobChangeListener;
 import org.jobrunr.storage.listeners.JobStatsChangeListener;
 import org.jobrunr.storage.listeners.MetadataChangeListener;
-import org.jobrunr.stubs.TestService;
 import org.jobrunr.utils.mapper.jackson.JacksonJsonMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.jobrunr.jobs.JobTestBuilder.aScheduledJob;
 import static org.jobrunr.jobs.JobTestBuilder.anEnqueuedJob;
 import static org.mockito.Mockito.times;
 import static org.mockito.internal.util.reflection.Whitebox.getInternalState;

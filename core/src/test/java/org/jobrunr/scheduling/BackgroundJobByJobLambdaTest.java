@@ -1,5 +1,8 @@
 package org.jobrunr.scheduling;
 
+import ch.qos.logback.LoggerAssert;
+import ch.qos.logback.core.read.ListAppender;
+import io.github.artsok.RepeatedIfExceptionsTest;
 import org.jobrunr.configuration.JobRunr;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.JobId;
@@ -15,13 +18,16 @@ import org.jobrunr.storage.InMemoryStorageProvider;
 import org.jobrunr.storage.StorageProviderForTest;
 import org.jobrunr.stubs.StaticTestService;
 import org.jobrunr.stubs.TestService;
+import org.jobrunr.stubs.TestServiceForRecurringJobsIfStopTheWorldGCOccurs;
+import org.jobrunr.utils.GCUtils;
+import org.jobrunr.utils.SleepUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
@@ -39,19 +45,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-import static org.awaitility.Durations.FIVE_SECONDS;
-import static org.awaitility.Durations.ONE_MINUTE;
-import static org.awaitility.Durations.TEN_SECONDS;
+import static org.awaitility.Durations.*;
 import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.classThatDoesNotExistJobDetails;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.methodThatDoesNotExistJobDetails;
 import static org.jobrunr.jobs.JobTestBuilder.anEnqueuedJob;
-import static org.jobrunr.jobs.states.StateName.DELETED;
-import static org.jobrunr.jobs.states.StateName.ENQUEUED;
-import static org.jobrunr.jobs.states.StateName.FAILED;
-import static org.jobrunr.jobs.states.StateName.PROCESSING;
-import static org.jobrunr.jobs.states.StateName.SCHEDULED;
-import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.jobs.states.StateName.*;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
 
@@ -60,11 +59,10 @@ import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
  */
 public class BackgroundJobByJobLambdaTest {
 
-    private static Logger LOGGER = LoggerFactory.getLogger(BackgroundJobByJobLambdaTest.class);
-
     private TestService testService;
     private StorageProviderForTest storageProvider;
     private BackgroundJobServer backgroundJobServer;
+    private static final String every5Seconds = "*/5 * * * * *";
 
     @BeforeEach
     void setUpTests() {
@@ -81,6 +79,7 @@ public class BackgroundJobByJobLambdaTest {
 
     @AfterEach
     void cleanUp() {
+        MDC.clear();
         backgroundJobServer.stop();
     }
 
@@ -130,6 +129,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, SUCCEEDED));
     }
 
+    //JobRunrPlus: allow to specify metadata when saving job
     @Test
     void testEnqueueWithIdAndMetadata() {
         UUID id = UUID.randomUUID();
@@ -165,11 +165,14 @@ public class BackgroundJobByJobLambdaTest {
     @Test
     void testEnqueueWithJobContextAndMetadata() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWork(5, JobContext.Null));
-        await().atMost(FIVE_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == SUCCEEDED);
-        Job jobById = storageProvider.getJobById(jobId);
-        assertThat(jobById)
-                .hasStates(ENQUEUED, PROCESSING, SUCCEEDED)
+        await().atMost(FIVE_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == PROCESSING);
+        await().atMost(TEN_SECONDS).until(() -> !storageProvider.getJobById(jobId).getMetadata().isEmpty());
+        assertThat(storageProvider.getJobById(jobId))
                 .hasMetadata("test", "test");
+        await().atMost(FIVE_SECONDS).until(() -> storageProvider.getJobById(jobId).getState() == SUCCEEDED);
+        assertThat(storageProvider.getJobById(jobId))
+                .hasStates(ENQUEUED, PROCESSING, SUCCEEDED)
+                .hasMetadataOnlyContainingJobProgressAndLogging();
     }
 
     @Test
@@ -219,6 +222,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasStates(ENQUEUED, PROCESSING, FAILED, SCHEDULED));
     }
 
+    //JobRunrPlus: detect retryability from nested exceptions
     @Test
     void testFailedJobWithProblematicExceptionIsNotRescheduled() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatFailsWithProblematicException());
@@ -237,6 +241,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(FIVE_SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId1)).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED));
     }
 
+    //JobRunrPlus: allow to specify metadata when saving job
     @Test
     void testScheduleWithIdAndMetadata() {
         UUID id = UUID.randomUUID();
@@ -302,8 +307,17 @@ public class BackgroundJobByJobLambdaTest {
     }
 
     @Test
-    void testRecurringJob() {
-        BackgroundJob.scheduleRecurrently(Cron.minutely(), () -> testService.doWork(5));
+    void testRecurringCronJob() {
+        BackgroundJob.scheduleRecurrently(every5Seconds, () -> testService.doWork(5));
+        await().atMost(65, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 3);
+
+        final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
+        assertThat(storageProvider.getJobById(job.getId())).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED);
+    }
+
+    @Test
+    void testRecurringCronJobWithJobContext() {
+        BackgroundJob.scheduleRecurrently(every5Seconds, () -> testService.doWork(5, JobContext.Null));
         await().atMost(65, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
 
         final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
@@ -311,18 +325,53 @@ public class BackgroundJobByJobLambdaTest {
     }
 
     @Test
-    void testRecurringJobWithId() {
-        BackgroundJob.scheduleRecurrently("theId", Cron.minutely(), () -> testService.doWork(5));
-        await().atMost(65, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
+    void testRecurringCronJobWithId() {
+        BackgroundJob.scheduleRecurrently("theId", every5Seconds, () -> testService.doWork(5));
+        await().atMost(25, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
 
         final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
         assertThat(storageProvider.getJobById(job.getId())).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED);
     }
 
     @Test
-    void testRecurringJobWithIdAndTimezone() {
-        BackgroundJob.scheduleRecurrently("theId", Cron.minutely(), systemDefault(), () -> testService.doWork(5));
+    void testRecurringCronJobWithIdAndTimezone() {
+        BackgroundJob.scheduleRecurrently("theId", every5Seconds, systemDefault(), () -> testService.doWork(5));
+        await().atMost(25, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
+
+        final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
+        assertThat(storageProvider.getJobById(job.getId())).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED);
+    }
+
+    @Test
+    void testRecurringCronJobDoesNotSkipRecurringJobsIfStopTheWorldGCOccurs() {
+        TestServiceForRecurringJobsIfStopTheWorldGCOccurs testService = new TestServiceForRecurringJobsIfStopTheWorldGCOccurs();
+        testService.resetProcessedJobs();
+        ListAppender logger = LoggerAssert.initFor(testService);
+        BackgroundJob.scheduleRecurrently(every5Seconds, testService::doWork);
         await().atMost(65, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
+
+        // WHEN
+        GCUtils.simulateStopTheWorldGC(20000);
+
+        // THEN
+        await().atMost(65, SECONDS)
+                .untilAsserted(() -> assertThat(logger).hasInfoMessageContaining("JobRunr recovered from long GC and all jobs were executed"));
+        SleepUtils.sleep(20000);
+    }
+
+    @Test
+    void testRecurringIntervalJob() {
+        BackgroundJob.scheduleRecurrently(Duration.ofSeconds(5), () -> testService.doWork(5));
+        await().atMost(15, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
+
+        final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
+        assertThat(storageProvider.getJobById(job.getId())).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED);
+    }
+
+    @Test
+    void testRecurringIntervalJobWithId() {
+        BackgroundJob.scheduleRecurrently("theId", Duration.ofSeconds(5), () -> testService.doWork(5));
+        await().atMost(15, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 1);
 
         final Job job = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
         assertThat(storageProvider.getJobById(job.getId())).hasStates(SCHEDULED, ENQUEUED, PROCESSING, SUCCEEDED);
@@ -330,9 +379,9 @@ public class BackgroundJobByJobLambdaTest {
 
     @Test
     void test2RecurringJobsWithSameMethodSignatureShouldBothBeRun() {
-        BackgroundJob.scheduleRecurrently("recurring-job-1", Cron.minutely(), systemDefault(), () -> testService.doWork(5));
-        BackgroundJob.scheduleRecurrently("recurring-job-2", Cron.minutely(), systemDefault(), () -> testService.doWork(5));
-        await().atMost(65, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 2);
+        BackgroundJob.scheduleRecurrently("recurring-job-1", every5Seconds, systemDefault(), () -> testService.doWork(5));
+        BackgroundJob.scheduleRecurrently("recurring-job-2", every5Seconds, systemDefault(), () -> testService.doWork(5));
+        await().atMost(25, SECONDS).until(() -> storageProvider.countJobs(SUCCEEDED) == 2);
 
         final Job job1 = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(0);
         final Job job2 = storageProvider.getJobs(SUCCEEDED, ascOnUpdatedAt(1000)).get(1);
@@ -366,7 +415,7 @@ public class BackgroundJobByJobLambdaTest {
         await().atMost(6, SECONDS).untilAsserted(() -> assertThat(storageProvider.getJobById(jobId)).hasState(SUCCEEDED));
     }
 
-    @Test
+    @RepeatedIfExceptionsTest(repeats = 3)
     void jobCanBeDeletedWhenEnqueued() {
         JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkThatTakesLong(12));
         BackgroundJob.delete(jobId);
@@ -477,7 +526,7 @@ public class BackgroundJobByJobLambdaTest {
     @Test
     void jobToMethodThatDoesNotExistGoesToFailedState() {
         Job job = storageProvider.save(anEnqueuedJob().withJobDetails(methodThatDoesNotExistJobDetails()).build());
-        await().atMost(3000, SECONDS).until(() -> storageProvider.getJobById(job.getId()).hasState(FAILED));
+        await().atMost(30, SECONDS).until(() -> storageProvider.getJobById(job.getId()).hasState(FAILED));
         FailedState failedState = storageProvider.getJobById(job.getId()).getJobState();
         assertThat(failedState.getException()).isInstanceOf(JobMethodNotFoundException.class);
         await().during(1, SECONDS).until(() -> storageProvider.getJobById(job.getId()).hasState(FAILED));
@@ -491,13 +540,29 @@ public class BackgroundJobByJobLambdaTest {
         assertThatCode(() -> someSysoutJobClass.schedule()).doesNotThrowAnyException();
     }
 
+    @Test
+    void mdcContextIsAvailableInJob() {
+        MDC.put("someKey", "someValue");
+
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkWithMDC("someKey"));
+        await().atMost(30, SECONDS).until(() -> storageProvider.getJobById(jobId).hasState(SUCCEEDED));
+    }
+
+    @Test
+    void mdcContextIsAvailableForDisplayName() {
+        MDC.put("customer.id", "1");
+
+        JobId jobId = BackgroundJob.enqueue(() -> testService.doWorkWithAnnotation(5, "John Doe"));
+        assertThat(storageProvider.getJobById(jobId)).hasJobName("Doing some hard work for user John Doe (customerId: 1)");
+    }
+
     interface SomeJobInterface {
         void doWork();
     }
 
     abstract static class SomeJobClass implements SomeJobInterface {
 
-        private String cron;
+        private final String cron;
 
         public SomeJobClass(String cron) {
             this.cron = cron;

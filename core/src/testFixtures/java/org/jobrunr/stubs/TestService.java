@@ -9,6 +9,7 @@ import org.jobrunr.jobs.filters.ElectStateFilter;
 import org.jobrunr.jobs.filters.JobServerFilter;
 import org.jobrunr.jobs.states.JobState;
 import org.jobrunr.scheduling.BackgroundJob;
+import org.slf4j.MDC;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -21,9 +22,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static org.jobrunr.jobs.states.StateName.ENQUEUED;
-import static org.jobrunr.jobs.states.StateName.FAILED;
-import static org.jobrunr.jobs.states.StateName.PROCESSING;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.jobrunr.jobs.states.StateName.*;
 
 public class TestService implements TestServiceInterface {
 
@@ -63,9 +63,13 @@ public class TestService implements TestServiceInterface {
         System.out.println("Doing some work... " + processedJobs + count);
     }
 
+    public void doWork(double[] xValues, double[] yValues) {
+        System.out.println("Doing some work with coordinates... ");
+    }
+
     public void doWork(Integer count) {
         processedJobs += count;
-        System.out.println("Doing some work... " + processedJobs);
+        System.out.println("Doing some work... " + processedJobs + "; " + Instant.now());
     }
 
     public void doWork(Long count) {
@@ -73,10 +77,11 @@ public class TestService implements TestServiceInterface {
         System.out.println("Doing some work... " + processedJobs);
     }
 
-    public void doWork(Integer count, JobContext jobContext) {
+    public void doWork(Integer count, JobContext jobContext) throws InterruptedException {
         processedJobs += count;
         System.out.println("Doing some work... " + processedJobs + "; jobId: " + jobContext.getJobId());
         jobContext.saveMetadata("test", "test");
+        Thread.sleep(6000L);
     }
 
     public void doWork(int countA, int countB) {
@@ -84,8 +89,13 @@ public class TestService implements TestServiceInterface {
         System.out.println("Doing some work... " + processedJobs);
     }
 
-    @Job(name = "Doing some hard work for user %1")
+    @Job(name = "Doing some hard work for user %1 (customerId: %X{customer.id})")
     public void doWorkWithAnnotation(Integer userId, String userName) {
+        System.out.println("Doing some work... " + processedJobs);
+    }
+
+    @Job(name = "Doing some hard work for user %1 with id %0")
+    public void doWorkWithAnnotationAndJobContext(Integer userId, String userName, JobContext jobContext) {
         System.out.println("Doing some work... " + processedJobs);
     }
 
@@ -126,6 +136,10 @@ public class TestService implements TestServiceInterface {
 
     public void doWork(byte b, short s, char c) {
         System.out.println("Doing some work... " + b + "; " + s + "; " + c);
+    }
+
+    public void doWorkWithEnum(Task task) {
+        System.out.println("Doing some work: " + task.executeTask());
     }
 
     @Job(name = "Doing some work")
@@ -291,6 +305,12 @@ public class TestService implements TestServiceInterface {
         System.out.println("Doing work with collections: " + singleton.size());
     }
 
+    public void doWorkWithMDC(String key) {
+        assertThat(MDC.get(key)).isNotNull();
+        String result = key + ": " + MDC.get(key) + "; ";
+        System.out.println("Found following MDC keys: " + result);
+    }
+
     public static class Work {
 
         private int workCount;
@@ -442,5 +462,23 @@ public class TestService implements TestServiceInterface {
             System.out.println("Running job for issue 335 " + id);
         }
 
+    }
+
+    public enum Task {
+
+        PROGRAMMING {
+            @Override
+            public String executeTask() {
+                return "In the zone";
+            }
+        },
+        CLEANING {
+            @Override
+            public String executeTask() {
+                return "Cleaning the house - wishing I were in zone";
+            }
+        };
+
+        public abstract String executeTask();
     }
 }

@@ -4,6 +4,7 @@ import ch.qos.logback.LoggerAssert;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.jobrunr.server.BackgroundJobServer;
+import org.jobrunr.storage.RecurringJobsResult;
 import org.jobrunr.storage.StorageProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,9 +16,7 @@ import java.util.Set;
 
 import static java.util.Arrays.asList;
 import static org.jobrunr.JobRunrAssertions.assertThat;
-import static org.jobrunr.jobs.JobDetailsTestBuilder.classThatDoesNotExistJobDetails;
-import static org.jobrunr.jobs.JobDetailsTestBuilder.defaultJobDetails;
-import static org.jobrunr.jobs.JobDetailsTestBuilder.methodThatDoesNotExistJobDetails;
+import static org.jobrunr.jobs.JobDetailsTestBuilder.*;
 import static org.jobrunr.jobs.RecurringJobTestBuilder.aDefaultRecurringJob;
 import static org.jobrunr.jobs.states.StateName.SCHEDULED;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
@@ -47,10 +46,10 @@ class CheckIfAllJobsExistTaskTest {
 
     @Test
     void onRunItLogsAllRecurringJobsThatDoNotExist() {
-        when(storageProvider.getRecurringJobs()).thenReturn(asList(
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(asList(
                 aDefaultRecurringJob().build(),
                 aDefaultRecurringJob().withJobDetails(classThatDoesNotExistJobDetails()).build()
-        ));
+        )));
 
         checkIfAllJobsExistTask.run();
 
@@ -62,6 +61,7 @@ class CheckIfAllJobsExistTaskTest {
 
     @Test
     void onRunItLogsAllScheduledJobsThatDoNotExist() {
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult());
         when(storageProvider.getDistinctJobSignatures(SCHEDULED)).thenReturn(Set.of(
                 getJobSignature(defaultJobDetails().build()),
                 getJobSignature(classThatDoesNotExistJobDetails().build())
@@ -77,10 +77,10 @@ class CheckIfAllJobsExistTaskTest {
 
     @Test
     void onRunItLogsAllScheduledAndRecurringJobsThatDoNotExist() {
-        when(storageProvider.getRecurringJobs()).thenReturn(asList(
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(asList(
                 aDefaultRecurringJob().build(),
                 aDefaultRecurringJob().withJobDetails(classThatDoesNotExistJobDetails()).build()
-        ));
+        )));
 
         when(storageProvider.getDistinctJobSignatures(SCHEDULED)).thenReturn(Set.of(
                 getJobSignature(defaultJobDetails().build()),

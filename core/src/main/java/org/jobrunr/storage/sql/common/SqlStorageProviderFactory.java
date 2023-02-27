@@ -51,7 +51,9 @@ public class SqlStorageProviderFactory {
             return getStorageProviderClass(SqlStorageProvider.class.getPackage().getName() + ".h2.H2StorageProvider");
         } else if (jdbcUrl.startsWith("jdbc:postgres")) {
             return getStorageProviderClass(SqlStorageProvider.class.getPackage().getName() + ".postgres.PostgresStorageProvider");
-        } else if (jdbcUrl.startsWith("jdbc:mysql") || jdbcUrl.startsWith("jdbc:mariadb")) {
+        } else if (jdbcUrl.startsWith("jdbc:mysql")) {
+            return getStorageProviderClass(SqlStorageProvider.class.getPackage().getName() + ".mysql.MySqlStorageProvider");
+        } else if (jdbcUrl.startsWith("jdbc:mariadb")) {
             return getStorageProviderClass(SqlStorageProvider.class.getPackage().getName() + ".mariadb.MariaDbStorageProvider");
         } else if (jdbcUrl.startsWith("jdbc:oracle")) {
             return getStorageProviderClass(SqlStorageProvider.class.getPackage().getName() + ".oracle.OracleStorageProvider");
@@ -79,7 +81,8 @@ public class SqlStorageProviderFactory {
             throw JobRunrException.shouldNotHappenException(e);
         }
     }
-
+    
+    //JobRunrPlus: change github uri
     JobRunrException unsupportedDataSourceException(String jdbcUrl) {
         return new JobRunrException("Are you running an unsupported DataSource or Database? Please check the documentation. If you think this is wrong, please open an issue using the following url: https://github.com/fcavalieri/jobrunr/issues/new?template=bug_report.md&title=%5BBUG%5D5%20-%20missing%20DataSource%20" + jdbcUrl);
     }

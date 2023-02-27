@@ -11,8 +11,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import static java.util.stream.Collectors.toList;
-import static org.jobrunr.storage.StorageProviderUtils.RecurringJobs.FIELD_ID;
-import static org.jobrunr.storage.StorageProviderUtils.RecurringJobs.FIELD_JOB_AS_JSON;
+import static org.jobrunr.storage.StorageProviderUtils.RecurringJobs.*;
 
 public class RecurringJobTable extends Sql<RecurringJob> {
 
@@ -22,7 +21,8 @@ public class RecurringJobTable extends Sql<RecurringJob> {
         this.jobMapper = jobMapper;
         this
                 .using(connection, dialect, tablePrefix, "jobrunr_recurring_jobs")
-                .with(FIELD_JOB_AS_JSON, jobMapper::serializeRecurringJob);
+                .with(FIELD_JOB_AS_JSON, jobMapper::serializeRecurringJob)
+                .with(FIELD_CREATED_AT, recurringJob -> recurringJob.getCreatedAt().toEpochMilli());
     }
 
     public RecurringJobTable withId(String id) {
@@ -34,9 +34,9 @@ public class RecurringJobTable extends Sql<RecurringJob> {
         withId(recurringJob.getId());
 
         if (selectExists("from jobrunr_recurring_jobs where id = :id")) {
-            update(recurringJob, "jobrunr_recurring_jobs SET jobAsJson = :jobAsJson WHERE id = :id");
+            update(recurringJob, "jobrunr_recurring_jobs SET jobAsJson = :jobAsJson, createdAt = :createdAt WHERE id = :id");
         } else {
-            insert(recurringJob, "into jobrunr_recurring_jobs values(:id, 1, :jobAsJson)");
+            insert(recurringJob, "into jobrunr_recurring_jobs values(:id, 1, :jobAsJson, :createdAt)");
         }
         return recurringJob;
     }
@@ -47,6 +47,10 @@ public class RecurringJobTable extends Sql<RecurringJob> {
                 .collect(toList());
     }
 
+    public long count() throws SQLException {
+        return selectCount("from jobrunr_recurring_jobs");
+    }
+
     public int deleteById(String id) throws SQLException {
         return withId(id)
                 .delete("from jobrunr_recurring_jobs where id = :id");
@@ -55,4 +59,6 @@ public class RecurringJobTable extends Sql<RecurringJob> {
     private RecurringJob toRecurringJob(SqlResultSet resultSet) {
         return jobMapper.deserializeRecurringJob(resultSet.asString(FIELD_JOB_AS_JSON));
     }
+
+
 }

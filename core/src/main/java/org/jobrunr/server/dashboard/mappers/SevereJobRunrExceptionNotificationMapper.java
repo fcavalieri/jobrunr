@@ -39,7 +39,7 @@ public class SevereJobRunrExceptionNotificationMapper implements DashboardNotifi
                 .withSubTitle("Runtime information")
                 .withBulletedLine("Timestamp", Instant.now().toString())
                 .withBulletedLine("Location", id)
-                .withBulletedLine("JobRunr Version", VersionRetriever.tryGetVersion(JobRunr.class))
+                .withBulletedLine("JobRunr Version", VersionRetriever.getVersion(JobRunr.class))
                 .withBulletedLine("StorageProvider", storageProvider instanceof ThreadSafeStorageProvider ? ((ThreadSafeStorageProvider) storageProvider).getStorageProvider().getClass().getName() : storageProvider.getClass().getName())
                 .withBulletedLine("Java Version", System.getProperty("java.version"))
                 .withBulletedLine("Is running from nested jar", Boolean.toString(RuntimeUtils.isRunningFromNestedJar()))

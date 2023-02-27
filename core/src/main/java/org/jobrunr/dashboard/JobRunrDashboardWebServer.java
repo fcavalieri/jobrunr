@@ -2,10 +2,8 @@ package org.jobrunr.dashboard;
 
 import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
-import org.jobrunr.dashboard.server.AbstractWebServer;
+import org.jobrunr.dashboard.server.WebServer;
 import org.jobrunr.dashboard.server.HttpExchangeHandler;
-import org.jobrunr.dashboard.server.WebServerHttp;
-import org.jobrunr.dashboard.server.WebServerHttps;
 import org.jobrunr.dashboard.server.http.RedirectHttpHandler;
 import org.jobrunr.storage.StorageProvider;
 import org.jobrunr.storage.ThreadSafeStorageProvider;
@@ -33,9 +31,8 @@ public class JobRunrDashboardWebServer {
 
     private final StorageProvider storageProvider;
     private final JsonMapper jsonMapper;
-
-    private final BasicAuthenticator basicAuthenticator;
-
+    //JobRunrPlus: support Https dashboard
+    //private final int port;
     private final boolean enableHttp;
     private final int portHttp;
 
@@ -43,9 +40,12 @@ public class JobRunrDashboardWebServer {
     private final int portHttps;
     private final Path keyStorePathHttps;
     private final String keyStorePasswordHttps;
+    private final BasicAuthenticator basicAuthenticator;
+    private final boolean allowAnonymousDataUsage;
 
-    private WebServerHttp webServerHttp;
-    private WebServerHttps webServerHttps;
+    //JobRunrPlus: support Https dashboard
+    private WebServer webServerHttp;
+    private WebServer webServerHttps;
 
     public static void main(String[] args) {
         new JobRunrDashboardWebServer(null, new JacksonJsonMapper());
@@ -55,21 +55,22 @@ public class JobRunrDashboardWebServer {
         this(storageProvider, jsonMapper, 8000);
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port));
     }
 
-    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int portHttp, String username, String password) {
-        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(portHttp).andBasicAuthentication(username, password));
+    public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, int port, String username, String password) {
+        this(storageProvider, jsonMapper, usingStandardDashboardConfiguration().andPort(port).andBasicAuthentication(username, password));
     }
 
+    //JobRunrPlus: support Https dashboard
     public JobRunrDashboardWebServer(StorageProvider storageProvider, JsonMapper jsonMapper, JobRunrDashboardWebServerConfiguration configuration) {
         if (storageProvider == null)
             throw new IllegalArgumentException("A StorageProvider is required to use a JobRunrDashboardWebServer. Please see the documentation on how to setup a job StorageProvider.");
 
         this.storageProvider = new ThreadSafeStorageProvider(storageProvider);
         this.jsonMapper = jsonMapper;
-
+        this.allowAnonymousDataUsage = configuration.allowAnonymousDataUsage;
         this.enableHttp = configuration.enableHttp;
         this.portHttp = configuration.port;
 
@@ -81,21 +82,23 @@ public class JobRunrDashboardWebServer {
         this.keyStorePasswordHttps = configuration.keyStorePasswordHttps;
     }
 
+    //JobRunrPlus: support Https dashboard
     public void start() {
         if (enableHttp) {
-            webServerHttp = new WebServerHttp(portHttp);
+            webServerHttp = new WebServer(portHttp);
             initWebServer(webServerHttp);
         }
         if (enableHttps) {
-            webServerHttps = new WebServerHttps(portHttps, keyStorePathHttps, keyStorePasswordHttps);
+            webServerHttps = new WebServer(portHttps, keyStorePathHttps, keyStorePasswordHttps);
             initWebServer(webServerHttps);
         }
     }
 
-    private void initWebServer(AbstractWebServer webServer) {
+    //JobRunrPlus: support Https dashboard
+    private void initWebServer(WebServer webServer) {
         RedirectHttpHandler redirectHttpHandler = new RedirectHttpHandler("/", "/dashboard");
         JobRunrStaticFileHandler staticFileHandler = createStaticFileHandler();
-        JobRunrApiHandler dashboardHandler = createApiHandler(storageProvider, jsonMapper);
+        JobRunrApiHandler dashboardHandler = createApiHandler(storageProvider, jsonMapper, allowAnonymousDataUsage);
         JobRunrSseHandler sseHandler = createSSeHandler(storageProvider, jsonMapper);
 
         registerContext(webServer, redirectHttpHandler);
@@ -111,6 +114,7 @@ public class JobRunrDashboardWebServer {
                 webServer.getWebServerHostPort());
     }
 
+    //JobRunrPlus: support Https dashboard
     public void stop() {
         if (webServerHttp != null) {
             webServerHttp.stop();
@@ -124,11 +128,13 @@ public class JobRunrDashboardWebServer {
         }
     }
 
-    HttpContext registerContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
+    //JobRunrPlus: support Https dashboard
+    HttpContext registerContext(WebServer webServer, HttpExchangeHandler httpHandler) {
         return webServer.createContext(httpHandler);
     }
 
-    HttpContext registerSecuredContext(AbstractWebServer webServer, HttpExchangeHandler httpHandler) {
+    //JobRunrPlus: support Https dashboard
+    HttpContext registerSecuredContext(WebServer webServer, HttpExchangeHandler httpHandler) {
         HttpContext httpContext = registerContext(webServer, httpHandler);
         if (basicAuthenticator != null) {
             httpContext.setAuthenticator(basicAuthenticator);
@@ -142,8 +148,8 @@ public class JobRunrDashboardWebServer {
     }
 
     @VisibleFor("github issue 18")
-    JobRunrApiHandler createApiHandler(StorageProvider storageProvider, JsonMapper jsonMapper) {
-        return new JobRunrApiHandler(storageProvider, jsonMapper);
+    JobRunrApiHandler createApiHandler(StorageProvider storageProvider, JsonMapper jsonMapper, boolean allowAnonymousDataUsage) {
+        return new JobRunrApiHandler(storageProvider, jsonMapper, allowAnonymousDataUsage);
     }
 
     @VisibleFor("github issue 18")

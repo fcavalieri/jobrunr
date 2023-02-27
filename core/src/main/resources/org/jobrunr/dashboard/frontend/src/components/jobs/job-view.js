@@ -26,8 +26,10 @@ import Box from "@material-ui/core/Box";
 import LoadingIndicator from "../LoadingIndicator";
 import {jobStateToHumanReadableName} from "../utils/job-utils";
 import SucceededNotification from "./notifications/succeeded-notification";
+//JobRunrPlus: support automatic removal of failed jobs
 import FailedNotification from "./notifications/failed-notification";
 import DeletedNotification from "./notifications/deleted-notification";
+import JobDetailsNotCacheableNotification from "./notifications/job-details-not-cacheable-notification";
 import VersionFooter from "../utils/version-footer";
 
 const useStyles = makeStyles(() => ({
@@ -135,7 +137,7 @@ const JobView = (props) => {
         setStateBreadcrumb({
             state: state,
             name: jobStateToHumanReadableName(state),
-            link: state.toLowerCase()
+            link: state.toUpperCase()
         })
     }
 
@@ -176,14 +178,13 @@ const JobView = (props) => {
                             <Card className={classes.root}>
                                 <CardContent className={classes.cardContent}>
                                     <Grid container spacing={3} justify="space-between">
-                                        <Grid item xs={8} className={classes.jobDetails}>
+                                        <Grid item xs={6} className={classes.jobDetails}>
                                             <Typography id="job-id-title" className={classes.title}
                                                         color="textSecondary">
                                                 Job Id: {job.id}
                                             </Typography>
                                         </Grid>
-                                        <Grid item xs={4} container className={classes.jobDetails}
-                                              justify="flex-end">
+                                        <Grid item xs={6} container className={classes.jobDetails} justify="flex-end">
                                             <ButtonGroup>
                                                 {stateBreadcrumb.state !== 'ENQUEUED' &&
                                                 <Button variant="outlined" color="primary" onClick={requeueJob}>
@@ -208,12 +209,15 @@ const JobView = (props) => {
                         </Box>
 
                         <Grid container spacing={3}>
+                            //JobRunrPlus: hide information that might be confusing
                             { (process.env.REACT_APP_DISPLAY_JOB_CODE === 'true')
                               ? <JobCode job={job}/>
                               : <Grid item xs={12}/>
                             }
 
+                            {job.jobDetails.cacheable === false && <JobDetailsNotCacheableNotification job={job}/>}
                             {stateBreadcrumb.state === 'SUCCEEDED' && <SucceededNotification job={job}/>}
+                            //JobRunrPlus: support automatic failed jobs removal
                             {stateBreadcrumb.state === 'FAILED' && <FailedNotification job={job}/>}
                             {stateBreadcrumb.state === 'DELETED' && <DeletedNotification job={job}/>}
 

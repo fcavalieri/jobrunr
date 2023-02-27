@@ -1,3 +1,5 @@
+import java.text.SimpleDateFormat
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -6,8 +8,8 @@ plugins {
 
 dependencies {
     api platform(project(':platform'))
-    api platform('io.quarkus:quarkus-bom:2.6.1.Final')
-    annotationProcessor 'io.quarkus:quarkus-extension-processor:2.6.1.Final'
+    api platform('io.quarkus:quarkus-bom:2.13.0.Final')
+    annotationProcessor 'io.quarkus:quarkus-extension-processor:2.13.0.Final'
 
     api project(':core')
     api project(':framework-support:jobrunr-quarkus-extension:runtime') // why: https://quarkus.io/guides/building-my-first-extension
@@ -29,12 +31,26 @@ test {
     systemProperty "platform.quarkus.native.builder-image", false
 }
 
+jar {
+    manifest {
+        attributes 'Automatic-Module-Name' : 'org.jobrunr.quarkus.deployment'
+        attributes 'Built-By': 'build.jobrunr.io'
+        attributes 'Build-Timestamp': new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date())
+        attributes 'Build-Version': project.version
+        attributes 'Implementation-Version': project.version
+        attributes 'Bundle-Version': project.version
+        attributes 'Created-By': "Gradle ${gradle.gradleVersion}"
+        attributes 'Build-Jdk': "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})"
+        attributes 'Build-OS': "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+    }
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = 'org.jobrunr'
             artifactId = 'quarkus-jobrunr-deployment'
-            version = project.version.replace("v", "")
+            version = project.version
             from components.java
 
             pom {

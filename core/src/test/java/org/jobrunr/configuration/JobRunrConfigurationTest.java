@@ -1,18 +1,28 @@
 package org.jobrunr.configuration;
 
 import org.jobrunr.configuration.JobRunrConfiguration.JobRunrConfigurationResult;
+import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.server.JobActivator;
+import org.jobrunr.storage.RecurringJobsResult;
 import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.utils.mapper.JsonMapper;
+import org.jobrunr.utils.mapper.gson.GsonJsonMapper;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jobrunr.JobRunrAssertions.assertThat;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.internal.util.reflection.Whitebox.getInternalState;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,9 +34,31 @@ class JobRunrConfigurationTest {
     @Mock
     StorageProvider storageProvider;
 
+    @Captor
+    ArgumentCaptor<JobMapper> jobMapperCaptor;
+
+    @BeforeEach
+    void setUpStorageProvider() {
+        lenient().when(storageProvider.getLongestRunningBackgroundJobServerId()).thenReturn(randomUUID());
+        lenient().when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult());
+    }
+
     @AfterEach
     void tearDown() {
         JobRunr.destroy();
+    }
+
+    @Test
+    void jsonMapperCanBeConfigured() {
+        JsonMapper jsonMapper = new GsonJsonMapper();
+        JobRunr.configure()
+                .useJsonMapper(jsonMapper)
+                .useStorageProvider(storageProvider)
+                .initialize();
+
+        verify(storageProvider).setJobMapper(jobMapperCaptor.capture());
+        JobMapper jobMapper = jobMapperCaptor.getValue();
+        assertThat((JsonMapper)getInternalState(jobMapper, "jsonMapper")).isEqualTo(jsonMapper);
     }
 
     @Test
@@ -73,7 +105,7 @@ class JobRunrConfigurationTest {
                 .hasMessage("A StorageProvider is required to use a JobRunrDashboardWebServer. Please see the documentation on how to setup a job StorageProvider.");
     }
 
-    @Disabled
+    //@Disabled
     @Test
     void dashboardCanBeConfigured() {
         assertThatCode(() -> JobRunr.configure()
@@ -89,6 +121,7 @@ class JobRunrConfigurationTest {
         ).doesNotThrowAnyException();
     }
 
+    //JobRunrPlus: support https dashboard
     @Test
     void dashboardPortCanBeConfigured() {
         JobRunrConfiguration configuration = JobRunr.configure()

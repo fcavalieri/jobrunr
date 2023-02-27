@@ -2,6 +2,7 @@ package org.jobrunr.utils.mapper.jsonb.adapters;
 
 import org.jobrunr.jobs.JobDetails;
 import org.jobrunr.jobs.JobParameter;
+import org.jobrunr.jobs.JobParameterNotDeserializableException;
 import org.jobrunr.utils.mapper.JobParameterJsonMapperException;
 import org.jobrunr.utils.mapper.jsonb.JobRunrJsonb;
 
@@ -10,12 +11,7 @@ import javax.json.bind.adapter.JsonbAdapter;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_ACTUAL_CLASS_NAME;
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_CACHEABLE;
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_CLASS_NAME;
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_JOB_PARAMETERS;
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_METHOD_NAME;
-import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.FIELD_STATIC_FIELD_NAME;
+import static org.jobrunr.utils.mapper.JsonMapperUtils.Json.*;
 import static org.jobrunr.utils.mapper.JsonMapperUtils.getActualClassName;
 import static org.jobrunr.utils.mapper.jsonb.NullSafeJsonBuilder.nullSafeJsonObjectBuilder;
 import static org.jobrunr.utils.reflection.ReflectionUtils.toClass;
@@ -66,8 +62,12 @@ public class JobDetailsAdapter implements JsonbAdapter<JobDetails, JsonObject> {
             final JsonObject jsonObject = jsonValue.asJsonObject();
             String methodClassName = jsonObject.getString(FIELD_CLASS_NAME);
             String actualClassName = jsonObject.getString(FIELD_ACTUAL_CLASS_NAME, null);
-            Object object = jsonb.fromJsonValue(jsonObject.get("object"), toClass(getActualClassName(methodClassName, actualClassName)));
-            result.add(new JobParameter(methodClassName, object));
+            try {
+                Object object = jsonb.fromJsonValue(jsonObject.get("object"), toClass(getActualClassName(methodClassName, actualClassName)));
+                result.add(new JobParameter(methodClassName, object));
+            } catch (Exception e) {
+                result.add(new JobParameter(new JobParameterNotDeserializableException(getActualClassName(methodClassName, actualClassName), e.getMessage())));
+            }
         }
         return result;
     }

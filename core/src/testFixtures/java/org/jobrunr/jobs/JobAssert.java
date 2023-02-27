@@ -4,6 +4,8 @@ import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.data.TemporalOffset;
+import org.jobrunr.jobs.context.JobDashboardLogger;
+import org.jobrunr.jobs.context.JobDashboardProgressBar;
 import org.jobrunr.jobs.states.JobState;
 import org.jobrunr.jobs.states.StateName;
 
@@ -66,8 +68,29 @@ public class JobAssert extends AbstractAssert<JobAssert, Job> {
         return this;
     }
 
+    public JobAssert hasMetadataOnlyContainingJobProgressAndLogging() {
+        for (String key : actual.getMetadata().keySet()) {
+            if(!(key.startsWith(JobDashboardLogger.JOBRUNR_LOG_KEY) || key.startsWith(JobDashboardProgressBar.JOBRUNR_PROGRESSBAR_KEY))) {
+                throw new AssertionError("Job has metadata key '" + key + "' which is not allowed");
+            }
+        }
+        return this;
+    }
+
+    public JobAssert hasNoMetadata() {
+        Assertions.assertThat(actual.getMetadata()).isEmpty();
+        return this;
+    }
+
     public JobAssert hasVersion(int version) {
         Assertions.assertThat(actual.getVersion()).isEqualTo(version);
+        return this;
+    }
+
+    public JobAssert hasRecurringJobId(String recurringJobId) {
+        Assertions.assertThat(actual.getRecurringJobId())
+                .isPresent()
+                .contains(recurringJobId);
         return this;
     }
 

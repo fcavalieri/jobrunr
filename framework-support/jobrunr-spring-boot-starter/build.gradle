@@ -1,3 +1,5 @@
+import java.text.SimpleDateFormat
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -5,8 +7,8 @@ plugins {
 
 dependencies {
     api platform(project(':platform'))
-    api platform('org.springframework.boot:spring-boot-dependencies:2.6.2')
-    annotationProcessor platform('org.springframework.boot:spring-boot-dependencies:2.6.2')
+    api platform('org.springframework.boot:spring-boot-dependencies:2.7.4')
+    annotationProcessor platform('org.springframework.boot:spring-boot-dependencies:2.7.4')
     api project(':core')
 
     api 'org.springframework.boot:spring-boot-starter'
@@ -26,6 +28,7 @@ dependencies {
     compileOnly 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
     compileOnly 'com.marklogic:marklogic-client-api'
 
+    testImplementation testFixtures(project(":core"))
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
     testImplementation 'com.google.code.gson:gson'
@@ -42,12 +45,26 @@ java {
     withSourcesJar()
 }
 
+jar {
+    manifest {
+        attributes 'Automatic-Module-Name' : 'org.jobrunr.spring.boot.starter'
+        attributes 'Built-By': 'build.jobrunr.io'
+        attributes 'Build-Timestamp': new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date())
+        attributes 'Build-Version': project.version
+        attributes 'Implementation-Version': project.version
+        attributes 'Bundle-Version': project.version
+        attributes 'Created-By': "Gradle ${gradle.gradleVersion}"
+        attributes 'Build-Jdk': "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})"
+        attributes 'Build-OS': "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+    }
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = 'org.jobrunr'
             artifactId = 'jobrunr-spring-boot-starter'
-            version = project.version.replace("v", "")
+            version = project.version
             from components.java
 
             pom {

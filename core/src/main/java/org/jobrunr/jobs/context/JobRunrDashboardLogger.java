@@ -189,6 +189,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void info(String msg, Throwable t) {
         logger.info(msg, t);
+        //JobRunrPlus: include throwable details in logs
         logInfoToJobDashboard(msg, t);
     }
 
@@ -224,6 +225,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void info(Marker marker, String msg, Throwable t) {
         logger.info(marker, msg, t);
+        //JobRunrPlus: include throwable details in logs
         logInfoToJobDashboard(msg, t);
     }
 
@@ -259,6 +261,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void warn(String msg, Throwable t) {
         logger.warn(msg, t);
+        //JobRunrPlus: include throwable details in logs
         logWarnToJobDashboard(msg, t);
     }
 
@@ -294,6 +297,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void warn(Marker marker, String msg, Throwable t) {
         logger.warn(marker, msg, t);
+        //JobRunrPlus: include throwable details in logs
         logWarnToJobDashboard(msg, t);
     }
 
@@ -329,6 +333,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void error(String msg, Throwable t) {
         logger.error(msg, t);
+        //JobRunrPlus: include throwable details in logs
         logErrorToJobDashboard(msg, t);
     }
 
@@ -364,6 +369,7 @@ public class JobRunrDashboardLogger implements Logger {
     @Override
     public void error(Marker marker, String msg, Throwable t) {
         logger.error(marker, msg, t);
+        //JobRunrPlus: include throwable details in logs
         logErrorToJobDashboard(msg, t);
     }
 
@@ -374,6 +380,7 @@ public class JobRunrDashboardLogger implements Logger {
         }
     }
 
+    //JobRunrPlus: include throwable details in logs
     private void logInfoToJobDashboard(String message, Throwable t) {
         if (threshold.compareTo(Level.INFO) > 0) return;
         if (jobDashboardLoggerThreadLocal.get() != null) {
@@ -396,7 +403,8 @@ public class JobRunrDashboardLogger implements Logger {
             jobDashboardLoggerThreadLocal.get().warn(message);
         }
     }
-
+    
+    //JobRunrPlus: include throwable details in logs
     private void logWarnToJobDashboard(String message, Throwable t) {
         if (threshold.compareTo(Level.WARN) > 0) return;
         if (jobDashboardLoggerThreadLocal.get() != null) {
@@ -418,7 +426,8 @@ public class JobRunrDashboardLogger implements Logger {
             jobDashboardLoggerThreadLocal.get().error(message);
         }
     }
-
+    
+    //JobRunrPlus: include throwable details in logs
     private void logErrorToJobDashboard(String message, Throwable t) {
         if (jobDashboardLoggerThreadLocal.get() != null) {
             String stackTrace = Exceptions.getStackTraceAsString(t);

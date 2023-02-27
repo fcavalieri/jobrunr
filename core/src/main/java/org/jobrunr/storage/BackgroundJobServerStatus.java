@@ -12,6 +12,7 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
     private final int workerPoolSize;
     private final int pollIntervalInSeconds;
     private final Duration deleteSucceededJobsAfter;
+    //JobRunrPlus: support automatic deletion of failed jobs
     private final Duration deleteFailedJobsAfter;
     private final Duration permanentlyDeleteDeletedJobsAfter;
     private final Instant firstHeartbeat;
@@ -25,15 +26,18 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
     private final Long processAllocatedMemory;
     private final Double processCpuLoad;
 
+    //JobRunrPlus: support automatic deletion of failed jobs
     public BackgroundJobServerStatus(int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration deleteFailedJobsAfter, Duration permanentlyDeleteDeletedJobsAfter) {
         this(UUID.randomUUID(), workerPoolSize, pollIntervalInSeconds, deleteSucceededJobsAfter, deleteFailedJobsAfter, permanentlyDeleteDeletedJobsAfter, null, null, false, null, null, null, null, null, null, null);
     }
 
+    //JobRunrPlus: support automatic deletion of failed jobs
     public BackgroundJobServerStatus(UUID id, int workerPoolSize, int pollIntervalInSeconds, Duration deleteSucceededJobsAfter, Duration deleteFailedJobsAfter, Duration permanentlyDeleteDeletedJobsAfter, Instant firstHeartbeat, Instant lastHeartbeat, boolean isRunning, Long systemTotalMemory, Long systemFreeMemory, Double systemCpuLoad, Long processMaxMemory, Long processFreeMemory, Long processAllocatedMemory, Double processCpuLoad) {
         this.id = id;
         this.workerPoolSize = workerPoolSize;
         this.pollIntervalInSeconds = pollIntervalInSeconds;
         this.deleteSucceededJobsAfter = deleteSucceededJobsAfter;
+        //JobRunrPlus: support automatic deletion of failed jobs
         this.deleteFailedJobsAfter = deleteFailedJobsAfter;
         this.permanentlyDeleteDeletedJobsAfter = permanentlyDeleteDeletedJobsAfter;
         this.firstHeartbeat = firstHeartbeat;
@@ -68,6 +72,7 @@ public class BackgroundJobServerStatus implements BackgroundJobServerStatusMBean
         return deleteSucceededJobsAfter;
     }
 
+    //JobRunrPlus: support automatic deletion of failed jobs
     @Override
     public Duration getDeleteFailedJobsAfter() {
         return deleteFailedJobsAfter;

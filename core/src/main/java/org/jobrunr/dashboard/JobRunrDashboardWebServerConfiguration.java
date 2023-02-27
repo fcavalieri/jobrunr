@@ -1,16 +1,19 @@
 package org.jobrunr.dashboard;
 
+import org.jobrunr.configuration.JobRunrConfiguration;
 import java.nio.file.Path;
 
 /**
  * This class allows to configure the JobRunrDashboard
  */
 public class JobRunrDashboardWebServerConfiguration {
-    boolean enableHttp = true;
     int port = 8000;
     String username = null;
     String password = null;
+    boolean allowAnonymousDataUsage = true;
 
+    //JobRunrPlus: support Https dashboard
+    boolean enableHttp = true;
     boolean enableHttps = false;
     int portHttps = 8001;
     Path keyStorePathHttps = null;
@@ -28,17 +31,6 @@ public class JobRunrDashboardWebServerConfiguration {
      */
     public static JobRunrDashboardWebServerConfiguration usingStandardDashboardConfiguration() {
         return new JobRunrDashboardWebServerConfiguration();
-    }
-
-    /**
-     * Specifies whether the HTTP JobRunrDashboard will run
-     *
-     * @param enableHttp whether the HTTP JobRunrDashboard will run
-     * @return the same configuration instance which provides a fluent api
-     */
-    public JobRunrDashboardWebServerConfiguration andEnableHttp(boolean enableHttp) {
-        this.enableHttp = enableHttp;
-        return this;
     }
 
     /**
@@ -65,6 +57,31 @@ public class JobRunrDashboardWebServerConfiguration {
         this.password = password;
         return this;
     }
+
+
+    /**
+     * Allows to opt-out of anonymous usage statistics. This setting is true by default and sends only the total amount of succeeded jobs processed
+     * by your cluster per day to show a counter on the JobRunr website for marketing purposes.
+     *
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andAllowAnonymousDataUsage(boolean allowAnonymousDataUsage) {
+        this.allowAnonymousDataUsage = allowAnonymousDataUsage;
+        return this;
+    }
+
+    //JobRunrPlus: support Https dashboard
+    /**
+     * Specifies whether the HTTP JobRunrDashboard will run
+     *
+     * @param enableHttp whether the HTTP JobRunrDashboard will run
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrDashboardWebServerConfiguration andEnableHttp(boolean enableHttp) {
+        this.enableHttp = enableHttp;
+        return this;
+    }
+
 
     /**
      * Specifies whether the HTTPS JobRunrDashboard will run

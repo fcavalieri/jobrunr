@@ -20,6 +20,7 @@ import org.jobrunr.dashboard.JobRunrDashboardWebServer;
 import org.jobrunr.scheduling.JobRequestScheduler;
 import org.jobrunr.scheduling.JobScheduler;
 import org.jobrunr.server.BackgroundJobServer;
+import org.jobrunr.server.BackgroundJobServerConfiguration;
 import org.jobrunr.spring.autoconfigure.health.JobRunrHealthIndicator;
 import org.jobrunr.spring.autoconfigure.storage.*;
 import org.jobrunr.storage.InMemoryStorageProvider;
@@ -45,8 +46,10 @@ import redis.clients.jedis.JedisPool;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.*;
+import java.util.Spliterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -107,12 +110,64 @@ public class JobRunrAutoConfigurationTest {
         });
     }
 
+
+    @Test
+    void dashboardAutoConfigurationTakesIntoAccountAllowAnonymousDataUsageDefaultTrue() {
+        this.contextRunner
+                .withPropertyValues("org.jobrunr.dashboard.enabled=true")
+                .withPropertyValues("org.jobrunr.miscellaneous.allow-anonymous-data-usage=true")
+                .withUserConfiguration(InMemoryStorageProvider.class).run((context) -> {
+                    assertThat(context).hasSingleBean(JobRunrDashboardWebServer.class);
+                    assertThat(context.getBean(JobRunrDashboardWebServer.class))
+                            .hasFieldOrPropertyWithValue("allowAnonymousDataUsage", true);
+                });
+    }
+
+    @Test
+    void dashboardAutoConfigurationTakesIntoAccountAllowAnonymousDataUsageFalse() {
+        this.contextRunner
+                .withPropertyValues("org.jobrunr.dashboard.enabled=true")
+                .withPropertyValues("org.jobrunr.miscellaneous.allow-anonymous-data-usage=false")
+                .withUserConfiguration(InMemoryStorageProvider.class).run((context) -> {
+                    assertThat(context).hasSingleBean(JobRunrDashboardWebServer.class);
+                    assertThat(context.getBean(JobRunrDashboardWebServer.class))
+                            .hasFieldOrPropertyWithValue("allowAnonymousDataUsage", false);
+                });
+    }
+
     @Test
     void backgroundJobServerAutoConfiguration() {
         this.contextRunner.withPropertyValues("org.jobrunr.background-job-server.enabled=true").withUserConfiguration(InMemoryStorageProvider.class).run((context) -> {
             assertThat(context).hasSingleBean(BackgroundJobServer.class);
             assertThat(context).doesNotHaveBean(JobRunrDashboardWebServer.class);
         });
+    }
+
+    @Test
+    void backgroundJobServerAutoConfigurationTakesIntoAccountDefaultNumberOfRetries() {
+        this.contextRunner
+                .withPropertyValues("org.jobrunr.background-job-server.enabled=true")
+                .withPropertyValues("org.jobrunr.jobs.default-number-of-retries=3")
+                .withUserConfiguration(InMemoryStorageProvider.class).run((context) -> {
+            assertThat(context).hasSingleBean(BackgroundJobServer.class);
+            assertThat(context.getBean(BackgroundJobServer.class))
+                    .hasRetryFilter(3);
+        });
+    }
+
+    @Test
+    void backgroundJobServerAutoConfigurationTakesIntoAccountAllJobsRequestSizes() {
+        this.contextRunner
+                .withPropertyValues("org.jobrunr.background-job-server.enabled=true")
+                .withPropertyValues("org.jobrunr.background-job-server.scheduled-jobs-request-size=1")
+                .withPropertyValues("org.jobrunr.background-job-server.orphaned-jobs-request-size=2")
+                .withPropertyValues("org.jobrunr.background-job-server.succeeded-jobs-request-size=3")
+                .withUserConfiguration(InMemoryStorageProvider.class).run((context) -> {
+                    assertThat(context.getBean(BackgroundJobServerConfiguration.class))
+                            .hasScheduledJobRequestSize(1)
+                            .hasOrphanedJobRequestSize(2)
+                            .hasSucceededJobRequestSize(3);
+                });
     }
 
     @Test
@@ -145,7 +200,7 @@ public class JobRunrAutoConfigurationTest {
     void elasticSearchStorageProviderAutoConfiguration() {
         this.contextRunner.withUserConfiguration(ElasticSearchStorageProviderConfiguration.class).run((context) -> {
             assertThat(context).hasSingleBean(ElasticSearchStorageProvider.class);
-            assertThat(context.getBean("storageProvider")).extracting("elasticSearchDocumentMapper").isNotNull();
+            assertThat(context.getBean("storageProvider")).extracting("documentMapper").isNotNull();
             assertThat(context).hasSingleBean(JobScheduler.class);
         });
     }
@@ -163,6 +218,20 @@ public class JobRunrAutoConfigurationTest {
     void lettuceStorageProviderAutoConfiguration() {
         this.contextRunner.withUserConfiguration(LettuceStorageProviderConfiguration.class).run((context) -> {
             assertThat(context).hasSingleBean(LettuceRedisStorageProvider.class);
+            assertThat(context.getBean("storageProvider")).extracting("jobMapper").isNotNull();
+            assertThat(context).hasSingleBean(JobScheduler.class);
+        });
+    }
+
+    @Test
+    void jobRunrDoesNotFailIfMultipleDatabasesAvailableAndValueConfigured() {
+        this.contextRunner
+                .withPropertyValues(
+                        "org.jobrunr.database.skip-create=true",
+                        "org.jobrunr.database.type=sql"
+                )
+                .withUserConfiguration(SqlDataSourceConfiguration.class, ElasticSearchStorageProviderConfiguration.class).run((context) -> {
+            assertThat(context).hasSingleBean(DefaultSqlStorageProvider.class);
             assertThat(context.getBean("storageProvider")).extracting("jobMapper").isNotNull();
             assertThat(context).hasSingleBean(JobScheduler.class);
         });
@@ -230,14 +299,23 @@ public class JobRunrAutoConfigurationTest {
         @Bean
         public MongoClient mongoClient() {
             MongoClient mongoClientMock = mock(MongoClient.class);
+            MongoDatabase mongoDatabaseMock = mock(MongoDatabase.class);
+            when(mongoClientMock.getDatabase("jobrunr")).thenReturn(mongoDatabaseMock);
+            when(mongoDatabaseMock.listCollectionNames()).thenReturn(mock(MongoIterable.class));
+
             MongoCollection migrationCollectionMock = mock(MongoCollection.class);
             when(migrationCollectionMock.find(any(Bson.class))).thenReturn(mock(FindIterable.class));
-            MongoDatabase mongoDatabaseMock = mock(MongoDatabase.class);
-            when(mongoDatabaseMock.getCollection(StorageProviderUtils.Migrations.NAME)).thenReturn(migrationCollectionMock);
-            when(mongoDatabaseMock.listCollectionNames()).thenReturn(mock(MongoIterable.class));
-            when(mongoClientMock.getDatabase("jobrunr")).thenReturn(mongoDatabaseMock);
-            when(mongoDatabaseMock.getCollection(any(), eq(Document.class))).thenReturn(mock(MongoCollection.class));
             when(migrationCollectionMock.insertOne(any())).thenReturn(mock(InsertOneResult.class));
+            when(mongoDatabaseMock.getCollection(StorageProviderUtils.Migrations.NAME)).thenReturn(migrationCollectionMock);
+
+            MongoCollection recurringJobCollectionMock = mock(MongoCollection.class);
+            ListIndexesIterable recurringJobListIndicesMock = mock(ListIndexesIterable.class);
+            when(recurringJobListIndicesMock.spliterator()).thenReturn(mock(Spliterator.class));
+            when(recurringJobCollectionMock.listIndexes()).thenReturn(recurringJobListIndicesMock);
+            when(mongoDatabaseMock.getCollection(StorageProviderUtils.RecurringJobs.NAME, Document.class)).thenReturn(recurringJobCollectionMock);
+
+            when(mongoDatabaseMock.getCollection(StorageProviderUtils.Jobs.NAME, Document.class)).thenReturn(mock(MongoCollection.class));
+            when(mongoDatabaseMock.getCollection(StorageProviderUtils.Metadata.NAME, Document.class)).thenReturn(mock(MongoCollection.class));
             return mongoClientMock;
         }
     }

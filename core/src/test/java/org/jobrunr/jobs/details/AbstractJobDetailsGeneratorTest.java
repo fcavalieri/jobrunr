@@ -1,5 +1,6 @@
 package org.jobrunr.jobs.details;
 
+import io.github.artsok.RepeatedIfExceptionsTest;
 import org.assertj.core.api.Assertions;
 import org.jobrunr.JobRunrException;
 import org.jobrunr.jobs.JobDetails;
@@ -9,6 +10,7 @@ import org.jobrunr.jobs.lambdas.IocJobLambda;
 import org.jobrunr.jobs.lambdas.IocJobLambdaFromStream;
 import org.jobrunr.jobs.lambdas.JobLambda;
 import org.jobrunr.jobs.lambdas.JobLambdaFromStream;
+import org.jobrunr.stubs.TaskEvent;
 import org.jobrunr.stubs.TestService;
 import org.jobrunr.stubs.TestServiceInterface;
 import org.jobrunr.utils.annotations.Because;
@@ -23,19 +25,27 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.lang.Integer.parseInt;
 import static java.time.Instant.now;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jobrunr.JobRunrAssertions.assertThat;
-import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.toFQResource;
+import static org.jobrunr.stubs.TestService.Task.PROGRAMMING;
+import static org.jobrunr.utils.SleepUtils.sleep;
+import static org.jobrunr.utils.StringUtils.substringAfterLast;
 
 public abstract class AbstractJobDetailsGeneratorTest {
 
@@ -66,12 +76,12 @@ public abstract class AbstractJobDetailsGeneratorTest {
     }
 
     @Test
-    @Disabled("to much logging during build")
+    @Disabled("for debugging")
     void logByteCode() {
-        String name = AbstractJobDetailsGeneratorTest.class.getName();
-        String location = new File(".").getAbsolutePath() + "/build/classes/java/test/" + toFQResource(name) + ".class";
+        //String name = AbstractJobDetailsGeneratorTest.class.getName();
+        //String location = new File(".").getAbsolutePath() + "/build/classes/java/test/" + toFQResource(name) + ".class";
 
-        //String location = "/home/ronald/Projects/Personal/JobRunr/jobrunr/jobrunr-kotlin-15-support/build/classes/kotlin/test/org/jobrunr/jobs/details/JobDetailsAsmGeneratorForKotlinTest$testMethodReferenceJobLambdaInSameClass$jobDetails$1.class";
+        String location = "/Users/rdehuyss/Projects/Personal/jobrunr/jobrunr/language-support/jobrunr-kotlin-16-support/build/classes/kotlin/test/org/jobrunr/scheduling/JobSchedulerTest.class";
         assertThatCode(() -> Textifier.main(new String[]{location})).doesNotThrowAnyException();
     }
 
@@ -460,7 +470,7 @@ public abstract class AbstractJobDetailsGeneratorTest {
         }
     }
 
-    @Test
+    @RepeatedIfExceptionsTest(repeats = 3)
     void testJobLambdaCallingMultiLineStatementSystemOutPrintln() {
         final List<UUID> workStream = getWorkStream().collect(toList());
         LocalDateTime now = LocalDateTime.now();
@@ -1001,6 +1011,16 @@ public abstract class AbstractJobDetailsGeneratorTest {
     }
 
     @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/375")
+    void testJobLambdaWithEnum() {
+        JobDetails jobDetails = toJobDetails(() -> testService.doWorkWithEnum(PROGRAMMING));
+        assertThat(jobDetails)
+                .hasClass(TestService.class)
+                .hasMethodName("doWorkWithEnum")
+                .hasArgs(PROGRAMMING);
+    }
+
+    @Test
     @Because("https://github.com/jobrunr/jobrunr/issues/335")
     void testJobLambdaWithDifferentParametersCalledFromOtherMethod() {
         UUID uuid1 = UUID.randomUUID();
@@ -1015,6 +1035,76 @@ public abstract class AbstractJobDetailsGeneratorTest {
                 .hasMethodName("run")
                 .hasArgs(uuid2);
     }
+
+    @Test
+    @Because("https://github.com/jobrunr/jobrunr/issues/335")
+    void jobDetailsGeneratorIsThreadSafe() {
+        UUID uuid1 = UUID.randomUUID();
+        assertThat(createJobDetails(uuid1))
+                .hasClass(TestService.GithubIssue335.class)
+                .hasMethodName("run")
+                .hasArgs(uuid1);
+
+        UUID uuid2 = UUID.randomUUID();
+        assertThat(createJobDetails(uuid2))
+                .hasClass(TestService.GithubIssue335.class)
+                .hasMethodName("run")
+                .hasArgs(uuid2);
+    }
+
+    @RepeatedIfExceptionsTest(repeats = 3)
+    @Because("https://github.com/jobrunr/jobrunr/issues/456")
+    void createJobDetailsInMultipleThreads() throws InterruptedException {
+        final CountDownLatch countDownLatch = new CountDownLatch(4);
+        final Map<String, JobDetails> jobDetailsResults = new ConcurrentHashMap<>();
+        final Thread thread1 = new Thread(createJobDetailsRunnable(countDownLatch, "thread1", jobDetailsResults));
+        final Thread thread2 = new Thread(createJobDetailsRunnable(countDownLatch, "thread2", jobDetailsResults));
+        final Thread thread3 = new Thread(createJobDetailsRunnable(countDownLatch, "thread3", jobDetailsResults));
+        final Thread thread4 = new Thread(createJobDetailsRunnable(countDownLatch, "thread4", jobDetailsResults));
+
+        thread1.start();
+        thread2.start();
+        thread3.start();
+        thread4.start();
+
+        countDownLatch.await(250, TimeUnit.SECONDS);
+        assertThat(jobDetailsResults).hasSize(2000);
+        jobDetailsResults.keySet().stream()
+                .forEach(key -> {
+                    Integer givenInput = parseInt(substringAfterLast(key, "-"));
+                    assertThat(jobDetailsResults.get(key)).hasArgs(givenInput);
+                });
+    }
+
+    @Test
+    @Because("https://stackoverflow.com/questions/74161840/enqueue-jobrunr-background-job-with-lambda-subclass-of-abstract-class")
+    void testWithSubClass() {
+        TaskEvent taskEvent = new TaskEvent();
+        taskEvent.tasks.add(new TaskEvent.Task1());
+        taskEvent.tasks.add(new TaskEvent.Task2());
+
+        JobDetails jobDetails = toJobDetails((JobLambda) () -> taskEvent.tasks.get(0).process("id1"));
+        assertThat(jobDetails.getClassName()).isEqualTo(TaskEvent.Task1.class.getName());
+    }
+
+    private Runnable createJobDetailsRunnable(CountDownLatch countDownLatch, String threadNbr, Map<String, JobDetails> jobDetailsResults) {
+        Random random = new Random();
+        return () -> {
+            try {
+                for (int i = 0; i < 500; i++) {
+                    Integer input = random.nextInt(1000);
+                    JobDetails jobDetails = toJobDetails(() -> testService.doWork(input));
+                    jobDetailsResults.put(threadNbr + "-" + i + "-" + input, jobDetails);
+                    sleep(1);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            } finally {
+                countDownLatch.countDown();
+            }
+        };
+    }
+
 
     // must be kept in separate method for test of Github Issue 335
     private JobDetails createJobDetails(UUID uuid) {

@@ -14,11 +14,11 @@ class WebServerTest {
         final HttpExchangeHandler httpExchangeHandlerMock = Mockito.mock(HttpExchangeHandler.class);
         when(httpExchangeHandlerMock.getContextPath()).thenReturn("/some-context-path");
 
-        final WebServerHttp webServerHttp = new WebServerHttp(8000);
-        webServerHttp.createContext(httpExchangeHandlerMock);
+        final WebServer webServer = new WebServer(8000);
+        webServer.createContext(httpExchangeHandlerMock);
 
         // WHEN
-        webServerHttp.stop();
+        webServer.stop();
 
         // THEN
         verify(httpExchangeHandlerMock).close();

@@ -1,19 +1,33 @@
 plugins {
-    id 'com.github.ben-manes.versions' version '0.41.0'
+    id 'com.github.ben-manes.versions' version '0.42.0'
     id 'org.sonarqube' version '3.3'
     id 'io.github.gradle-nexus.publish-plugin' version '1.1.0'
     id 'signing'
 }
 
+//JobRunrPlus: Disabled JobRunr publishing
+//nexusPublishing {
+//    packageGroup = "org.jobrunr"
+//    repositories {
+//        sonatype()
+//    }
+//}
+
 subprojects {
     group = 'org.jobrunr'
-    version = "v4.0.8-plus-2022-02-10"
+    //JobRunrPlus: Disabled JobRunr publishing
+    //version = System.getenv('DRONE_TAG')?.replace("v", "") ?: "v1.0.0-SNAPSHOT".replace("v", "")
+
+    version = "v5.3.2-plus-2022-12-13"
 }
 
 def isNonStable = { String version ->
-    def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
-    def regex = /^[0-9,.v-]+(-r)?$/
-    return !stableKeyword && !(version ==~ regex)
+    def isPreview = ['SNAPSHOT', 'ALPHA'].any { it -> version.toUpperCase().contains(it) }
+    def isRelease = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
+    def regex = /(?!\.)(\d+(\.\d+)+)(?![\d\.])?(\.jre\d)?/
+    def isVersionMatch = (version ==~ regex)
+    def result = isPreview || !(isRelease || isVersionMatch)
+    return result
 }
 
 tasks.named("dependencyUpdates").configure {
@@ -43,6 +57,7 @@ configure(subprojects.findAll {it.name != 'platform'}) {
     repositories {
         mavenCentral()
         mavenLocal()
+        //JobRunrPlus: Added JCenter for Marklogic depdendencies
         jcenter()
     }
 
@@ -62,6 +77,7 @@ configure(subprojects.findAll {it.name != 'platform'}) {
 
     test {
         finalizedBy jacocoTestReport
+        //JobRunrPlus: Produce reports under the repository root to allow their upload as artifacts in GitlabCI 
         reports.junitXml.destination = file("build/reports/tests")
         reports.html.destination = file("build/reports/tests")
 

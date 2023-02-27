@@ -8,6 +8,7 @@ import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.filters.JobDefaultFilters;
 import org.jobrunr.jobs.filters.JobFilter;
 import org.jobrunr.jobs.filters.JobFilterUtils;
+import org.jobrunr.jobs.mappers.MDCMapper;
 import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.scheduling.cron.CronExpression;
@@ -31,7 +32,6 @@ public class AbstractJobScheduler {
 
     private final StorageProvider storageProvider;
     private final JobFilterUtils jobFilterUtils;
-    protected static final int BATCH_SIZE = 5000;
 
     /**
      * Creates a new AbstractJobScheduler using the provided storageProvider
@@ -93,6 +93,7 @@ public class AbstractJobScheduler {
         LOGGER.debug("Deleted Job with id {}", deletedJob.getId());
     }
 
+     //JobRunrPlus: support extra operations on recurring jobs
     /**
      * Triggers the recurring job based on the given id.
      * <h5>An example:</h5>
@@ -157,10 +158,6 @@ public class AbstractJobScheduler {
         this.storageProvider.deleteRecurringJob(id);
     }
 
-
-
-
-
     /**
      * Utility method to register the shutdown of JobRunr in various containers - it is even automatically called by Spring Framework.
      * Note that this will stop the BackgroundJobServer, the Dashboard and the StorageProvider. JobProcessing will stop and enqueueing new jobs will fail.
@@ -173,6 +170,7 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails));
     }
 
+    //JobRunrPlus: support specification of metadata while saving a job
     JobId enqueue(UUID id, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
         return saveJob(new Job(id, jobDetails, metadata));
     }
@@ -181,20 +179,24 @@ public class AbstractJobScheduler {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt)));
     }
 
+    //JobRunrPlus: support specification of metadata while saving a job
     JobId schedule(UUID id, Instant scheduleAt, JobDetails jobDetails, ConcurrentMap<String, Object> metadata) {
         return saveJob(new Job(id, jobDetails, new ScheduledState(scheduleAt), metadata));
     }
 
-    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId) {
-        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, null, null);
+    //JobRunrPlus: support specification of metadata while saving a job
+    String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId) {
+        return doScheduleRecurrently(id, jobDetails, schedule, zoneId, null, null);
     }
 
-    String scheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, boolean enabled, boolean deletableFromDashboard) {
-        return doScheduleRecurrently(id, jobDetails, cronExpression, zoneId, enabled, deletableFromDashboard);
+    //JobRunrPlus: support specification of metadata while saving a job
+    String scheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
+        return doScheduleRecurrently(id, jobDetails, schedule, zoneId, enabled, deletableFromDashboard);
     }
 
-    private String doScheduleRecurrently(String id, JobDetails jobDetails, CronExpression cronExpression, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
-        final RecurringJob recurringJob = new RecurringJob(id, jobDetails, cronExpression, zoneId);
+    //JobRunrPlus: support specification of metadata while saving a job
+    private String doScheduleRecurrently(String id, JobDetails jobDetails, Schedule schedule, ZoneId zoneId, Boolean enabled, Boolean deletableFromDashboard) {
+        final RecurringJob recurringJob = new RecurringJob(id, jobDetails, schedule, zoneId);
         if (enabled != null)
             recurringJob.setEnabled(enabled);
         if (deletableFromDashboard != null)
@@ -207,6 +209,7 @@ public class AbstractJobScheduler {
 
     JobId saveJob(Job job) {
         try {
+            MDCMapper.saveMDCContextToJob(job);
             jobFilterUtils.runOnCreatingFilter(job);
             Job savedJob = this.storageProvider.save(job);
             jobFilterUtils.runOnCreatedFilter(savedJob);
@@ -218,6 +221,7 @@ public class AbstractJobScheduler {
     }
 
     List<Job> saveJobs(List<Job> jobs) {
+        jobs.forEach(MDCMapper::saveMDCContextToJob);
         jobFilterUtils.runOnCreatingFilter(jobs);
         final List<Job> savedJobs = this.storageProvider.save(jobs);
         jobFilterUtils.runOnCreatedFilter(savedJobs);

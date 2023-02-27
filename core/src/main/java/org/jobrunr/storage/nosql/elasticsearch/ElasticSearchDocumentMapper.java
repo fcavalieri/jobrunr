@@ -1,9 +1,9 @@
 package org.jobrunr.storage.nosql.elasticsearch;
 
 import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.json.JsonXContent;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
@@ -40,6 +40,7 @@ public class ElasticSearchDocumentMapper {
             builder.field(BackgroundJobServers.FIELD_WORKER_POOL_SIZE, serverStatus.getWorkerPoolSize());
             builder.field(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS, serverStatus.getPollIntervalInSeconds());
             builder.field(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER, serverStatus.getDeleteSucceededJobsAfter());
+            //JobRunrPlus: support automatic deletion of failed jobs
             builder.field(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER, serverStatus.getDeleteFailedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER, serverStatus.getPermanentlyDeleteDeletedJobsAfter());
             builder.field(BackgroundJobServers.FIELD_FIRST_HEARTBEAT, serverStatus.getFirstHeartbeat());
@@ -87,7 +88,9 @@ public class ElasticSearchDocumentMapper {
             if (job.hasState(StateName.SCHEDULED)) {
                 builder.field(Jobs.FIELD_SCHEDULED_AT, job.getLastJobStateOfType(ScheduledState.class).map(ScheduledState::getScheduledAt).orElseThrow(IllegalStateException::new));
             }
-            builder.field(Jobs.FIELD_RECURRING_JOB_ID, job.getRecurringJobId());
+            if(job.getRecurringJobId().isPresent()) {
+                builder.field(Jobs.FIELD_RECURRING_JOB_ID, job.getRecurringJobId().get());
+            }
             builder.endObject();
             return builder;
         } catch (IOException e) {
@@ -116,6 +119,7 @@ public class ElasticSearchDocumentMapper {
             XContentBuilder builder = JsonXContent.contentBuilder().prettyPrint();
             builder.startObject();
             builder.field(RecurringJobs.FIELD_JOB_AS_JSON, jobMapper.serializeRecurringJob(job));
+            builder.field(RecurringJobs.FIELD_CREATED_AT, job.getCreatedAt().toEpochMilli());
             builder.endObject();
             return builder;
         } catch (IOException e) {
@@ -130,6 +134,7 @@ public class ElasticSearchDocumentMapper {
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_WORKER_POOL_SIZE), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_POLL_INTERVAL_IN_SECONDS), int.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_SUCCEEDED_JOBS_AFTER), Duration.class),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_FAILED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_DELETE_DELETED_JOBS_AFTER), Duration.class),
                 autobox(fieldMap.get(BackgroundJobServers.FIELD_FIRST_HEARTBEAT), Instant.class),
@@ -154,6 +159,8 @@ public class ElasticSearchDocumentMapper {
     }
 
     public JobRunrMetadata toMetadata(Map<String, Object> fieldMap) {
+        if(fieldMap == null || fieldMap.isEmpty()) return null;
+
         return new JobRunrMetadata(
                 autobox(fieldMap.get(Metadata.FIELD_NAME), String.class),
                 autobox(fieldMap.get(Metadata.FIELD_OWNER), String.class),
@@ -183,6 +190,7 @@ public class ElasticSearchDocumentMapper {
         }
     }
 
+    //JobRunrPlus: support retrieval of jobmapper
     public JobMapper getJobMapper() {
         return jobMapper;
     }

@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import org.jobrunr.dashboard.JobRunrDashboardWebServer;
 import org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration;
 import org.jobrunr.jobs.details.JobDetailsGenerator;
+import org.jobrunr.jobs.filters.RetryFilter;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.scheduling.JobRequestScheduler;
 import org.jobrunr.scheduling.JobScheduler;
@@ -26,11 +27,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.PropertyMapper;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 import javax.json.bind.Jsonb;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.jobrunr.utils.reflection.ReflectionUtils.newInstance;
@@ -41,6 +44,7 @@ import static org.jobrunr.utils.reflection.ReflectionUtils.newInstance;
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 @Configuration
 @EnableConfigurationProperties(JobRunrProperties.class)
+@ComponentScan(basePackages = {"org.jobrunr.scheduling"})
 public class JobRunrAutoConfiguration {
 
     @Bean
@@ -58,17 +62,12 @@ public class JobRunrAutoConfiguration {
         return new JobRequestScheduler(storageProvider, emptyList());
     }
 
-    @Bean
-    @ConditionalOnBean(JobScheduler.class)
-    public RecurringJobPostProcessor recurringJobPostProcessor(JobScheduler jobScheduler) {
-        return new RecurringJobPostProcessor(jobScheduler);
-    }
-
     @Bean(destroyMethod = "stop")
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "org.jobrunr.background-job-server", name = "enabled", havingValue = "true")
-    public BackgroundJobServer backgroundJobServer(StorageProvider storageProvider, JsonMapper jobRunrJsonMapper, JobActivator jobActivator, BackgroundJobServerConfiguration backgroundJobServerConfiguration) {
+    public BackgroundJobServer backgroundJobServer(StorageProvider storageProvider, JsonMapper jobRunrJsonMapper, JobActivator jobActivator, BackgroundJobServerConfiguration backgroundJobServerConfiguration, JobRunrProperties properties) {
         final BackgroundJobServer backgroundJobServer = new BackgroundJobServer(storageProvider, jobRunrJsonMapper, jobActivator, backgroundJobServerConfiguration);
+        backgroundJobServer.setJobFilters(singletonList(new RetryFilter(properties.getJobs().getDefaultNumberOfRetries(), properties.getJobs().getRetryBackOffTimeSeed())));
         backgroundJobServer.start();
         return backgroundJobServer;
     }
@@ -86,6 +85,9 @@ public class JobRunrAutoConfiguration {
         map.from(backgroundJobServerProperties::getDeleteSucceededJobsAfter).to(backgroundJobServerConfiguration::andDeleteSucceededJobsAfter);
         map.from(backgroundJobServerProperties::getDeleteFailedJobsAfter).to(backgroundJobServerConfiguration::andDeleteFailedJobsAfter);
         map.from(backgroundJobServerProperties::getPermanentlyDeleteDeletedJobsAfter).to(backgroundJobServerConfiguration::andPermanentlyDeleteDeletedJobsAfter);
+        map.from(backgroundJobServerProperties::getScheduledJobsRequestSize).to(backgroundJobServerConfiguration::andScheduledJobsRequestSize);
+        map.from(backgroundJobServerProperties::getOrphanedJobsRequestSize).to(backgroundJobServerConfiguration::andOrphanedJobsRequestSize);
+        map.from(backgroundJobServerProperties::getSucceededJobsRequestSize).to(backgroundJobServerConfiguration::andSucceededJobsRequestSize);
 
         return backgroundJobServerConfiguration;
     }
@@ -107,6 +109,7 @@ public class JobRunrAutoConfiguration {
                 .andEnableHttp(properties.getDashboard().isHttpEnabled())
                 .andPort(properties.getDashboard().getPort())
                 .andBasicAuthentication(properties.getDashboard().getUsername(), properties.getDashboard().getPassword())
+                .andAllowAnonymousDataUsage(properties.getMiscellaneous().isAllowAnonymousDataUsage())
                 .andEnableHttps(properties.getDashboard().isHttpsEnabled())
                 .andPortHttps(properties.getDashboard().getPortHttps())
                 .andKeyStoreHttps(properties.getDashboard().getKeyStorePathHttps(), properties.getDashboard().getKeyStorePasswordHttps());
@@ -122,6 +125,12 @@ public class JobRunrAutoConfiguration {
     @ConditionalOnMissingBean
     public JobMapper jobMapper(JsonMapper jobRunrJsonMapper) {
         return new JobMapper(jobRunrJsonMapper);
+    }
+
+    @Bean
+    @ConditionalOnBean(JobScheduler.class)
+    public static RecurringJobPostProcessor recurringJobPostProcessor() {
+        return new RecurringJobPostProcessor();
     }
 
     @Configuration
@@ -165,7 +174,7 @@ public class JobRunrAutoConfiguration {
     @ConditionalOnEnabledHealthIndicator("jobrunr")
     public static class JobRunrHealthIndicatorAutoConfiguration {
 
-        @Bean
+        @Bean(name = "JobRunr")
         public HealthIndicator healthIndicator(JobRunrProperties properties, ObjectProvider<BackgroundJobServer> backgroundJobServerProvider) {
             return new JobRunrHealthIndicator(properties, backgroundJobServerProvider);
         }

@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class VersionRetrieverTest {
 
+    //JobRunrPlus: change version
     @Disabled
     @Test
     void jobRunrVersion() {
@@ -22,12 +23,12 @@ class VersionRetrieverTest {
 
     @Test
     void gsonVersion() {
-        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.8.9");
+        assertThat(VersionRetriever.getVersion(Gson.class)).isEqualTo("2.9.1");
     }
 
     @Test
     void jacksonVersion() {
-        assertThat(VersionRetriever.getVersion(ObjectMapper.class)).isEqualTo("2.13.1");
+        assertThat(VersionRetriever.getVersion(ObjectMapper.class)).isEqualTo("2.13.4");
     }
 
 }

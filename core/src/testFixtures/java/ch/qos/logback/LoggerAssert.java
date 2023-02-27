@@ -9,10 +9,7 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.mockito.internal.util.reflection.Whitebox;
 
-import static ch.qos.logback.classic.Level.DEBUG;
-import static ch.qos.logback.classic.Level.ERROR;
-import static ch.qos.logback.classic.Level.INFO;
-import static ch.qos.logback.classic.Level.WARN;
+import static ch.qos.logback.classic.Level.*;
 
 public class LoggerAssert extends AbstractAssert<LoggerAssert, ListAppender<ILoggingEvent>> {
 
@@ -78,6 +75,7 @@ public class LoggerAssert extends AbstractAssert<LoggerAssert, ListAppender<ILog
         return this;
     }
 
+    //JobRunrPlus: allow to trace exceptions in logs
     public LoggerAssert hasErrorMessageContaining(String message) {
         Assertions.assertThat(actual.list).areAtLeastOne(logsWithLevelAndMessageContaining(ERROR, message));
         return this;
@@ -94,7 +92,8 @@ public class LoggerAssert extends AbstractAssert<LoggerAssert, ListAppender<ILog
     }
 
     public LoggerAssert hasInfoMessageContaining(String message) {
-        return hasInfoMessageContaining(message, 1);
+        Assertions.assertThat(actual.list).areAtLeastOne(logsWithLevelAndMessageContaining(INFO, message));
+        return this;
     }
 
     public LoggerAssert hasInfoMessageContaining(String message, int times) {

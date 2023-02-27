@@ -7,21 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
 import static org.jobrunr.JobRunrException.shouldNotHappenException;
-import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.createObjectViaMethod;
-import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.findParamTypesFromDescriptor;
-import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.findParamTypesFromDescriptorAsArray;
-import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.toFQClassName;
-import static org.jobrunr.utils.reflection.ReflectionUtils.getValueFromField;
-import static org.jobrunr.utils.reflection.ReflectionUtils.isClassAssignableToObject;
-import static org.jobrunr.utils.reflection.ReflectionUtils.toClass;
+import static org.jobrunr.jobs.details.JobDetailsGeneratorUtils.*;
+import static org.jobrunr.utils.reflection.ReflectionUtils.*;
 
 public class JobDetailsInstruction extends VisitMethodInstruction {
 
@@ -59,14 +51,15 @@ public class JobDetailsInstruction extends VisitMethodInstruction {
             return findInheritedClassName(className).orElse(className);
         }
 
-        Object jobOnStack = jobDetailsBuilder.getStack().getLast();
-        if (jobOnStack == null) {
-            return className;
-        }
-
-        Class<Object> jobClass = toClass(className);
-        if (jobClass.isAssignableFrom(jobOnStack.getClass())) {
-            return jobOnStack.getClass().getName();
+        ListIterator objectOnStackIterator = jobDetailsBuilder.getStack().listIterator(jobDetailsBuilder.getStack().size());
+        while(objectOnStackIterator.hasPrevious()) {
+            Object jobOnStack = objectOnStackIterator.previous();
+            if(jobOnStack != null) {
+                Class<Object> jobClass = toClass(className);
+                if (jobClass.isAssignableFrom(jobOnStack.getClass())) {
+                    return jobOnStack.getClass().getName();
+                }
+            }
         }
         return className;
     }

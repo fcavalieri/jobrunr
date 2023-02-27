@@ -11,6 +11,10 @@ import org.assertj.core.api.ListAssert;
 import org.assertj.db.DatabaseAssertions;
 import org.jobrunr.dashboard.server.http.client.HttpResponseAssert;
 import org.jobrunr.jobs.*;
+import org.jobrunr.server.BackgroundJobServer;
+import org.jobrunr.server.BackgroundJobServerAssert;
+import org.jobrunr.server.BackgroundJobServerConfiguration;
+import org.jobrunr.server.BackgroundJobServerConfigurationAssert;
 import org.jobrunr.storage.*;
 
 import javax.sql.DataSource;
@@ -26,7 +30,7 @@ public class JobRunrAssertions extends Assertions {
     }
 
     public static <T extends Job> ListAssert<T> assertThatJobs(List<T> jobs) {
-        return Assertions.assertThat(jobs).usingRecursiveFieldByFieldElementComparator();
+        return Assertions.assertThat(jobs).usingRecursiveFieldByFieldElementComparatorIgnoringFields("locker");
     }
 
     public static JobAssert assertThat(Job job) {
@@ -45,6 +49,13 @@ public class JobRunrAssertions extends Assertions {
         return JobRunrMetadataAssert.assertThat(metadata);
     }
 
+    public static BackgroundJobServerConfigurationAssert assertThat(BackgroundJobServerConfiguration backgroundJobServerConfiguration) {
+        return BackgroundJobServerConfigurationAssert.assertThat(backgroundJobServerConfiguration);
+    }
+
+    public static BackgroundJobServerAssert assertThat(BackgroundJobServer backgroundJobServer) {
+        return BackgroundJobServerAssert.assertThat(backgroundJobServer);
+    }
     public static StorageProviderAssert assertThat(StorageProvider storageProvider) {
         return StorageProviderAssert.assertThat(storageProvider);
     }

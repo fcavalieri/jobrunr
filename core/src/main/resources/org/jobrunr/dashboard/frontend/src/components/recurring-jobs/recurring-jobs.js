@@ -19,11 +19,17 @@ import {Snackbar} from "@material-ui/core";
 import Alert from '@material-ui/lab/Alert'
 import LoadingIndicator from "../LoadingIndicator";
 import VersionFooter from "../utils/version-footer";
+import {useHistory, useLocation} from "react-router-dom";
+import TablePagination from "@material-ui/core/TablePagination";
 import {AlarmOff, AlarmCheck, Lock, LockOpenVariant} from "mdi-material-ui";
 
 const useStyles = makeStyles(theme => ({
     root: {
         display: 'flex',
+    },
+    jobRunrProNotice: {
+        margin: "-2rem 0 0.5rem 0",
+        textAlign: "right"
     },
     recurringJobActions: {
         margin: '1rem',
@@ -35,23 +41,39 @@ const useStyles = makeStyles(theme => ({
 
 const RecurringJobs = (props) => {
     const classes = useStyles();
+    const history = useHistory();
+    const location = useLocation();
 
+    const urlSearchParams = new URLSearchParams(location.search);
+    const page = urlSearchParams.get('page');
     const [isLoading, setIsLoading] = React.useState(true);
+    const [recurringJobPage, setRecurringJobPage] = React.useState({total: 0, limit: 20, currentPage: 0, items: []});
     const [recurringJobs, setRecurringJobs] = React.useState([{}]);
     const [apiStatus, setApiStatus] = React.useState(null);
 
     React.useEffect(() => {
         getRecurringJobs();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page]);
 
     const getRecurringJobs = () => {
-        fetch(`/api/recurring-jobs`)
+        setIsLoading(true);
+        const offset = (page) * 20;
+        const limit = 20;
+        fetch(`/api/recurring-jobs?offset=${offset}&limit=${limit}`)
             .then(res => res.json())
             .then(response => {
-                setRecurringJobs(response.map(recurringJob => ({...recurringJob, selected: false})));
+                setRecurringJobPage(response);
+                setRecurringJobs(response.items.map(recurringJob => ({...recurringJob, selected: false})));
                 setIsLoading(false);
             })
             .catch(error => console.log(error));
+    };
+
+    const handleChangePage = (event, newPage) => {
+        let urlSearchParams = new URLSearchParams(location.search);
+        urlSearchParams.set("page", newPage);
+        history.push(`?${urlSearchParams.toString()}`);
     };
 
     const selectAll = (event) => {
@@ -76,6 +98,7 @@ const RecurringJobs = (props) => {
         setApiStatus(null);
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const deleteSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -128,6 +151,7 @@ const RecurringJobs = (props) => {
         })
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const enableSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -152,6 +176,7 @@ const RecurringJobs = (props) => {
         })
     };
 
+    //JobRunrPlus: support extra operations on recurring jobs
     const disableSelectedRecurringJobs = () => {
         Promise.all(
             recurringJobs
@@ -185,6 +210,7 @@ const RecurringJobs = (props) => {
             {isLoading
                 ? <LoadingIndicator/>
                 : <>
+                    <div className={classes.jobRunrProNotice}>Do you want to pause a recurring job? With <a href="https://www.jobrunr.io/en/documentation/pro/" target="_blank" rel="noreferrer" title="Support the development of JobRunr by getting a Pro license!">JobRunr Pro</a> that's just a click away.</div>
                     <Paper className={classes.paper}>
                         {recurringJobs.length < 1
                             ? <Typography variant="body1" className={classes.noItemsFound}>No recurring jobs
@@ -193,6 +219,7 @@ const RecurringJobs = (props) => {
                                 <Grid item xs={3} container>
                                     <ButtonGroup className={classes.recurringJobActions}
                                                  disabled={recurringJobs.every(recurringJob => !recurringJob.selected)}>
+                                        //JobRunrPlus: support extra operations on recurring jobs
                                         <Button variant="outlined" color="primary"
                                                 onClick={disableSelectedRecurringJobs}>
                                             Disable
@@ -220,6 +247,7 @@ const RecurringJobs = (props) => {
                                                         checked={recurringJobs.every(recurringJob => recurringJob.selected)}
                                                         onClick={selectAll}/>
                                                 </TableCell>
+                                                //JobRunrPlus: support extra operations on recurring jobs
                                                 <TableCell padding="checkbox">Enabled?</TableCell>
                                                 <TableCell padding="checkbox">Deletable?</TableCell>
                                                 <TableCell className={classes.idColumn}>Id</TableCell>
@@ -236,6 +264,7 @@ const RecurringJobs = (props) => {
                                                         <Checkbox checked={recurringJob.selected}
                                                                   onClick={(event) => selectRecurringJob(event, recurringJob)}/>
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
                                                         {recurringJob.enabled ? <AlarmCheck/> : <AlarmOff/> }
                                                     </TableCell>
@@ -248,9 +277,15 @@ const RecurringJobs = (props) => {
                                                     <TableCell>
                                                         {recurringJob.jobName}
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
-                                                        {recurringJob.cronExpression === "-" ? "" : cronstrue.toString(recurringJob.cronExpression)}
+                                                        {recurringJob.cronExpression === "-" ? "" : (
+                                                            recurringJob.scheduleExpression.startsWith('P')
+                                                            ? recurringJob.scheduleExpression
+                                                            : cronstrue.toString(recurringJob.scheduleExpression))
+                                                        }
                                                     </TableCell>
+                                                    //JobRunrPlus: support extra operations on recurring jobs
                                                     <TableCell>
                                                         {recurringJob.cronExpression === "-" ? "" : recurringJob.zoneId}
                                                     </TableCell>
@@ -263,6 +298,15 @@ const RecurringJobs = (props) => {
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
+                                <TablePagination
+                                    id="recurring-jobs-table-pagination"
+                                    component="div"
+                                    rowsPerPageOptions={[]}
+                                    count={recurringJobPage.total}
+                                    rowsPerPage={recurringJobPage.limit}
+                                    page={recurringJobPage.currentPage}
+                                    onPageChange={handleChangePage}
+                                />
                             </>
                         }
                     </Paper>

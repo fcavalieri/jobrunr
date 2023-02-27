@@ -11,9 +11,7 @@ import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.scheduling.BackgroundJob;
 import org.jobrunr.scheduling.JobScheduler;
-import org.jobrunr.storage.JobNotFoundException;
-import org.jobrunr.storage.PageRequest;
-import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.storage.*;
 import org.jobrunr.utils.mapper.JsonMapper;
 
 import java.util.List;
@@ -23,12 +21,15 @@ import java.util.stream.Collectors;
 public class JobRunrApiHandler extends RestHttpHandler {
 
     private final StorageProvider storageProvider;
-    private final ProblemsManager problemsManager;
+    private final boolean allowAnonymousDataUsage;
+    private ProblemsManager problemsManager;
+    private RecurringJobsResult recurringJobsResult;
+    private VersionUIModel versionUIModel;
 
-    public JobRunrApiHandler(StorageProvider storageProvider, JsonMapper jsonMapper) {
+    public JobRunrApiHandler(StorageProvider storageProvider, JsonMapper jsonMapper, boolean allowAnonymousDataUsage) {
         super("/api", jsonMapper);
         this.storageProvider = storageProvider;
-        this.problemsManager = new ProblemsManager(storageProvider);
+        this.allowAnonymousDataUsage = allowAnonymousDataUsage;
 
         get("/jobs", findJobByState());
 
@@ -42,6 +43,8 @@ public class JobRunrApiHandler extends RestHttpHandler {
         get("/recurring-jobs", getRecurringJobs());
         delete("/recurring-jobs/:id", deleteRecurringJob());
         post("/recurring-jobs/:id/trigger", triggerRecurringJob());
+        
+        //JobRunrPlus: support extra operations on recurring jobs
         post("/recurring-jobs/:id/enable", enableRecurringJob());
         post("/recurring-jobs/:id/disable", disableRecurringJob());
 
@@ -83,30 +86,43 @@ public class JobRunrApiHandler extends RestHttpHandler {
     }
 
     private HttpRequestHandler getProblems() {
-        return (request, response) -> response.asJson(problemsManager.getProblems());
+        return (request, response) -> {
+            response.asJson(problemsManager().getProblems());
+        };
     }
 
     private HttpRequestHandler deleteProblemByType() {
         return (request, response) -> {
-            problemsManager.dismissProblemOfType(request.param(":type", String.class));
+            problemsManager().dismissProblemOfType(request.param(":type", String.class));
             response.statusCode(204);
         };
     }
 
     private HttpRequestHandler getRecurringJobs() {
         return (request, response) -> {
-            final List<RecurringJobUIModel> recurringJobUIModels = storageProvider
-                    .getRecurringJobs()
+            PageRequest pageRequest = request.fromQueryParams(PageRequest.class);
+            RecurringJobsResult recurringJobs = recurringJobResults();
+            final List<RecurringJobUIModel> recurringJobUIModels = recurringJobs
                     .stream()
+                    .skip(pageRequest.getOffset())
+                    .limit(pageRequest.getLimit())
                     .map(RecurringJobUIModel::new)
                     .collect(Collectors.toList());
-            response.asJson(recurringJobUIModels);
+            Page<RecurringJobUIModel> result = new Page<>(recurringJobs.size(), recurringJobUIModels, pageRequest);
+            response.asJson(result);
         };
     }
 
+    //JobRunrPlus: optionally disable deletion of recurring jobs from interface
     private HttpRequestHandler deleteRecurringJob() {
         return (request, response) -> {
-            if (storageProvider.getRecurringJobs().stream().anyMatch(j -> j.getId().equals(request.param(":id")) && !j.isDeletableFromDashboard())) {
+            final RecurringJob recurringJob = recurringJobResults()
+                    .stream()
+                    .filter(rj -> request.param(":id").equals(rj.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+
+            if (!recurringJob.isDeletableFromDashboard()) {
                 response.statusCode(409);
             } else {
                 storageProvider.deleteRecurringJob(request.param(":id"));
@@ -115,17 +131,27 @@ public class JobRunrApiHandler extends RestHttpHandler {
         };
     }
 
+    //JobRunrPlus: triggering a recurring job does not schedule it, if it is already being run or it is scheduled to be run
     private HttpRequestHandler triggerRecurringJob() {
         return (request, response) -> {
-            final RecurringJob recurringJob = storageProvider.getRecurringJobById(request.param(":id"));
-            if (!storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
-                final Job job = recurringJob.toImmediatelyScheduledJob();
-                storageProvider.save(job);
+            final RecurringJob recurringJob = recurringJobResults()
+                    .stream()
+                    .filter(rj -> request.param(":id").equals(rj.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new JobNotFoundException(request.param(":id")));
+            if (storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING)) {
+                response.statusCode(409);
             }
-            response.statusCode(204);
+            else {
+                final Job job = recurringJob.toEnqueuedJob();
+                storageProvider.save(job);
+                response.statusCode(204);
+              
+            }
         };
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
     private HttpRequestHandler enableRecurringJob() {
         return (request, response) -> {
             final RecurringJob recurringJob = storageProvider.getRecurringJobById(request.param(":id"));
@@ -151,6 +177,39 @@ public class JobRunrApiHandler extends RestHttpHandler {
     }
 
     private HttpRequestHandler getVersion() {
-        return (request, response) -> response.asJson(new VersionUIModel());
+        return (request, response) -> response.asJson(getVersionUIModel());
+    }
+
+    private VersionUIModel getVersionUIModel() {
+        if(versionUIModel != null) return versionUIModel;
+        if(allowAnonymousDataUsage) {
+            final JobRunrMetadata metadata = storageProvider.getMetadata("id", "cluster");
+            if(metadata != null) {
+                final String storageProviderType = storageProvider instanceof ThreadSafeStorageProvider
+                        ? ((ThreadSafeStorageProvider) storageProvider).getStorageProvider().getClass().getSimpleName()
+                        : storageProvider.getClass().getSimpleName();
+                this.versionUIModel = VersionUIModel.withAnonymousDataUsage(metadata.getValue(), storageProviderType);
+                return this.versionUIModel;
+            }
+            // wait for background job server to add cluster id. Return no anonymous data usage for now.
+            return VersionUIModel.withoutAnonymousDataUsage();
+        } else {
+            this.versionUIModel = VersionUIModel.withoutAnonymousDataUsage();
+            return this.versionUIModel;
+        }
+    }
+
+    private ProblemsManager problemsManager() {
+        if(this.problemsManager == null) {
+            this.problemsManager = new ProblemsManager(storageProvider);
+        }
+        return this.problemsManager;
+    }
+
+    private RecurringJobsResult recurringJobResults() {
+        if(recurringJobsResult == null || storageProvider.recurringJobsUpdated(recurringJobsResult.getLastModifiedHash())) {
+            recurringJobsResult = storageProvider.getRecurringJobs();
+        }
+        return recurringJobsResult;
     }
 }

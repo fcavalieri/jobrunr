@@ -37,34 +37,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.jobDetails;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.methodThatDoesNotExistJobDetails;
-import static org.jobrunr.jobs.JobTestBuilder.aCopyOf;
-import static org.jobrunr.jobs.JobTestBuilder.aJobInProgress;
-import static org.jobrunr.jobs.JobTestBuilder.aScheduledJob;
-import static org.jobrunr.jobs.JobTestBuilder.aSucceededJob;
-import static org.jobrunr.jobs.JobTestBuilder.anEnqueuedJob;
+import static org.jobrunr.jobs.JobTestBuilder.*;
 import static org.jobrunr.jobs.RecurringJobTestBuilder.aDefaultRecurringJob;
-import static org.jobrunr.jobs.states.StateName.DELETED;
-import static org.jobrunr.jobs.states.StateName.ENQUEUED;
-import static org.jobrunr.jobs.states.StateName.FAILED;
-import static org.jobrunr.jobs.states.StateName.PROCESSING;
-import static org.jobrunr.jobs.states.StateName.SCHEDULED;
-import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
+import static org.jobrunr.jobs.states.StateName.*;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.jobrunr.storage.BackgroundJobServerStatusTestBuilder.aDefaultBackgroundJobServerStatus;
 import static org.jobrunr.storage.PageRequest.ascOnUpdatedAt;
 import static org.jobrunr.utils.SleepUtils.sleep;
 import static org.jobrunr.utils.reflection.ReflectionUtils.cast;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class JobZooKeeperTest {
@@ -193,23 +175,67 @@ class JobZooKeeperTest {
     void checkForRecurringJobs() {
         RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
 
-        when(storageProvider.getRecurringJobs()).thenReturn(List.of(recurringJob));
+        when(storageProvider.recurringJobsUpdated(anyLong())).thenReturn(true);
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(List.of(recurringJob)));
 
         jobZooKeeper.run();
 
-        verify(backgroundJobServer).scheduleJob(recurringJob);
+        verify(storageProvider).save(jobsToSaveArgumentCaptor.capture());
+        Job savedJob = jobsToSaveArgumentCaptor.getValue().get(0);
+        assertThat(savedJob)
+                .hasState(SCHEDULED)
+                .hasRecurringJobId(recurringJob.getId());
+    }
+
+    @Test
+    void recurringJobsAreCached() {
+        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
+
+        when(storageProvider.recurringJobsUpdated(anyLong())).thenReturn(true, false, true);
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(List.of(recurringJob)));
+
+        jobZooKeeper.run(); // initial loading
+        verify(storageProvider, times(1)).recurringJobsUpdated(anyLong());
+        verify(storageProvider, times(1)).getRecurringJobs();
+
+        jobZooKeeper.run(); // no updates to recurring jobs
+        verify(storageProvider, times(2)).recurringJobsUpdated(anyLong());
+        verify(storageProvider, times(1)).getRecurringJobs();
+
+        jobZooKeeper.run(); // reload as recurring jobs updated
+        verify(storageProvider, times(3)).recurringJobsUpdated(anyLong());
+        verify(storageProvider, times(2)).getRecurringJobs();
     }
 
     @Test
     void checkForRecurringJobsDoesNotScheduleSameJobIfItIsAlreadyScheduledEnqueuedOrProcessed() {
-        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
+        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/15 * * * * *").build();
 
-        when(storageProvider.getRecurringJobs()).thenReturn(List.of(recurringJob));
+        when(storageProvider.recurringJobsUpdated(anyLong())).thenReturn(true);
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(List.of(recurringJob)));
         when(storageProvider.recurringJobExists(recurringJob.getId(), SCHEDULED, ENQUEUED, PROCESSING)).thenReturn(true);
 
         jobZooKeeper.run();
 
-        verify(backgroundJobServer, never()).scheduleJob(recurringJob);
+        verify(storageProvider, never()).save(anyList());
+    }
+
+    @Test
+    void checkForRecurringJobsSchedulesJobsThatWereMissedDuringStopTheWorldGC() {
+        RecurringJob recurringJob = aDefaultRecurringJob().withCronExpression("*/5 * * * * *").build();
+
+        when(storageProvider.recurringJobsUpdated(anyLong())).thenReturn(true);
+        when(storageProvider.getRecurringJobs()).thenReturn(new RecurringJobsResult(List.of(recurringJob)));
+
+        jobZooKeeper.run();
+        sleep(10500);
+        jobZooKeeper.run();
+
+        verify(storageProvider, times(2)).save(jobsToSaveArgumentCaptor.capture());
+        assertThat(jobsToSaveArgumentCaptor.getValue())
+                .hasSizeBetween(2, 3)
+                .extracting(Job::getState)
+                .containsOnly(SCHEDULED);
     }
 
     @Test
@@ -386,6 +412,28 @@ class JobZooKeeperTest {
     }
 
     @Test
+    void jobZooKeeperStopsIfTooManyExceptions() {
+        Job succeededJob1 = aSucceededJob().build();
+        Job succeededJob2 = aSucceededJob().build();
+
+        when(storageProvider.getJobById(succeededJob1.getId())).thenReturn(succeededJob1);
+        when(storageProvider.getJobById(succeededJob2.getId())).thenReturn(succeededJob2);
+        lenient().when(storageProvider.getJobs(eq(SUCCEEDED), any(Instant.class), any()))
+                .thenReturn(
+                        asList(succeededJob1, succeededJob2, aSucceededJob().build(), aSucceededJob().build(), aSucceededJob().build())
+                );
+        when(storageProvider.save(anyList())).thenThrow(new ConcurrentJobModificationException(asList(succeededJob1, succeededJob2)));
+
+        for(int i = 0; i <= 5 ; i++) {
+            jobZooKeeper.run();
+        }
+
+        AtomicInteger exceptionCount = Whitebox.getInternalState(jobZooKeeper, "exceptionCount");
+        assertThat(exceptionCount).hasValue(6);
+        verify(backgroundJobServer).stop();
+    }
+
+    @Test
     @Because("https://github.com/jobrunr/jobrunr/issues/122")
     void masterTasksArePostponedToNextRunIfPollIntervalInSecondsTimeboxIsAboutToPass() {
         when(backgroundJobServer.isUnAnnounced()).then(putRunStartTimeInPast());
@@ -400,8 +448,8 @@ class JobZooKeeperTest {
     private JobZooKeeper initializeJobZooKeeper() {
         UUID backgroundJobServerId = UUID.randomUUID();
         lenient().when(backgroundJobServer.getId()).thenReturn(backgroundJobServerId);
+        lenient().when(backgroundJobServer.getServerStatus()).thenReturn(backgroundJobServerStatus);
         when(backgroundJobServer.getStorageProvider()).thenReturn(storageProvider);
-        when(backgroundJobServer.getServerStatus()).thenReturn(backgroundJobServerStatus);
         when(backgroundJobServer.getWorkDistributionStrategy()).thenReturn(workDistributionStrategy);
         when(backgroundJobServer.getJobFilters()).thenReturn(new JobDefaultFilters(logAllStateChangesFilter));
         when(backgroundJobServer.getDashboardNotificationManager()).thenReturn(new DashboardNotificationManager(backgroundJobServerId, storageProvider));
@@ -420,7 +468,7 @@ class JobZooKeeperTest {
 
     private Answer<Boolean> putRunStartTimeInPast() {
         return invocation -> {
-            Whitebox.setInternalState(jobZooKeeper, "runStartTime", System.currentTimeMillis() - 15000);
+            Whitebox.setInternalState(jobZooKeeper, "runStartTime", Instant.now().minusSeconds(15));
             return false;
         };
     }

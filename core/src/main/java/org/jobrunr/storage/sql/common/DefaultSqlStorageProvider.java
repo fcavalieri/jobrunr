@@ -7,6 +7,7 @@ import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.storage.*;
 import org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
+import org.jobrunr.storage.StorageProviderUtils.RecurringJobs;
 import org.jobrunr.storage.sql.SqlStorageProvider;
 import org.jobrunr.storage.sql.common.db.Transaction;
 import org.jobrunr.storage.sql.common.db.dialect.Dialect;
@@ -32,7 +33,6 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
     protected final DataSource dataSource;
     protected final Dialect dialect;
     protected final String tablePrefix;
-    private final DatabaseOptions databaseOptions;
     private JobMapper jobMapper;
 
     public DefaultSqlStorageProvider(DataSource dataSource, Dialect dialect, DatabaseOptions databaseOptions) {
@@ -52,11 +52,16 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         this.dataSource = dataSource;
         this.dialect = dialect;
         this.tablePrefix = tablePrefix;
-        this.databaseOptions = databaseOptions;
-        createDBIfNecessary();
+        setUpStorageProvider(databaseOptions);
     }
 
-    protected void createDBIfNecessary() {
+    @Override
+    public void setJobMapper(JobMapper jobMapper) {
+        this.jobMapper = jobMapper;
+    }
+
+    @Override
+    public void setUpStorageProvider(DatabaseOptions databaseOptions) {
         if (databaseOptions == CREATE) {
             getDatabaseCreator()
                     .runMigrations();
@@ -66,18 +71,10 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
-    protected DatabaseCreator getDatabaseCreator() {
-        return new DatabaseCreator(dataSource, tablePrefix, getClass());
-    }
-
+    //JobRunrPlus: support retrieval of jobmapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
-    }
-
-    @Override
-    public void setJobMapper(JobMapper jobMapper) {
-        this.jobMapper = jobMapper;
     }
 
     @Override
@@ -258,6 +255,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    //JobRunrPlus: support automatical disposal of job resources
     @Override
     public int deletePermanently(UUID id) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
@@ -272,6 +270,7 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    //JobRunrPlus: support automatical disposal of job resources
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         try (final Connection conn = dataSource.getConnection(); final Transaction transaction = new Transaction(conn)) {
@@ -326,13 +325,31 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         } catch (SQLException e) {
             throw new StorageException(e);
         }
-
     }
 
     @Override
-    public List<RecurringJob> getRecurringJobs() {
+    public RecurringJobsResult getRecurringJobs() {
         try (final Connection conn = dataSource.getConnection()) {
-            return recurringJobTable(conn).selectAll();
+            return new RecurringJobsResult(recurringJobTable(conn).selectAll());
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public boolean recurringJobsUpdated(Long recurringJobsUpdatedHash) {
+        try (final Connection conn = dataSource.getConnection()) {
+            Long lastModifiedHash = recurringJobTable(conn).selectSum(RecurringJobs.FIELD_CREATED_AT);
+            return !recurringJobsUpdatedHash.equals(lastModifiedHash);
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public long countRecurringJobs() {
+        try (final Connection conn = dataSource.getConnection()) {
+            return recurringJobTable(conn).count();
         } catch (SQLException e) {
             throw new StorageException(e);
         }
@@ -368,6 +385,9 @@ public class DefaultSqlStorageProvider extends AbstractStorageProvider implement
         }
     }
 
+    protected DatabaseCreator getDatabaseCreator() {
+        return new DatabaseCreator(dataSource, tablePrefix, getClass());
+    }
 
     protected JobTable jobTable(Connection connection) {
         return new JobTable(connection, dialect, tablePrefix, jobMapper);

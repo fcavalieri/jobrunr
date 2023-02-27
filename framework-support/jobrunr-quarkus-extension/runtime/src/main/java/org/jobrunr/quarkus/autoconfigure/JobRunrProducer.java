@@ -5,6 +5,7 @@ import org.jobrunr.dashboard.JobRunrDashboardWebServer;
 import org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration;
 import org.jobrunr.jobs.details.CachingJobDetailsGenerator;
 import org.jobrunr.jobs.details.JobDetailsGenerator;
+import org.jobrunr.jobs.filters.RetryFilter;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.scheduling.JobRequestScheduler;
 import org.jobrunr.scheduling.JobScheduler;
@@ -22,6 +23,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.jobrunr.utils.reflection.ReflectionUtils.newInstance;
@@ -63,6 +65,9 @@ public class JobRunrProducer {
             configuration.backgroundJobServer.workerCount.ifPresent(backgroundJobServerConfiguration::andWorkerCount);
             configuration.backgroundJobServer.deleteSucceededJobsAfter.ifPresent(backgroundJobServerConfiguration::andDeleteSucceededJobsAfter);
             configuration.backgroundJobServer.permanentlyDeleteDeletedJobsAfter.ifPresent(backgroundJobServerConfiguration::andPermanentlyDeleteDeletedJobsAfter);
+            configuration.backgroundJobServer.scheduledJobsRequestSize.ifPresent(backgroundJobServerConfiguration::andScheduledJobsRequestSize);
+            configuration.backgroundJobServer.orphanedJobsRequestSize.ifPresent(backgroundJobServerConfiguration::andOrphanedJobsRequestSize);
+            configuration.backgroundJobServer.succeededsJobRequestSize.ifPresent(backgroundJobServerConfiguration::andSucceededJobsRequestSize);
             return backgroundJobServerConfiguration;
         }
         return null;
@@ -73,7 +78,11 @@ public class JobRunrProducer {
     @Singleton
     BackgroundJobServer backgroundJobServer(StorageProvider storageProvider, JsonMapper jobRunrJsonMapper, JobActivator jobActivator, BackgroundJobServerConfiguration backgroundJobServerConfiguration) {
         if (configuration.backgroundJobServer.enabled) {
-            return new BackgroundJobServer(storageProvider, jobRunrJsonMapper, jobActivator, backgroundJobServerConfiguration);
+            int defaultNbrOfRetries = configuration.jobs.defaultNumberOfRetries.orElse(RetryFilter.DEFAULT_NBR_OF_RETRIES);
+            int retryBackOffTimeSeed = configuration.jobs.retryBackOffTimeSeed.orElse(RetryFilter.DEFAULT_BACKOFF_POLICY_TIME_SEED);
+            BackgroundJobServer backgroundJobServer = new BackgroundJobServer(storageProvider, jobRunrJsonMapper, jobActivator, backgroundJobServerConfiguration);
+            backgroundJobServer.setJobFilters(singletonList(new RetryFilter(defaultNbrOfRetries, retryBackOffTimeSeed)));
+            return backgroundJobServer;
         }
         return null;
     }
@@ -88,6 +97,7 @@ public class JobRunrProducer {
             if (configuration.dashboard.username.isPresent() && configuration.dashboard.password.isPresent()) {
                 dashboardWebServerConfiguration.andBasicAuthentication(configuration.dashboard.username.get(), configuration.dashboard.password.get());
             }
+            dashboardWebServerConfiguration.andAllowAnonymousDataUsage(configuration.miscellaneous.allowAnonymousDataUsage);
             return dashboardWebServerConfiguration;
         }
         return null;

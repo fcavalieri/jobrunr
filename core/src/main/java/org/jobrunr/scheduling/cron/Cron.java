@@ -3,6 +3,7 @@ package org.jobrunr.scheduling.cron;
 import java.time.DayOfWeek;
 import java.time.Month;
 
+//JobRunrPlus: support disabled recurring job
 import static org.jobrunr.scheduling.cron.CronExpression.CRON_DISABLED;
 
 @SuppressWarnings("SameReturnValue")
@@ -11,6 +12,7 @@ public class Cron {
     private Cron() {
     }
 
+    //JobRunrPlus: support disabled recurring job
     public static String never() { return CRON_DISABLED; }
 
     public static String daily() {
@@ -75,6 +77,18 @@ public class Cron {
 
     public static String monthly(int day, int hour, int minute) {
         return String.format("%d %d %d * *", minute, hour, day);
+    }
+
+    public static String lastDayOfTheMonth() {
+        return String.format("0 0 L * *");
+    }
+
+    public static String lastDayOfTheMonth(int hour) {
+        return String.format("0 %d L * *", hour);
+    }
+
+    public static String lastDayOfTheMonth(int hour, int minute) {
+        return String.format("%d %d L * *", minute, hour);
     }
 
     public static String weekly() {

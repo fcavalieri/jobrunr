@@ -6,6 +6,7 @@ import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
 import org.jobrunr.storage.listeners.StorageProviderChangeListener;
 
 import java.time.Instant;
@@ -33,6 +34,16 @@ public class StorageProviderForTest implements StorageProvider {
     }
 
     @Override
+    public void setJobMapper(JobMapper jobMapper) {
+        storageProvider.setJobMapper(jobMapper);
+    }
+
+    @Override
+    public void setUpStorageProvider(DatabaseOptions databaseOptions) {
+        storageProvider.setUpStorageProvider(databaseOptions);
+    }
+
+    @Override
     public void addJobStorageOnChangeListener(StorageProviderChangeListener listener) {
         storageProvider.addJobStorageOnChangeListener(listener);
     }
@@ -40,11 +51,6 @@ public class StorageProviderForTest implements StorageProvider {
     @Override
     public void removeJobStorageOnChangeListener(StorageProviderChangeListener listener) {
         storageProvider.removeJobStorageOnChangeListener(listener);
-    }
-
-    @Override
-    public void setJobMapper(JobMapper jobMapper) {
-        storageProvider.setJobMapper(jobMapper);
     }
 
     @Override
@@ -175,8 +181,19 @@ public class StorageProviderForTest implements StorageProvider {
     }
 
     @Override
-    public List<RecurringJob> getRecurringJobs() {
+    public RecurringJobsResult getRecurringJobs() {
         return storageProvider.getRecurringJobs();
+    }
+
+    @Override
+    @Deprecated
+    public long countRecurringJobs() {
+        return storageProvider.countRecurringJobs();
+    }
+
+    @Override
+    public boolean recurringJobsUpdated(Long recurringJobsUpdatedHash) {
+        return storageProvider.recurringJobsUpdated(recurringJobsUpdatedHash);
     }
 
     @Override

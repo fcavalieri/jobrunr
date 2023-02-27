@@ -18,18 +18,9 @@ import org.jobrunr.jobs.JobListVersioner;
 import org.jobrunr.jobs.JobVersioner;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
+import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.jobs.states.StateName;
-import org.jobrunr.storage.AbstractStorageProvider;
-import org.jobrunr.storage.BackgroundJobServerStatus;
-import org.jobrunr.storage.ConcurrentJobModificationException;
-import org.jobrunr.storage.JobNotFoundException;
-import org.jobrunr.storage.JobRunrMetadata;
-import org.jobrunr.storage.JobStats;
-import org.jobrunr.storage.Page;
-import org.jobrunr.storage.PageRequest;
-import org.jobrunr.storage.ServerTimedOutException;
-import org.jobrunr.storage.StorageException;
-import org.jobrunr.storage.StorageProviderUtils;
+import org.jobrunr.storage.*;
 import org.jobrunr.storage.nosql.NoSqlStorageProvider;
 import org.jobrunr.storage.nosql.marklogic.mapper.MarklogicBackgroundJobServerStatus;
 import org.jobrunr.storage.nosql.marklogic.mapper.MarklogicJob;
@@ -49,6 +40,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
+import static org.jobrunr.storage.StorageProviderUtils.DatabaseOptions.CREATE;
 import static org.jobrunr.utils.JobUtils.getJobSignature;
 import static org.jobrunr.utils.resilience.RateLimiter.Builder.rateLimit;
 import static org.jobrunr.utils.resilience.RateLimiter.SECOND;
@@ -96,6 +88,15 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
+    }
+
+    @Override
+    public void setUpStorageProvider(StorageProviderUtils.DatabaseOptions databaseOptions) {
+        if (CREATE == databaseOptions) {
+            runMigrations();
+        } else {
+            //validateTables();
+        }
     }
 
     @Override
@@ -436,11 +437,31 @@ public class MarklogicStorageProvider extends AbstractStorageProvider implements
     }
 
     @Override
-    public List<RecurringJob> getRecurringJobs() {
+    public RecurringJobsResult getRecurringJobs() {
         List<MarklogicRecurringJob> documents = marklogicWrapper.loadAllDocumentsInDirectory(
                 StorageProviderUtils.RecurringJobs.NAME,
                 MarklogicRecurringJob.class);
-        return documents.stream().map(d -> d.toRecurringJob(jobMapper)).collect(Collectors.toList());
+        List<RecurringJob> recurringJobs = documents.stream().map(d -> d.toRecurringJob(jobMapper)).collect(Collectors.toList());
+        return new RecurringJobsResult(recurringJobs);
+    }
+
+    @Override
+    public boolean recurringJobsUpdated(Long recurringJobsUpdatedHash) {
+        List<MarklogicRecurringJob> documents = marklogicWrapper.loadAllDocumentsInDirectory(
+                StorageProviderUtils.RecurringJobs.NAME,
+                MarklogicRecurringJob.class);
+        Long recurringJobsSum = documents
+                .stream()
+                .map(d -> d.toRecurringJob(jobMapper))
+                .map(d -> d.getCreatedAt())
+                .map(i -> i.toEpochMilli())
+                .reduce(0L, Long::sum);
+        return !recurringJobsUpdatedHash.equals(recurringJobsUpdatedHash);
+    }
+
+    @Override
+    public long countRecurringJobs() {
+        return marklogicWrapper.countAllDocumentsInDirectory(StorageProviderUtils.RecurringJobs.NAME);
     }
 
     @Override

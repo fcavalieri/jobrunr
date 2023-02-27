@@ -6,6 +6,7 @@ import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
 import org.jobrunr.storage.listeners.StorageProviderChangeListener;
 
 import java.time.Instant;
@@ -15,18 +16,35 @@ import java.util.UUID;
 
 /**
  * The StorageProvider allows to store, retrieve and delete background jobs.
+ *
+ * This API is public and JobRunr major version will change of this StorageProvider API changes.
+ *
+ * @since 0.9.0
  */
 public interface StorageProvider extends AutoCloseable {
 
+    int BATCH_SIZE = 5000;
+
     String getName();
+
+    void setJobMapper(JobMapper jobMapper);
+
+    /**
+     * This method allows to reinitialize the StorageProvider.
+     * It can be used if you are using Flyway or Liquibase to setup your database manually.
+     *
+     * By default, this method is automatically called on construction of the StorageProvider
+     *
+     * @param databaseOptions defines whether to set up the StorageProvider or validate whether the StorageProvider is set up correctly.
+     */
+    void setUpStorageProvider(DatabaseOptions databaseOptions);
 
     void addJobStorageOnChangeListener(StorageProviderChangeListener listener);
 
     void removeJobStorageOnChangeListener(StorageProviderChangeListener listener);
 
+    //JobRunrPlus: support retrieval of job mapper
     JobMapper getJobMapper();
-
-    void setJobMapper(JobMapper jobMapper);
 
     void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus);
 
@@ -72,11 +90,17 @@ public interface StorageProvider extends AutoCloseable {
 
     boolean recurringJobExists(String recurringJobId, StateName... states);
 
+    //JobRunrPlus: support getting
     RecurringJob getRecurringJobById(String id);
 
     RecurringJob saveRecurringJob(RecurringJob recurringJob);
 
-    List<RecurringJob> getRecurringJobs();
+    @Deprecated
+    long countRecurringJobs();
+
+    RecurringJobsResult getRecurringJobs();
+
+    boolean recurringJobsUpdated(Long recurringJobsUpdatedHash);
 
     int deleteRecurringJob(String id);
 
@@ -89,6 +113,4 @@ public interface StorageProvider extends AutoCloseable {
     }
 
     void close();
-
-
 }

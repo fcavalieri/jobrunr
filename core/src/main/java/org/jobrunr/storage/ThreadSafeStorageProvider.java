@@ -6,6 +6,7 @@ import org.jobrunr.jobs.JobId;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
 import org.jobrunr.storage.listeners.StorageProviderChangeListener;
 import org.jobrunr.utils.resilience.Lock;
 import org.jobrunr.utils.resilience.MultiLock;
@@ -29,6 +30,11 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
+    public void setUpStorageProvider(DatabaseOptions databaseOptions) {
+        storageProvider.setUpStorageProvider(databaseOptions);
+    }
+
+    @Override
     public void addJobStorageOnChangeListener(StorageProviderChangeListener listener) {
         storageProvider.addJobStorageOnChangeListener(listener);
     }
@@ -38,6 +44,7 @@ public class ThreadSafeStorageProvider implements StorageProvider {
         storageProvider.removeJobStorageOnChangeListener(listener);
     }
 
+    //JobRunrPlus: support retrieval of job mapper
     @Override
     public JobMapper getJobMapper() {
         return storageProvider.getJobMapper();
@@ -162,6 +169,7 @@ public class ThreadSafeStorageProvider implements StorageProvider {
         return storageProvider.recurringJobExists(recurringJobId, states);
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
     @Override
     public RecurringJob getRecurringJobById(String id) {
         return storageProvider.getRecurringJobById(id);
@@ -173,8 +181,19 @@ public class ThreadSafeStorageProvider implements StorageProvider {
     }
 
     @Override
-    public List<RecurringJob> getRecurringJobs() {
+    public RecurringJobsResult getRecurringJobs() {
         return storageProvider.getRecurringJobs();
+    }
+
+    @Override
+    @Deprecated
+    public long countRecurringJobs() {
+        return storageProvider.countRecurringJobs();
+    }
+
+    @Override
+    public boolean recurringJobsUpdated(Long recurringJobsUpdatedHash) {
+        return storageProvider.recurringJobsUpdated(recurringJobsUpdatedHash);
     }
 
     @Override

@@ -8,12 +8,13 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
 public class MySqlGsonBackgroundJobContainer extends AbstractBackgroundJobSqlContainer {
 
     public MySqlGsonBackgroundJobContainer(JdbcDatabaseContainer sqlContainer) {
-        super("jobrunr-e2e-mariadb-gson:1.0", sqlContainer);
+        super("jobrunr-e2e-mysql-gson:1.0", sqlContainer);
     }
 
     @Override
     protected StorageProvider initStorageProvider(JdbcDatabaseContainer sqlContainer) {
         MysqlDataSource dataSource = new MysqlDataSource();
+        //JobRunrPlus: disable SSL to fix tests
         dataSource.setUrl(sqlContainer.getJdbcUrl() + "?rewriteBatchedStatements=true&pool=true&useSSL=false");
         dataSource.setUser(sqlContainer.getUsername());
         dataSource.setPassword(sqlContainer.getPassword());

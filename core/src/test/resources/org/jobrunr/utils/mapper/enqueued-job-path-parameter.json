@@ -26,5 +26,5 @@
   "metadata": {
     "@class": "java.util.concurrent.ConcurrentHashMap"
   },
-  "recurringJobId": null
+  "recurringJobId":null
 }

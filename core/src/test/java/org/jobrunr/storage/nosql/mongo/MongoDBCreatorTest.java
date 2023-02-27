@@ -25,9 +25,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 @Testcontainers
 @ExtendWith(MockitoExtension.class)
@@ -103,7 +101,7 @@ class MongoDBCreatorTest {
         );
         return MongoClients.create(
                 MongoClientSettings.builder()
-                        .applyToClusterSettings(builder -> builder.hosts(Arrays.asList(new ServerAddress(mongoContainer.getContainerIpAddress(), mongoContainer.getMappedPort(27017)))))
+                        .applyToClusterSettings(builder -> builder.hosts(Arrays.asList(new ServerAddress(mongoContainer.getHost(), mongoContainer.getMappedPort(27017)))))
                         .codecRegistry(codecRegistry)
                         .build());
     }

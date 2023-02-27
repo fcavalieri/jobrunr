@@ -17,7 +17,8 @@ import java.security.SecureRandom;
 public class TeenyHttpClient {
 
     private final String baseUri;
-
+    
+    //JobRunrPlus: support https dashboard
     private static TrustManager[] trustAllCerts = new TrustManager[]{
             new X509TrustManager() {
                 public java.security.cert.X509Certificate[] getAcceptedIssuers() {
@@ -36,6 +37,7 @@ public class TeenyHttpClient {
         this.baseUri = baseUri;
     }
 
+    //JobRunrPlus: support https dashboard
     /*
      * When using http 1.1 persistent connections, sometimes the server closes the connection after a while.
      * If we reuse the same http client we get sometimes exceptions like:
@@ -59,6 +61,7 @@ public class TeenyHttpClient {
     }
 
     public HttpResponse<String> get(String url) {
+        //JobRunrPlus: support https dashboard
         HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + url))
@@ -68,6 +71,7 @@ public class TeenyHttpClient {
     }
 
     public HttpResponse<String> get(String url, Object... params) {
+        //JobRunrPlus: support https dashboard
         HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
@@ -77,6 +81,7 @@ public class TeenyHttpClient {
     }
 
     public HttpResponse<String> delete(String url, Object... params) {
+        //JobRunrPlus: support https dashboard
         HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))
@@ -95,6 +100,7 @@ public class TeenyHttpClient {
     }
 
     public HttpResponse<String> post(String url, Object... params) {
+        //JobRunrPlus: support https dashboard
         HttpClient httpClient = getHttpClient();
         final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUri + String.format(url, params)))

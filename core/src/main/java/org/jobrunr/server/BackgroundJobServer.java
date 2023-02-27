@@ -1,7 +1,6 @@
 package org.jobrunr.server;
 
 import org.jobrunr.jobs.Job;
-import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.filters.JobDefaultFilters;
 import org.jobrunr.jobs.filters.JobFilter;
 import org.jobrunr.server.dashboard.DashboardNotificationManager;
@@ -9,7 +8,10 @@ import org.jobrunr.server.jmx.BackgroundJobServerMBean;
 import org.jobrunr.server.jmx.JobServerStats;
 import org.jobrunr.server.runner.*;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
+import org.jobrunr.server.tasks.CheckForNewJobRunrVersion;
 import org.jobrunr.server.tasks.CheckIfAllJobsExistTask;
+import org.jobrunr.server.tasks.CreateClusterIdIfNotExists;
+import org.jobrunr.server.tasks.UpdateRecurringJobsTask;
 import org.jobrunr.server.threadpool.JobRunrExecutor;
 import org.jobrunr.server.threadpool.ScheduledThreadPoolJobRunrExecutor;
 import org.jobrunr.storage.BackgroundJobServerStatus;
@@ -53,6 +55,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     private final ServerZooKeeper serverZooKeeper;
     private final JobZooKeeper jobZooKeeper;
     private final BackgroundJobServerLifecycleLock lifecycleLock;
+    private final BackgroundJobPerformerFactory backgroundJobPerformerFactory;
     private volatile Instant firstHeartbeat;
     private volatile boolean isRunning;
     private volatile Boolean isMaster;
@@ -82,6 +85,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         this.workDistributionStrategy = createWorkDistributionStrategy(configuration);
         this.serverZooKeeper = createServerZooKeeper();
         this.jobZooKeeper = createJobZooKeeper();
+        this.backgroundJobPerformerFactory = loadBackgroundJobPerformerFactory();
         this.lifecycleLock = new BackgroundJobServerLifecycleLock();
     }
 
@@ -129,6 +133,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     public void stop() {
         if (isStopped()) return;
         try (BackgroundJobServerLifecycleLock ignored = lifecycleLock.lock()) {
+            LOGGER.info("BackgroundJobServer and BackgroundJobPerformers - stopping (waiting for all jobs to complete - max 10 seconds)");
             isMaster = null;
             stopWorkers();
             stopZooKeepers();
@@ -172,6 +177,7 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     public BackgroundJobServerStatus getServerStatus() {
         return new BackgroundJobServerStatus(
                 backgroundJobServerId, workDistributionStrategy.getWorkerCount(),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 configuration.pollIntervalInSeconds, configuration.deleteSucceededJobsAfter, configuration.deleteFailedJobsAfter, configuration.permanentlyDeleteDeletedJobsAfter,
                 firstHeartbeat, Instant.now(), isRunning, jobServerStats.getSystemTotalMemory(), jobServerStats.getSystemFreeMemory(),
                 jobServerStats.getSystemCpuLoad(), jobServerStats.getProcessMaxMemory(), jobServerStats.getProcessFreeMemory(),
@@ -220,14 +226,9 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     }
 
     void processJob(Job job) {
-        BackgroundJobPerformer backgroundJobPerformer = new BackgroundJobPerformer(this, job);
+        BackgroundJobPerformer backgroundJobPerformer = backgroundJobPerformerFactory.newBackgroundJobPerformer(this, job);
         jobExecutor.execute(backgroundJobPerformer);
         LOGGER.debug("Submitted BackgroundJobPerformer for job {} to executor service", job.getId());
-    }
-
-    void scheduleJob(RecurringJob recurringJob) {
-        Job job = recurringJob.toScheduledJob();
-        this.storageProvider.save(job);
     }
 
     boolean isStarted() {
@@ -256,6 +257,8 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         // and all will be launched one after another
         zookeeperThreadPool.scheduleWithFixedDelay(serverZooKeeper, 0, configuration.pollIntervalInSeconds, TimeUnit.SECONDS);
         zookeeperThreadPool.scheduleWithFixedDelay(jobZooKeeper, 1, configuration.pollIntervalInSeconds, TimeUnit.SECONDS);
+        //JobRunrPlus: disable check for new JobRunr version
+        //zookeeperThreadPool.scheduleWithFixedDelay(new CheckForNewJobRunrVersion(this), 1, 8, TimeUnit.HOURS);
     }
 
     private void stopZooKeepers() {
@@ -278,7 +281,11 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
     private void runStartupTasks() {
         try {
             List<Runnable> startupTasks = asList(
-                    new CheckIfAllJobsExistTask(this));
+                    new CreateClusterIdIfNotExists(this),
+                    new CheckIfAllJobsExistTask(this),
+                    //JobRunrPlus: do not check for new jobrunr version
+                    //new CheckForNewJobRunrVersion(this),
+                    new UpdateRecurringJobsTask(this));
             startupTasks.forEach(jobExecutor::execute);
         } catch (Exception notImportant) {
             // server is shut down immediately
@@ -320,6 +327,13 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         return configuration.backgroundJobServerWorkerPolicy.toWorkDistributionStrategy(this);
     }
 
+    private BackgroundJobPerformerFactory loadBackgroundJobPerformerFactory() {
+        ServiceLoader<BackgroundJobPerformerFactory> serviceLoader = ServiceLoader.load(BackgroundJobPerformerFactory.class);
+        return stream(spliteratorUnknownSize(serviceLoader.iterator(), Spliterator.ORDERED), false)
+                .min((a, b) -> compare(b.getPriority(), a.getPriority()))
+                .orElseGet(BasicBackgroundJobPerformerFactory::new);
+    }
+
     private JobRunrExecutor loadJobRunrExecutor() {
         ServiceLoader<JobRunrExecutor> serviceLoader = ServiceLoader.load(JobRunrExecutor.class);
         return stream(spliteratorUnknownSize(serviceLoader.iterator(), Spliterator.ORDERED), false)
@@ -341,6 +355,18 @@ public class BackgroundJobServer implements BackgroundJobServerMBean {
         @Override
         public void close() {
             reentrantLock.unlock();
+        }
+    }
+
+    private static class BasicBackgroundJobPerformerFactory implements BackgroundJobPerformerFactory {
+        @Override
+        public int getPriority() {
+            return 10;
+        }
+
+        @Override
+        public BackgroundJobPerformer newBackgroundJobPerformer(BackgroundJobServer backgroundJobServer, Job job) {
+            return new BackgroundJobPerformer(backgroundJobServer, job);
         }
     }
 }

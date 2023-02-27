@@ -33,10 +33,7 @@ import static java.util.UUID.randomUUID;
 import static org.awaitility.Awaitility.await;
 import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.jobrunr.jobs.JobDetailsTestBuilder.methodThatDoesNotExistJobDetails;
-import static org.jobrunr.jobs.JobTestBuilder.aFailedJobWithRetries;
-import static org.jobrunr.jobs.JobTestBuilder.aJob;
-import static org.jobrunr.jobs.JobTestBuilder.aScheduledJob;
-import static org.jobrunr.jobs.JobTestBuilder.anEnqueuedJob;
+import static org.jobrunr.jobs.JobTestBuilder.*;
 import static org.jobrunr.jobs.RecurringJobTestBuilder.aDefaultRecurringJob;
 import static org.jobrunr.storage.BackgroundJobServerStatusTestBuilder.aDefaultBackgroundJobServerStatus;
 
@@ -48,8 +45,10 @@ abstract class JobRunrDashboardWebServerTest {
     private TeenyHttpClient http;
 
     abstract JsonMapper getJsonMapper();
+    //JobRunrPlus: support https dashboard
     abstract JobRunrDashboardWebServerConfiguration getDashboardConfiguration();
 
+    //JobRunrPlus: support https dashboard
     @BeforeEach
     void setUpWebServer() {
         final JsonMapper jsonMapper = getJsonMapper();
@@ -181,6 +180,7 @@ abstract class JobRunrDashboardWebServerTest {
         assertThat(storageProvider.getRecurringJobs()).hasSize(1);
     }
 
+    //JobRunrPlus: support extra operations on recurring jobs
     @Test
     void testDeleteReadOnlyRecurringJob() {
         storageProvider.saveRecurringJob(aDefaultRecurringJob().withId("recurring-job-1").withName("Import sales data").withDeletableFromDashboard(false).build());

@@ -3,6 +3,7 @@ package org.jobrunr.utils.mapper.jackson;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -24,6 +25,7 @@ import java.util.function.Predicate;
 public class JacksonJsonMapper implements JsonMapper {
 
     private final ObjectMapper objectMapper;
+    //JobRunrPlus: support marklogic
     private final ObjectMapper rawObjectMapper;
 
     public JacksonJsonMapper() {
@@ -40,6 +42,7 @@ public class JacksonJsonMapper implements JsonMapper {
 
     public JacksonJsonMapper(ObjectMapper objectMapper, boolean moduleAutoDiscover) {
         this.objectMapper = initObjectMapper(objectMapper, moduleAutoDiscover);
+        //JobRunrPlus: support marklogic
         this.rawObjectMapper = new ObjectMapper();
     }
 
@@ -48,6 +51,8 @@ public class JacksonJsonMapper implements JsonMapper {
                 .setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE)
                 .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
                 .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+                .configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true)
+                .configure(DeserializationFeature.READ_ENUMS_USING_TO_STRING, true)
                 .registerModules(findModules(moduleAutoDiscover))
                 .setDateFormat(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"))
                 .activateDefaultTypingAsProperty(LaissezFaireSubTypeValidator.instance,
@@ -73,6 +78,7 @@ public class JacksonJsonMapper implements JsonMapper {
         }
     }
 
+    //JobRunrPlus: support marklogic
     @Override
     public String serializeRaw(Object object) {
         try {
@@ -115,6 +121,6 @@ public class JacksonJsonMapper implements JsonMapper {
         return modules;
     }
 
-    private static final Predicate<Module> isJSR310JavaTimeModule = m -> "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule".equals(m.getTypeId());
+    private static final Predicate<Module> isJSR310JavaTimeModule = m -> "jackson-datatype-jsr310".equals(m.getTypeId()) || "com.fasterxml.jackson.datatype.jsr310.JavaTimeModule".equals(m.getTypeId());
     private static final Predicate<Module> isJobRunrModule = m -> "org.jobrunr.utils.mapper.jackson.modules.JobRunrModule".equals(m.getTypeId());
 }

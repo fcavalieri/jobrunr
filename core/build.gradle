@@ -4,12 +4,20 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'maven-publish'
+    //JobRunrPlus: Disable JobRunr publishing
+    //id 'signing'
 }
 
 sourceSets {
     main {
         resources {
-            exclude '**/node_modules/*'
+            exclude '**/node_modules/'
+            exclude '**/dependency-check-bin/'
+            exclude '**/public/'
+            exclude '**/src/'
+            exclude '**/jsconfig.json'
+            exclude '**/package.json'
+            exclude '**/package-lock.json'
         }
     }
 }
@@ -25,6 +33,7 @@ dependencies {
 
     api 'org.slf4j:slf4j-api'
     api 'org.ow2.asm:asm'
+    //JobRunrPlus: Add HTTPS support in dashboard
     api 'org.bouncycastle:bcpkix-jdk15on:1.68'
 
     compileOnly 'com.fasterxml.jackson.core:jackson-databind'
@@ -38,6 +47,7 @@ dependencies {
     compileOnly 'io.lettuce:lettuce-core'
     compileOnly 'org.mongodb:mongodb-driver-sync'
     compileOnly 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    //JobRunrPlus: Add marklogic support
     compileOnly 'com.marklogic:marklogic-client-api'
 
     testImplementation 'org.ow2.asm:asm-util'
@@ -72,14 +82,18 @@ dependencies {
     testImplementation 'io.lettuce:lettuce-core'
     testImplementation 'org.mongodb:mongodb-driver-sync'
     testImplementation 'org.elasticsearch.client:elasticsearch-rest-high-level-client'
+    //JobRunrPlus: Add marklogic support
     testImplementation 'com.marklogic:marklogic-client-api'
 
     testFixturesApi 'org.assertj:assertj-core'
     testFixturesApi 'org.junit.jupiter:junit-jupiter'
+    testFixturesApi 'org.awaitility:awaitility'
     testFixturesApi 'net.javacrumbs.json-unit:json-unit-assertj'
     testFixturesApi 'ch.qos.logback:logback-classic'
-    testFixturesApi 'com.marklogic:marklogic-client-api'
+    //JobRunrPlus: Add marklogic support
+    testFixturesApi 'com.marklogic:marklogic-client-api'    
     testFixturesApi 'org.testcontainers:testcontainers'
+    //JobRunrPlus: Job extensions tests
     testFixturesImplementation 'org.awaitility:awaitility'
 }
 
@@ -94,11 +108,14 @@ compileTestFixturesJava {
 }
 
 jar {
+    exclude('**/dependency-check-bin/', '**/dependency-check-reports/')
     manifest {
+        attributes 'Automatic-Module-Name' : 'org.jobrunr.core'
         attributes 'Built-By': 'build.jobrunr.io'
         attributes 'Build-Timestamp': new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date())
-        attributes 'Build-Version': project.version.replace("v", "")
-        attributes 'Bundle-Version': project.version.replace("v", "")
+        attributes 'Build-Version': project.version
+        attributes 'Implementation-Version': project.version
+        attributes 'Bundle-Version': project.version
         attributes 'Created-By': "Gradle ${gradle.gradleVersion}"
         attributes 'Build-Jdk': "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})"
         attributes 'Build-OS': "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
@@ -110,20 +127,26 @@ publishing {
         mavenJava(MavenPublication) {
             groupId = 'org.jobrunr'
             artifactId = 'jobrunr'
-            version = project.version.replace("v", "")
+            version = project.version
             from components.java
 
             pom {
                 name = 'JobRunr'
                 description = 'An easy way to perform background processing on the JVM. Backed by persistent storage. Open and free for commercial use.'
+                //JobRunrPlus: JobRunr publishing
+                //url = 'https://github.com/jobrunr/jobrunr'
                 url = 'https://github.com/fcavalieri/jobrunr'
                 licenses {
                     license {
                         name = 'GNU Lesser General Public License v3.0 or later'
+                        //JobRunrPlus: JobRunr publishing
+                        //url = 'https://github.com/jobrunr/jobrunr/blob/master/License.md#lgpl-v3-license'
                         url = 'https://github.com/fcavalieri/jobrunr/blob/master/License.md#lgpl-v3-license'
                     }
                     license {
                         name = 'Commercial License'
+                        //JobRunrPlus: JobRunr publishing
+                        //url = 'https://github.com/jobrunr/jobrunr/blob/master/License.md#commercial-license'
                         url = 'https://github.com/fcavalieri/jobrunr/blob/master/License.md#commercial-license'
                     }
                 }
@@ -135,6 +158,10 @@ publishing {
                     }
                 }
                 scm {
+                    //JobRunrPlus: JobRunr publishing
+                    //connection = 'scm:git:https://github.com/jobrunr/jobrunr.git'
+                    //developerConnection = 'scm:git@github.com:jobrunr/jobrunr.git'
+                    //url = 'https://github.com/jobrunr/jobrunr.git'
                     connection = 'scm:git:https://github.com/fcavalieri/jobrunr.git'
                     developerConnection = 'scm:git@github.com:fcavalieri/jobrunr.git'
                     url = 'https://github.com/fcavalieri/jobrunr.git'
@@ -158,6 +185,14 @@ publishing {
             }
         }
     }
+    //JobRunrPlus: Disable JobRunr publishing
+    //signing {
+    //String base64Key = System.getenv('SIGNING_KEY')
+    //if (base64Key) {
+        //useInMemoryPgpKeys(new String(Base64.decoder.decode(base64Key)), System.getenv('SIGNING_PASSWORD'))
+        //sign publishing.publications.mavenJava
+    //}
+    //JobRunrPlus: JobRunr Plus publishing
     repositories {
         maven {
             url "https://gitlab.com/api/v4/projects/26366632/packages/maven"

@@ -40,18 +40,26 @@ class JobRunrProducerTest {
     @BeforeEach
     void setUp() {
         configuration = new JobRunrConfiguration();
+        configuration.database = new JobRunrConfiguration.DatabaseConfiguration();
+        configuration.jobs = new JobRunrConfiguration.JobsConfiguration();
+        configuration.jobs.defaultNumberOfRetries = Optional.empty();
+        configuration.jobs.retryBackOffTimeSeed = Optional.empty();
         configuration.jobScheduler = new JobRunrConfiguration.JobSchedulerConfiguration();
         configuration.jobScheduler.jobDetailsGenerator = Optional.empty();
         configuration.backgroundJobServer = new JobRunrConfiguration.BackgroundJobServerConfiguration();
         configuration.backgroundJobServer.pollIntervalInSeconds = Optional.empty();
         configuration.backgroundJobServer.workerCount = Optional.empty();
+        configuration.backgroundJobServer.scheduledJobsRequestSize = Optional.empty();
+        configuration.backgroundJobServer.orphanedJobsRequestSize = Optional.empty();
+        configuration.backgroundJobServer.succeededsJobRequestSize = Optional.empty();
         configuration.backgroundJobServer.deleteSucceededJobsAfter = Optional.empty();
         configuration.backgroundJobServer.permanentlyDeleteDeletedJobsAfter = Optional.empty();
         configuration.dashboard = new JobRunrConfiguration.DashboardConfiguration();
         configuration.dashboard.port = Optional.empty();
         configuration.dashboard.username = Optional.empty();
         configuration.dashboard.password = Optional.empty();
-        configuration.database = new JobRunrConfiguration.DatabaseConfiguration();
+        configuration.miscellaneous = new JobRunrConfiguration.MiscellaneousConfiguration();
+        configuration.miscellaneous.allowAnonymousDataUsage = true;
 
         jobRunrProducer = new JobRunrProducer();
         setInternalState(jobRunrProducer, "configuration", configuration);

@@ -5,23 +5,19 @@ import org.jobrunr.SevereJobRunrException;
 import org.jobrunr.jobs.Job;
 import org.jobrunr.jobs.RecurringJob;
 import org.jobrunr.jobs.filters.JobFilterUtils;
+import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.jobs.states.StateName;
 import org.jobrunr.server.concurrent.ConcurrentJobModificationResolver;
 import org.jobrunr.server.concurrent.UnresolvableConcurrentJobModificationException;
 import org.jobrunr.server.dashboard.DashboardNotificationManager;
 import org.jobrunr.server.strategy.WorkDistributionStrategy;
-import org.jobrunr.storage.BackgroundJobServerStatus;
-import org.jobrunr.storage.ConcurrentJobModificationException;
-import org.jobrunr.storage.PageRequest;
-import org.jobrunr.storage.StorageProvider;
+import org.jobrunr.storage.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -31,6 +27,7 @@ import java.util.function.Supplier;
 import static java.time.Duration.ofSeconds;
 import static java.time.Instant.now;
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
 import static org.jobrunr.JobRunrException.shouldNotHappenException;
 import static org.jobrunr.jobs.states.StateName.PROCESSING;
 import static org.jobrunr.jobs.states.StateName.SUCCEEDED;
@@ -51,18 +48,20 @@ public class JobZooKeeper implements Runnable {
     private final AtomicInteger exceptionCount;
     private final ReentrantLock reentrantLock;
     private final AtomicInteger occupiedWorkers;
-    private final Duration durationPollIntervalTimeBox;
+    private final RecurringJobRunHelper recurringJobRunHelper;
+    private RecurringJobsResult recurringJobs;
     private Instant runStartTime;
 
     public JobZooKeeper(BackgroundJobServer backgroundJobServer) {
         this.backgroundJobServer = backgroundJobServer;
         this.storageProvider = backgroundJobServer.getStorageProvider();
+        this.recurringJobRunHelper = new RecurringJobRunHelper();
+        this.recurringJobs = new RecurringJobsResult();
         this.workDistributionStrategy = backgroundJobServer.getWorkDistributionStrategy();
         this.dashboardNotificationManager = backgroundJobServer.getDashboardNotificationManager();
         this.jobFilterUtils = new JobFilterUtils(backgroundJobServer.getJobFilters());
         this.concurrentJobModificationResolver = createConcurrentJobModificationResolver();
         this.currentlyProcessedJobs = new ConcurrentHashMap<>();
-        this.durationPollIntervalTimeBox = Duration.ofSeconds((long) (backgroundJobServerStatus().getPollIntervalInSeconds() - (backgroundJobServerStatus().getPollIntervalInSeconds() * 0.05)));
         this.reentrantLock = new ReentrantLock();
         this.exceptionCount = new AtomicInteger();
         this.occupiedWorkers = new AtomicInteger();
@@ -71,7 +70,7 @@ public class JobZooKeeper implements Runnable {
     @Override
     public void run() {
         try {
-            runStartTime = Instant.now();
+            runStartTime = now();
             if (backgroundJobServer.isUnAnnounced()) return;
 
             updateJobsThatAreBeingProcessed();
@@ -99,6 +98,7 @@ public class JobZooKeeper implements Runnable {
             checkForScheduledJobs();
             checkForOrphanedJobs();
             checkForSucceededJobsThanCanGoToDeletedState();
+            //JobRunrPlus: support automatic deletion of failed jobs
             checkForFailedJobsThanCanGoToDeletedState();
             checkForJobsThatCanBeDeleted();
         }
@@ -110,31 +110,35 @@ public class JobZooKeeper implements Runnable {
 
     void checkForRecurringJobs() {
         LOGGER.debug("Looking for recurring jobs... ");
-        List<RecurringJob> recurringJobs = storageProvider.getRecurringJobs();
+        List<RecurringJob> recurringJobs = getRecurringJobs();
         processRecurringJobs(recurringJobs);
     }
 
     void checkForScheduledJobs() {
         LOGGER.debug("Looking for scheduled jobs... ");
-        Supplier<List<Job>> scheduledJobsSupplier = () -> storageProvider.getScheduledJobs(now().plusSeconds(backgroundJobServerStatus().getPollIntervalInSeconds()), ascOnUpdatedAt(1000));
+        final int pageRequestSize = backgroundJobServer.getConfiguration().scheduledJobsRequestSize;
+        Supplier<List<Job>> scheduledJobsSupplier = () -> storageProvider.getScheduledJobs(now().plusSeconds(backgroundJobServerStatus().getPollIntervalInSeconds()), ascOnUpdatedAt(pageRequestSize));
         processJobList(scheduledJobsSupplier, Job::enqueue);
     }
 
     void checkForOrphanedJobs() {
         LOGGER.debug("Looking for orphan jobs... ");
+        final int pageRequestSize = backgroundJobServer.getConfiguration().orphanedJobsRequestSize;
         final Instant updatedBefore = runStartTime.minus(ofSeconds(backgroundJobServer.getServerStatus().getPollIntervalInSeconds()).multipliedBy(4));
-        Supplier<List<Job>> orphanedJobsSupplier = () -> storageProvider.getJobs(PROCESSING, updatedBefore, ascOnUpdatedAt(1000));
+        Supplier<List<Job>> orphanedJobsSupplier = () -> storageProvider.getJobs(PROCESSING, updatedBefore, ascOnUpdatedAt(pageRequestSize));
         processJobList(orphanedJobsSupplier, job -> job.failed("Orphaned job", new IllegalThreadStateException("Job was too long in PROCESSING state without being updated.")));
     }
 
     void checkForSucceededJobsThanCanGoToDeletedState() {
+        //JobRunrPlus: allow disabling of automatic deletion of succeeded jobs
         if (backgroundJobServer.getServerStatus().getDeleteSucceededJobsAfter() == Duration.ZERO)
             return;
         LOGGER.debug("Looking for succeeded jobs that can go to the deleted state... ");
         AtomicInteger succeededJobsCounter = new AtomicInteger();
 
+        final int pageRequestSize = backgroundJobServer.getConfiguration().succeededJobsRequestSize;
         final Instant updatedBefore = now().minus(backgroundJobServer.getServerStatus().getDeleteSucceededJobsAfter());
-        Supplier<List<Job>> succeededJobsSupplier = () -> storageProvider.getJobs(SUCCEEDED, updatedBefore, ascOnUpdatedAt(1000));
+        Supplier<List<Job>> succeededJobsSupplier = () -> storageProvider.getJobs(SUCCEEDED, updatedBefore, ascOnUpdatedAt(pageRequestSize));
         processJobList(succeededJobsSupplier, job -> {
             succeededJobsCounter.incrementAndGet();
             job.delete("JobRunr maintenance - deleting succeeded job");
@@ -145,6 +149,7 @@ public class JobZooKeeper implements Runnable {
         }
     }
 
+    //JobRunrPlus: support automatic deletion of failed jobs
     void checkForFailedJobsThanCanGoToDeletedState() {
         if (backgroundJobServer.getServerStatus().getDeleteFailedJobsAfter() == Duration.ZERO)
             return;
@@ -157,7 +162,9 @@ public class JobZooKeeper implements Runnable {
         });
     }
 
+
     void checkForJobsThatCanBeDeleted() {
+        //JobRunrPlus: allow disabling of automatic deletion of job permanent deletion
         if (backgroundJobServer.getServerStatus().getPermanentlyDeleteDeletedJobsAfter() == Duration.ZERO)
             return;
 
@@ -191,19 +198,33 @@ public class JobZooKeeper implements Runnable {
 
     void processRecurringJobs(List<RecurringJob> recurringJobs) {
         LOGGER.debug("Found {} recurring jobs", recurringJobs.size());
-        recurringJobs.stream()
-                .filter(this::mustSchedule)
-                .forEach(backgroundJobServer::scheduleJob);
+        List<Job> jobsToSchedule = recurringJobs.stream()
+                .map(this::recurringJobToScheduledJobs)
+                .flatMap(List::stream)
+                .collect(toList());
+        if(!jobsToSchedule.isEmpty()) {
+            storageProvider.save(jobsToSchedule);
+        }
     }
 
-    boolean mustSchedule(RecurringJob recurringJob) {
-        return recurringJob.isEnabled() &&
-               recurringJob.getNextRun() != null &&
-               recurringJob.getNextRun().isBefore(now().plus(durationPollIntervalTimeBox).plusSeconds(1)) &&
-               !storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, StateName.PROCESSING);
-
+    List<Job> recurringJobToScheduledJobs(RecurringJob recurringJob) {
+        List<Job> jobs = recurringJobRunHelper.getJobsToSchedule(recurringJob, runStartTime, runStartTime.plusSeconds(backgroundJobServerStatus().getPollIntervalInSeconds()));
+        if(jobs.size() == 1) {
+            boolean isAlreadyScheduled = storageProvider.recurringJobExists(recurringJob.getId(), StateName.SCHEDULED, StateName.ENQUEUED, PROCESSING);
+            if(isAlreadyScheduled) {
+                LOGGER.debug("Recurring job '{}' resulted in {} scheduled job but it is already scheduled, enqueued or processing. Run will be skipped as job is taking too long.", recurringJob.getJobName(), jobs.size());
+                return Collections.emptyList();
+            } else {
+                LOGGER.debug("Recurring job '{}' resulted in {} scheduled job.", recurringJob.getJobName(), jobs.size());
+            }
+        } else if(jobs.size() > 1) {
+            LOGGER.info("Recurring job '{}' resulted in {} scheduled jobs. This means a long GC happened and JobRunr is catching up.", recurringJob.getJobName(), jobs.size());
+        } else {
+            LOGGER.debug("Recurring job '{}' resulted in {} scheduled job.", recurringJob.getJobName(), jobs.size());
+        }
+        return jobs;
     }
-
+    
     void processJobList(Supplier<List<Job>> jobListSupplier, Consumer<Job> jobConsumer) {
         List<Job> jobs = getJobsToProcess(jobListSupplier);
         while (!jobs.isEmpty()) {
@@ -274,6 +295,7 @@ public class JobZooKeeper implements Runnable {
     }
 
     private boolean pollIntervalInSecondsTimeBoxIsAboutToPass() {
+        final Duration durationPollIntervalTimeBox = Duration.ofMillis((long) backgroundJobServerStatus().getPollIntervalInSeconds() * 950);
         final Duration durationRunTime = Duration.between(runStartTime, now());
         final boolean runTimeBoxIsPassed = durationRunTime.compareTo(durationPollIntervalTimeBox) >= 0;
         if (runTimeBoxIsPassed) {
@@ -282,8 +304,36 @@ public class JobZooKeeper implements Runnable {
         return runTimeBoxIsPassed;
     }
 
+    private List<RecurringJob> getRecurringJobs() {
+        if(storageProvider.recurringJobsUpdated(recurringJobs.getLastModifiedHash())) {
+            this.recurringJobs = storageProvider.getRecurringJobs();
+        }
+        return this.recurringJobs;
+    }
+
     ConcurrentJobModificationResolver createConcurrentJobModificationResolver() {
         return backgroundJobServer.getConfiguration()
                 .concurrentJobModificationPolicy.toConcurrentJobModificationResolver(storageProvider, this);
+    }
+
+
+    private static class RecurringJobRunHelper {
+        private final Map<String, Instant> recurringJobRuns = new HashMap<>();
+
+        public List<Job> getJobsToSchedule(RecurringJob recurringJob, Instant runStartTime, Instant upUntil) {
+            List<Job> jobs = recurringJob.toScheduledJobs(getLastRecurringJobRunInstant(recurringJob, runStartTime), upUntil);
+            registerRecurringJobRun(recurringJob, jobs);
+            return jobs;
+        }
+
+        private void registerRecurringJobRun(RecurringJob recurringJob, List<Job> scheduledJobsFromRecurringJob) {
+            if(scheduledJobsFromRecurringJob.isEmpty()) return;
+            ScheduledState scheduledJobState = scheduledJobsFromRecurringJob.get(scheduledJobsFromRecurringJob.size() - 1).getJobState();
+            recurringJobRuns.put(recurringJob.getId(), scheduledJobState.getScheduledAt());
+        }
+
+        private Instant getLastRecurringJobRunInstant(RecurringJob recurringJob, Instant runStartTime) {
+            return recurringJobRuns.getOrDefault(recurringJob.getId(), runStartTime);
+        }
     }
 }

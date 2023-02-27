@@ -17,6 +17,7 @@ public interface BackgroundJobServerStatusMBean {
 
     Duration getDeleteSucceededJobsAfter();
 
+    //JobRunrPlus: allow deletionof failed jobs
     Duration getDeleteFailedJobsAfter();
 
     Duration getPermanentlyDeleteDeletedJobsAfter();

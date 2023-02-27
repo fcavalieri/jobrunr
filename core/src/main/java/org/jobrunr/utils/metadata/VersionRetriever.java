@@ -10,17 +10,17 @@ public class VersionRetriever {
 
     }
 
+    //JobRunrPlus: do not throw error if version cannot be retrieved
     public static String getVersion(Class<?> clazz) {
-        return getManifest(clazz).getMainAttributes().getValue("Bundle-Version");
-    }
-
-    public static String tryGetVersion(Class<?> clazz) {
         try {
-            return getVersion(clazz);
+            String version = clazz.getPackage().getImplementationVersion();
+            if (version != null) {
+                return version;
+            }
+            return getManifest(clazz).getMainAttributes().getValue("Bundle-Version");
         } catch (Throwable t) {
             return null;
         }
-
     }
 
     private static Manifest getManifest(Class<?> clazz) {

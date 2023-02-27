@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static java.util.Optional.ofNullable;
 import static org.jobrunr.dashboard.JobRunrDashboardWebServerConfiguration.usingStandardDashboardConfiguration;
 import static org.jobrunr.server.BackgroundJobServerConfiguration.usingStandardBackgroundJobServerConfiguration;
 import static org.jobrunr.utils.mapper.JsonMapperValidator.validateJsonMapper;
@@ -33,19 +34,22 @@ import static org.jobrunr.utils.reflection.ReflectionUtils.classExists;
  */
 public class JobRunrConfiguration {
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     public enum JsonMapperKind {GSON, JACKSON, JSONB}
 
     JobActivator jobActivator;
     JsonMapper jsonMapper;
-    final JobMapper jobMapper;
+    JobMapper jobMapper;
     final List<JobFilter> jobFilters;
     JobDetailsGenerator jobDetailsGenerator;
     StorageProvider storageProvider;
     BackgroundJobServer backgroundJobServer;
     JobRunrDashboardWebServer dashboardWebServer;
     JobRunrJMXExtensions jmxExtension;
+    JobRunrMicroMeterIntegration microMeterIntegration;
 
     JobRunrConfiguration() {
+        //JobRunrPlus: support explicit choice of JsonMapper
         JsonMapperKind jsonMapperKind = determineJsonMapperKind();
         this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
@@ -53,6 +57,7 @@ public class JobRunrConfiguration {
         this.jobFilters = new ArrayList<>();
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     JobRunrConfiguration(JsonMapperKind jsonMapperKind) {
         this.jsonMapper = initializeJsonMapper(jsonMapperKind);
         this.jobMapper = new JobMapper(jsonMapper);
@@ -74,6 +79,7 @@ public class JobRunrConfiguration {
             throw new IllegalStateException("Please configure the JobActivator before the DashboardWebServer.");
         }
         this.jsonMapper = validateJsonMapper(jsonMapper);
+        this.jobMapper = new JobMapper(jsonMapper);
         return this;
     }
 
@@ -104,7 +110,7 @@ public class JobRunrConfiguration {
     }
 
     /**
-     * Allows to set extra JobFilters or to provide another implementation of the {@link org.jobrunr.jobs.filters.RetryFilter}
+     * Allows setting extra JobFilters or to provide another implementation of the {@link org.jobrunr.jobs.filters.RetryFilter}
      *
      * @param jobFilters the jobFilters to use for each job.
      * @return the same configuration instance which provides a fluent api
@@ -298,6 +304,17 @@ public class JobRunrConfiguration {
     }
 
     /**
+     * Allows integrating MicroMeter metrics into JobRunr
+     *
+     * @param microMeterIntegration the JobRunrMicroMeterIntegration
+     * @return the same configuration instance which provides a fluent api
+     */
+    public JobRunrConfiguration useMicroMeter(JobRunrMicroMeterIntegration microMeterIntegration) {
+        this.microMeterIntegration = microMeterIntegration;
+        return this;
+    }
+
+    /**
      * Specifies which {@link JobDetailsGenerator} to use.
      *
      * @param jobDetailsGenerator the JobDetailsGenerator to use.
@@ -315,11 +332,26 @@ public class JobRunrConfiguration {
      * @return a JobScheduler to enqueue/schedule new jobs
      */
     public JobRunrConfigurationResult initialize() {
+        ofNullable(microMeterIntegration).ifPresent(meterRegistry -> meterRegistry.initialize(storageProvider, backgroundJobServer));
         final JobScheduler jobScheduler = new JobScheduler(storageProvider, jobDetailsGenerator, jobFilters);
         final JobRequestScheduler jobRequestScheduler = new JobRequestScheduler(storageProvider, jobFilters);
         return new JobRunrConfigurationResult(jobScheduler, jobRequestScheduler);
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
+    //private static JsonMapper determineJsonMapper() {
+        //if (classExists("com.fasterxml.jackson.databind.ObjectMapper")) {
+            //return new JacksonJsonMapper();
+        //} else if (classExists("com.google.gson.Gson")) {
+            //return new GsonJsonMapper();
+        //} else if (classExists("javax.json.bind.JsonbBuilder")) {
+            //return new JsonbJsonMapper();
+        //} else {
+            //throw new JsonMapperException("No JsonMapper class is found. Make sure you have either Jackson, Gson or a JsonB compliant library available on your classpath");
+        //}
+    //}
+
+    //JobRunrPlus: support explicit choice of JsonMapper
     private static JsonMapperKind determineJsonMapperKind() {
         if (classExists("com.fasterxml.jackson.databind.ObjectMapper")) {
             return JsonMapperKind.JACKSON;
@@ -332,6 +364,7 @@ public class JobRunrConfiguration {
         }
     }
 
+    //JobRunrPlus: support explicit choice of JsonMapper
     private static JsonMapper initializeJsonMapper(JsonMapperKind jsonMapperKind) {
         switch (jsonMapperKind) {
             case JACKSON:

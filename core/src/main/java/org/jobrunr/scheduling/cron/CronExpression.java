@@ -1,10 +1,10 @@
 package org.jobrunr.scheduling.cron;
 
+import org.jobrunr.scheduling.Schedule;
+
 import java.time.*;
 import java.util.BitSet;
 import java.util.Calendar;
-
-import static java.time.Instant.now;
 
 /**
  * Schedule class represents a parsed crontab expression.
@@ -19,8 +19,9 @@ import static java.time.Instant.now;
  * @author Ahmed AlSahaf
  * @author Ronald Dehuysser (minor modifications)
  */
-public class CronExpression implements Comparable<CronExpression> {
+public class CronExpression extends Schedule {
 
+    //JobRunrPlus: support disabled recurring job
     public static String CRON_DISABLED = "-";
 
     private enum DaysAndDaysOfWeekRelation {
@@ -49,6 +50,8 @@ public class CronExpression implements Comparable<CronExpression> {
     private BitSet months;
     private BitSet daysOfWeek;
     private BitSet daysOf5Weeks;
+    private boolean isLastDayOfMonth;
+    private boolean isSpecificLastDayOfMonth;
 
     /**
      * Parses crontab expression and create a Schedule object representing that
@@ -59,7 +62,7 @@ public class CronExpression implements Comparable<CronExpression> {
      * <pre>
      *  ┌───────────── minute (0 - 59)
      *  │ ┌───────────── hour (0 - 23)
-     *  │ │ ┌───────────── day of the month (1 - 31)
+     *  │ │ ┌───────────── day of the month (1 - 31) or L for last day of the month
      *  │ │ │ ┌───────────── month (1 - 12 or Jan/January - Dec/December)
      *  │ │ │ │ ┌───────────── day of the week (0 - 6 or Sun/Sunday - Sat/Saturday)
      *  │ │ │ │ │
@@ -74,7 +77,7 @@ public class CronExpression implements Comparable<CronExpression> {
      *  ┌───────────── second (0 - 59)
      *  │ ┌───────────── minute (0 - 59)
      *  │ │ ┌───────────── hour (0 - 23)
-     *  │ │ │ ┌───────────── day of the month (1 - 31)
+     *  │ │ │ ┌───────────── day of the month (1 - 31) or L for last day of the month
      *  │ │ │ │ ┌───────────── month (1 - 12 or Jan/January - Dec/December)
      *  │ │ │ │ │ ┌───────────── day of the week (0 - 6 or Sun/Sunday - Sat/Saturday)
      *  │ │ │ │ │ │
@@ -101,6 +104,7 @@ public class CronExpression implements Comparable<CronExpression> {
         if (expression.isEmpty()) {
             throw new InvalidCronExpressionException("empty expression");
         }
+        //JobRunrPlus: support disabled recurring job
         if (CRON_DISABLED.equals(expression)) {
             CronExpression ret = new CronExpression();
             ret.expression = CRON_DISABLED;
@@ -130,19 +134,28 @@ public class CronExpression implements Comparable<CronExpression> {
         cronExpression.hours = CronExpression.HOURS_FIELD_PARSER.parse(token);
 
         token = fields[index++];
+        String daysToken = token;
         cronExpression.days = CronExpression.DAYS_FIELD_PARSER.parse(token);
-        boolean daysStartWithAsterisk = false;
-        if (token.startsWith("*"))
-            daysStartWithAsterisk = true;
+        cronExpression.isLastDayOfMonth = token.equals("l");
+        boolean daysStartWithAsterisk = token.startsWith("*");
 
         token = fields[index++];
         cronExpression.months = CronExpression.MONTHS_FIELD_PARSER.parse(token);
 
         token = fields[index++];
         cronExpression.daysOfWeek = CronExpression.DAY_OF_WEEK_FIELD_PARSER.parse(token);
-        boolean daysOfWeekStartAsterisk = false;
-        if (token.startsWith("*"))
-            daysOfWeekStartAsterisk = true;
+        boolean daysOfWeekStartAsterisk = token.startsWith("*");
+
+        if (token.length() == 2 && token.endsWith("l")) {
+            if(cronExpression.isLastDayOfMonth) {
+                throw new InvalidCronExpressionException("You can only specify the last day of month week in either the DAY field or in the DAY_OF_WEEK field, not both.");
+            }
+            if (!daysToken.equalsIgnoreCase("*")) {
+                throw new InvalidCronExpressionException("when last days of month is specified. the day of the month must be \"*\"");
+            }
+            // this flag will be used later duing finding the next schedule as some months have less than 31 days
+            cronExpression.isSpecificLastDayOfMonth = true;
+        }
         cronExpression.daysOf5Weeks = generateDaysOf5Weeks(cronExpression.daysOfWeek);
 
         cronExpression.daysAndDaysOfWeekRelation = (daysStartWithAsterisk || daysOfWeekStartAsterisk)
@@ -156,33 +169,17 @@ public class CronExpression implements Comparable<CronExpression> {
     }
 
     /**
-     * Calculates the next occurrence based on the current time (at UTC TimeZone).
-     *
-     * @return Instant of the next occurrence.
-     */
-    public Instant next() {
-        return next(now(), ZoneOffset.UTC);
-    }
-
-    /**
-     * Calculates the next occurrence based on the current time (at the given TimeZone).
-     *
-     * @return Instant of the next occurrence.
-     */
-    public Instant next(ZoneId zoneId) {
-        return next(Instant.now(), zoneId);
-    }
-
-    /**
      * Calculates the next occurrence based on provided base time.
      *
-     * @param baseInstant Instant object based on which calculating the next occurrence.
+     * @param createdAtInstant Instant object based on which calculating the next occurrence.
      * @return Instant of the next occurrence.
      */
-    public Instant next(Instant baseInstant, ZoneId zoneId) {
+    @Override
+    public Instant next(Instant createdAtInstant, Instant currentInstant, ZoneId zoneId) {
+        //JobRunrPlus: support disabled recurring job
         if (CRON_DISABLED.equals(expression))
             return null;
-        LocalDateTime baseDate = LocalDateTime.ofInstant(baseInstant, zoneId);
+        LocalDateTime baseDate = LocalDateTime.ofInstant(currentInstant, zoneId);
         int baseSecond = baseDate.getSecond();
         int baseMinute = baseDate.getMinute();
         int baseHour = baseDate.getHour();
@@ -269,32 +266,6 @@ public class CronExpression implements Comparable<CronExpression> {
     }
 
     /**
-     * Compare two {@code Schedule} objects based on next occurrence.
-     * <p>
-     * The next occurrences are calculated based on the current time.
-     *
-     * @param anotherCronExpression the {@code Schedule} to be compared.
-     * @return the value {@code 0} if this {@code Schedule} next occurrence is equal
-     * to the argument {@code Schedule} next occurrence; a value less than
-     * {@code 0} if this {@code Schedule} next occurrence is before the
-     * argument {@code Schedule} next occurrence; and a value greater than
-     * {@code 0} if this {@code Schedule} next occurrence is after the
-     * argument {@code Schedule} next occurrence.
-     */
-    @Override
-    public int compareTo(CronExpression anotherCronExpression) {
-        if (anotherCronExpression == this) {
-            return 0;
-        }
-
-        Instant baseInstant = now();
-        final Instant nextAnother = anotherCronExpression.next(baseInstant, ZoneOffset.UTC);
-        final Instant nextThis = this.next(baseInstant, ZoneOffset.UTC);
-
-        return nextThis.compareTo(nextAnother);
-    }
-
-    /**
      * Compares this object against the specified object. The result is {@code true}
      * if and only if the argument is not {@code null} and is a {@code Schedule}
      * object that whose seconds, minutes, hours, days, months, and days of
@@ -353,11 +324,11 @@ public class CronExpression implements Comparable<CronExpression> {
             if (!this.days.get(dayIndex))
                 continue;
 
-            for (int monthIndex = 0; monthIndex < 12; monthIndex++) {
+            for (int monthIndex = 0; monthIndex <= 12; monthIndex++) {
                 if (!this.months.get(monthIndex))
                     continue;
 
-                if (dayIndex + 1 <= YearMonth.of(aYear, monthIndex + 1).lengthOfMonth())
+                if (dayIndex + 1 <= YearMonth.of(aYear, monthIndex).lengthOfMonth())
                     return true;
             }
         }
@@ -382,27 +353,52 @@ public class CronExpression implements Comparable<CronExpression> {
         BitSet updatedDays = new BitSet(31);
         updatedDays.or(this.days);
         BitSet monthDaysOfWeeks = this.daysOf5Weeks.get(daysOf5WeeksOffset, daysOf5WeeksOffset + 31);
-        if (this.daysAndDaysOfWeekRelation == DaysAndDaysOfWeekRelation.INTERSECT) {
+        if (this.isSpecificLastDayOfMonth || this.daysAndDaysOfWeekRelation == DaysAndDaysOfWeekRelation.INTERSECT) {
             updatedDays.and(monthDaysOfWeeks);
         } else {
             updatedDays.or(monthDaysOfWeeks);
         }
-        int i;
+        int dayCountInMonth;
         if (month == Month.FEBRUARY.getValue() /* Feb */) {
-            i = 28;
+            dayCountInMonth = 28;
             if (isLeapYear(year)) {
-                i++;
+                dayCountInMonth++;
             }
         } else {
             // We cannot use lengthOfMonth method with the month Feb
             // because it returns incorrect number of days for years
             // that are dividable by 400 like the year 2000, a bug??
-            i = YearMonth.of(year, month).lengthOfMonth();
+            dayCountInMonth = YearMonth.of(year, month).lengthOfMonth();
         }
         // remove days beyond month length
-        for (; i < 31; i++) {
-            updatedDays.set(i, false);
+        for (int j = dayCountInMonth; j < 31; j++) {
+            updatedDays.set(j, false);
+        }
+
+
+        if (isLastDayOfMonth) {
+            for (int j = 0; j < dayCountInMonth; j++) { // remove all days except last day of month
+                updatedDays.set(j, ((j + 1) == dayCountInMonth));
+            }
+        } else if (isSpecificLastDayOfMonth) { // remove days before the last 7 days
+            for (int j = 0; j < dayCountInMonth - 7; j++) {
+                updatedDays.set(j, false);
+            }
         }
         return updatedDays;
+    }
+
+    public void validateSchedule() {
+        Instant base = Instant.EPOCH;
+        Instant fiveSeconds = base.plusSeconds(SMALLEST_SCHEDULE_IN_SECONDS);
+
+        if (next(base, base, ZoneOffset.UTC).isBefore(fiveSeconds)) {
+            throw new IllegalArgumentException(String.format("The smallest interval for recurring jobs is %d seconds. Please also make sure that your 'pollIntervalInSeconds' configuration matches the smallest recurring job interval.", SMALLEST_SCHEDULE_IN_SECONDS));
+        }
+    }
+
+    @Override
+    public String toString() {
+        return expression;
     }
 }

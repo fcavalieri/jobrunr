@@ -10,6 +10,7 @@ import org.jobrunr.jobs.lambdas.IocJobLambdaFromStream;
 import org.jobrunr.jobs.lambdas.JobLambda;
 import org.jobrunr.jobs.lambdas.JobLambdaFromStream;
 import org.jobrunr.scheduling.cron.CronExpression;
+import org.jobrunr.scheduling.interval.Interval;
 import org.jobrunr.storage.StorageProvider;
 
 import java.time.*;
@@ -21,6 +22,7 @@ import java.util.stream.Stream;
 
 import static java.time.ZoneId.systemDefault;
 import static java.util.Collections.emptyList;
+import static org.jobrunr.storage.StorageProvider.BATCH_SIZE;
 import static org.jobrunr.utils.streams.StreamUtils.batchCollector;
 
 /**
@@ -76,6 +78,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return enqueue(null, job);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public JobId enqueue(JobLambda job, ConcurrentMap<String, Object> metadata) {
+        return enqueue(null, job, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -94,21 +101,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return enqueue(id, job, new ConcurrentHashMap<>());
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *            MyService service = new MyService();
-     *            jobScheduler.enqueue(id, () -> service.doWork());
-     *       }</pre>
-     *
-     * @param id  the uuid with which to save the job
-     * @param job the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public JobId enqueue(UUID id, JobLambda job, ConcurrentMap<String, Object> metadata) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(job);
         return enqueue(id, jobDetails, metadata);
@@ -133,6 +126,14 @@ public class JobScheduler extends AbstractJobScheduler {
                 .collect(batchCollector(BATCH_SIZE, this::saveJobs));
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <T> void enqueue(Stream<T> input, JobLambdaFromStream<T> jobFromStream, ConcurrentMap<String, Object> metadata) {
+        input
+                .map(x -> jobDetailsGenerator.toJobDetails(x, jobFromStream))
+                .map(x -> new org.jobrunr.jobs.Job(x, metadata))
+                .collect(batchCollector(BATCH_SIZE, this::saveJobs));
+    }
+
     /**
      * Creates a new fire-and-forget job based on a given lambda. The IoC container will be used to resolve {@code MyService}.
      * <h5>An example:</h5>
@@ -145,6 +146,11 @@ public class JobScheduler extends AbstractJobScheduler {
      */
     public <S> JobId enqueue(IocJobLambda<S> iocJob) {
         return enqueue(null, iocJob);
+    }
+
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S> JobId enqueue(IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        return enqueue(null, iocJob, metadata);
     }
 
     /**
@@ -165,20 +171,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return enqueue(id, jobDetails);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on a given lambda. The IoC container will be used to resolve {@code MyService}.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *            jobScheduler.<MyService>enqueue(id, x -> x.doWork());
-     *       }</pre>
-     *
-     * @param id     the uuid with which to save the job
-     * @param iocJob the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public <S> JobId enqueue(UUID id, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
         return enqueue(id, jobDetails, metadata);
@@ -202,6 +195,14 @@ public class JobScheduler extends AbstractJobScheduler {
                 .collect(batchCollector(BATCH_SIZE, this::saveJobs));
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S, T> void enqueue(Stream<T> input, IocJobLambdaFromStream<S, T> iocJobFromStream, ConcurrentMap<String, Object> metadata) {
+        input
+                .map(x -> jobDetailsGenerator.toJobDetails(x, iocJobFromStream))
+                .map(x -> new org.jobrunr.jobs.Job(x, metadata))
+                .collect(batchCollector(BATCH_SIZE, this::saveJobs));
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
      * <h5>An example:</h5>
@@ -216,6 +217,11 @@ public class JobScheduler extends AbstractJobScheduler {
      */
     public JobId schedule(ZonedDateTime zonedDateTime, JobLambda job) {
         return schedule(null, zonedDateTime.toInstant(), job);
+    }
+
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public JobId schedule(ZonedDateTime zonedDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, zonedDateTime.toInstant(), job, metadata);
     }
 
     /**
@@ -236,22 +242,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, zonedDateTime.toInstant(), job);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.schedule(id, ZonedDateTime.now().plusHours(5), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id            the uuid with which to save the job
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
-     * @param job           the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public JobId schedule(UUID id, ZonedDateTime zonedDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
         return schedule(id, zonedDateTime.toInstant(), job, metadata);
     }
@@ -271,6 +262,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(null, zonedDateTime.toInstant(), iocJob);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S> JobId schedule(ZonedDateTime zonedDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, zonedDateTime.toInstant(), iocJob, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -288,21 +284,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, zonedDateTime.toInstant(), iocJob);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>schedule(id, ZonedDateTime.now().plusHours(5), x -> x.doWork());
-     * }</pre>
-     *
-     * @param id            the uuid with which to save the job
-     * @param zonedDateTime The moment in time at which the job will be enqueued.
-     * @param iocJob        the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public <S> JobId schedule(UUID id, ZonedDateTime zonedDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         return schedule(id, zonedDateTime.toInstant(), iocJob, metadata);
     }
@@ -323,6 +305,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(null, offsetDateTime.toInstant(), job);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public JobId schedule(OffsetDateTime offsetDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, offsetDateTime.toInstant(), job, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -341,22 +328,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, offsetDateTime.toInstant(), job);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.schedule(id, OffsetDateTime.now().plusHours(5), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id             the uuid with which to save the job
-     * @param offsetDateTime The moment in time at which the job will be enqueued.
-     * @param job            the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public JobId schedule(UUID id, OffsetDateTime offsetDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
         return schedule(id, offsetDateTime.toInstant(), job, metadata);
     }
@@ -376,6 +348,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(null, offsetDateTime.toInstant(), iocJob);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S> JobId schedule(OffsetDateTime offsetDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, offsetDateTime.toInstant(), iocJob, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -393,21 +370,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, offsetDateTime.toInstant(), iocJob);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>schedule(id, OffsetDateTime.now().plusHours(5), x -> x.doWork());
-     * }</pre>
-     *
-     * @param id             the uuid with which to save the job
-     * @param offsetDateTime The moment in time at which the job will be enqueued.
-     * @param iocJob         the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public <S> JobId schedule(UUID id, OffsetDateTime offsetDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         return schedule(id, offsetDateTime.toInstant(), iocJob, metadata);
     }
@@ -428,6 +391,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(localDateTime.atZone(systemDefault()).toInstant(), job);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public JobId schedule(LocalDateTime localDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        return schedule(localDateTime.atZone(systemDefault()).toInstant(), job, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -446,22 +414,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, localDateTime.atZone(systemDefault()).toInstant(), job);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.schedule(id, LocalDateTime.now().plusHours(5), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id            the uuid with which to save the job
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
-     * @param job           the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public JobId schedule(UUID id, LocalDateTime localDateTime, JobLambda job, ConcurrentMap<String, Object> metadata) {
         return schedule(id, localDateTime.atZone(systemDefault()).toInstant(), job, metadata);
     }
@@ -481,6 +434,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(localDateTime.atZone(systemDefault()).toInstant(), iocJob);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S> JobId schedule(LocalDateTime localDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        return schedule(localDateTime.atZone(systemDefault()).toInstant(), iocJob, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -498,21 +456,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, localDateTime.atZone(systemDefault()).toInstant(), iocJob);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>schedule(LocalDateTime.now().plusHours(5), x -> x.doWork());
-     * }</pre>
-     *
-     * @param id            the uuid with which to save the job
-     * @param localDateTime The moment in time at which the job will be enqueued. It will use the systemDefault ZoneId to transform it to an UTC Instant
-     * @param iocJob        the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public <S> JobId schedule(UUID id, LocalDateTime localDateTime, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         return schedule(id, localDateTime.atZone(systemDefault()).toInstant(), iocJob, metadata);
     }
@@ -531,6 +475,11 @@ public class JobScheduler extends AbstractJobScheduler {
      */
     public JobId schedule(Instant instant, JobLambda job) {
         return schedule(null, instant, job);
+    }
+
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public JobId schedule(Instant instant, JobLambda job, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, instant, job, metadata);
     }
 
     /**
@@ -552,22 +501,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, instant, jobDetails);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.schedule(id, Instant.now().plusHours(5), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id      the uuid with which to save the job
-     * @param instant The moment in time at which the job will be enqueued.
-     * @param job     the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public JobId schedule(UUID id, Instant instant, JobLambda job, ConcurrentMap<String, Object> metadata) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(job);
         return schedule(id, instant, jobDetails, metadata);
@@ -588,6 +522,11 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(null, instant, iocJob);
     }
 
+    //JobRunrPlus: allow to specify metadata when a job is saved
+    public <S> JobId schedule(Instant instant, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
+        return schedule(null, instant, iocJob, metadata);
+    }
+
     /**
      * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
      * If a job with that id already exists, JobRunr will not save it again.
@@ -606,21 +545,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return schedule(id, instant, jobDetails);
     }
 
-    /**
-     * Creates a new fire-and-forget job based on the given lambda and schedules it to be enqueued at the given moment of time. The IoC container will be used to resolve {@code MyService}.
-     * If a job with that id already exists, JobRunr will not save it again.
-     * Additionally sets the given job metadata.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>schedule(id, Instant.now().plusHours(5), x -> x.doWork());
-     * }</pre>
-     *
-     * @param id      the uuid with which to save the job
-     * @param instant The moment in time at which the job will be enqueued.
-     * @param iocJob  the lambda which defines the fire-and-forget job
-     * @param metadata the job metadata
-     * @return the id of the Job
-     */
+    //JobRunrPlus: allow to specify metadata when a job is saved
     public <S> JobId schedule(UUID id, Instant instant, IocJobLambda<S> iocJob, ConcurrentMap<String, Object> metadata) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
         return schedule(id, instant, jobDetails, metadata);
@@ -635,7 +560,7 @@ public class JobScheduler extends AbstractJobScheduler {
      * }</pre>
      *
      * @param cron The cron expression defining when to run this recurring job
-     * @param job  the lambda which defines the fire-and-forget job
+     * @param job  the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -643,21 +568,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(null, cron, job);
     }
 
-    /**
-     * Creates a new recurring job based on the given lambda and the given cron expression. The jobs will be scheduled using the systemDefault timezone.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.scheduleRecurrently(Cron.daily(), () -> service.doWork());
-     * }</pre>
-     *
-     * @param cron The cron expression defining when to run this recurring job
-     * @param job  the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public String scheduleRecurrently(String cron, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
         return scheduleRecurrently(null, cron, job, enabled, deletableFromDashboard);
     }
@@ -670,7 +581,7 @@ public class JobScheduler extends AbstractJobScheduler {
      * }</pre>
      *
      * @param cron   The cron expression defining when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param iocJob the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -678,20 +589,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(null, cron, iocJob);
     }
 
-    /**
-     * Creates a new recurring job based on the given cron expression and the given lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>scheduleRecurrently(Cron.daily(), x -> x.doWork());
-     * }</pre>
-     *
-     * @param cron   The cron expression defining when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public <S> String scheduleRecurrently(String cron, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
         return scheduleRecurrently(null, cron, iocJob, enabled, deletableFromDashboard);
     }
@@ -706,7 +604,7 @@ public class JobScheduler extends AbstractJobScheduler {
      *
      * @param id   the id of this recurring job which can be used to alter or delete it
      * @param cron The cron expression defining when to run this recurring job
-     * @param job  the lambda which defines the fire-and-forget job
+     * @param job  the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -714,22 +612,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(id, cron, systemDefault(), job);
     }
 
-    /**
-     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The jobs will be scheduled using the systemDefault timezone
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.scheduleRecurrently("my-recurring-job", Cron.daily(), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id   the id of this recurring job which can be used to alter or delete it
-     * @param cron The cron expression defining when to run this recurring job
-     * @param job  the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public String scheduleRecurrently(String id, String cron, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
         return scheduleRecurrently(id, cron, systemDefault(), job, enabled, deletableFromDashboard);
     }
@@ -743,7 +626,7 @@ public class JobScheduler extends AbstractJobScheduler {
      *
      * @param id     the id of this recurring job which can be used to alter or delete it
      * @param cron   The cron expression defining when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param iocJob the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -751,21 +634,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(id, cron, systemDefault(), iocJob);
     }
 
-    /**
-     * Creates a new or alters the existing recurring job based on the given id, cron expression and lambda. The IoC container will be used to resolve {@code MyService}. The jobs will be scheduled using the systemDefault timezone
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily()),  x -> x.doWork();
-     * }</pre>
-     *
-     * @param id     the id of this recurring job which can be used to alter or delete it
-     * @param cron   The cron expression defining when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public <S> String scheduleRecurrently(String id, String cron, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
         return scheduleRecurrently(id, cron, systemDefault(), iocJob, enabled, deletableFromDashboard);
     }
@@ -781,7 +650,7 @@ public class JobScheduler extends AbstractJobScheduler {
      * @param id     the id of this recurring job which can be used to alter or delete it
      * @param cron   The cron expression defining when to run this recurring job
      * @param zoneId The zoneId (timezone) of when to run this recurring job
-     * @param job    the lambda which defines the fire-and-forget job
+     * @param job    the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -790,23 +659,7 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(id, jobDetails, CronExpression.create(cron), zoneId);
     }
 
-    /**
-     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      MyService service = new MyService();
-     *      jobScheduler.scheduleRecurrently("my-recurring-job", Cron.daily(), ZoneId.of("Europe/Brussels"), () -> service.doWork());
-     * }</pre>
-     *
-     * @param id     the id of this recurring job which can be used to alter or delete it
-     * @param cron   The cron expression defining when to run this recurring job
-     * @param zoneId The zoneId (timezone) of when to run this recurring job
-     * @param job    the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public String scheduleRecurrently(String id, String cron, ZoneId zoneId, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(job);
         return scheduleRecurrently(id, jobDetails, CronExpression.create(cron), zoneId, enabled, deletableFromDashboard);
@@ -822,7 +675,7 @@ public class JobScheduler extends AbstractJobScheduler {
      * @param id     the id of this recurring job which can be used to alter or delete it
      * @param cron   The cron expression defining when to run this recurring job
      * @param zoneId The zoneId (timezone) of when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
+     * @param iocJob the lambda which defines the recurring job
      * @return the id of this recurring job which can be used to alter or delete it
      * @see org.jobrunr.scheduling.cron.Cron
      */
@@ -831,24 +684,97 @@ public class JobScheduler extends AbstractJobScheduler {
         return scheduleRecurrently(id, jobDetails, CronExpression.create(cron), zoneId);
     }
 
-    /**
-     * Creates a new or alters the existing recurring job based on the given id, cron expression, {@code ZoneId} and lambda. The IoC container will be used to resolve {@code MyService}.
-     * <h5>An example:</h5>
-     * <pre>{@code
-     *      jobScheduler.<MyService>scheduleRecurrently("my-recurring-job", Cron.daily(), ZoneId.of("Europe/Brussels"), x -> x.doWork());
-     * }</pre>
-     *
-     * @param id     the id of this recurring job which can be used to alter or delete it
-     * @param cron   The cron expression defining when to run this recurring job
-     * @param zoneId The zoneId (timezone) of when to run this recurring job
-     * @param iocJob the lambda which defines the fire-and-forget job
-     * @param enabled whether the job is enabled
-     * @param deletableFromDashboard whether the job is deletable from the dashboard
-     * @return the id of this recurring job which can be used to alter or delete it
-     * @see org.jobrunr.scheduling.cron.Cron
-     */
+    //JobRunrPlus: extra options for recurring jobs
     public <S> String scheduleRecurrently(String id, String cron, ZoneId zoneId, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
         JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
         return scheduleRecurrently(id, jobDetails, CronExpression.create(cron), zoneId, enabled, deletableFromDashboard);
+    }
+
+    /**
+     * Creates a new recurring job based on the given duration and the given lambda. The first run of this recurring job will happen after the given duration unless your duration is smaller or equal than your backgroundJobServer pollInterval.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.scheduleRecurrently(Duration.parse("P5D"), () -> service.doWork());
+     * }</pre>
+     *
+     * @param duration the duration defining the time between each instance of this recurring job.
+     * @param job      the lambda which defines the recurring job
+     * @return the id of this recurring job which can be used to alter or delete it
+     */
+    public String scheduleRecurrently(Duration duration, JobLambda job) {
+        return scheduleRecurrently(null, duration, job);
+    }
+
+    //JobRunrPlus: extra options for recurring jobs
+    public String scheduleRecurrently(Duration duration, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
+        return scheduleRecurrently(null, duration, job, enabled, deletableFromDashboard);
+    }
+
+    /**
+     * Creates a new recurring job based on the given duration and the given lambda. The IoC container will be used to resolve {@code MyService}. The first run of this recurring job will happen after the given duration unless your duration is smaller or equal than your backgroundJobServer pollInterval.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>scheduleRecurrently(Duration.parse("P5D"), x -> x.doWork());
+     * }</pre>
+     *
+     * @param duration the duration defining the time between each instance of this recurring job
+     * @param iocJob   the lambda which defines the recurring job
+     * @return the id of this recurring job which can be used to alter or delete it
+     */
+    public <S> String scheduleRecurrently(Duration duration, IocJobLambda<S> iocJob) {
+        return scheduleRecurrently(null, duration, iocJob);
+    }
+
+    //JobRunrPlus: extra options for recurring jobs
+    public <S> String scheduleRecurrently(Duration duration, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
+        return scheduleRecurrently(null, duration, iocJob, enabled, deletableFromDashboard);
+    }
+
+    /**
+     * Creates a new or alters the existing recurring job based on the given id, duration and lambda. The first run of this recurring job will happen after the given duration unless your duration is smaller or equal than your backgroundJobServer pollInterval.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      MyService service = new MyService();
+     *      BackgroundJob.scheduleRecurrently("my-recurring-job", Duration.parse("P5D"), () -> service.doWork());
+     * }</pre>
+     *
+     * @param id       the id of this recurring job which can be used to alter or delete it
+     * @param duration the duration defining the time between each instance of this recurring job
+     * @param job      the lambda which defines the recurring job
+     * @return the id of this recurring job which can be used to alter or delete it
+     */
+    public String scheduleRecurrently(String id, Duration duration, JobLambda job) {
+        JobDetails jobDetails = jobDetailsGenerator.toJobDetails(job);
+        return scheduleRecurrently(id, jobDetails, new Interval(duration), systemDefault());
+    }
+
+    //JobRunrPlus: extra options for recurring jobs
+    public String scheduleRecurrently(String id, Duration duration, JobLambda job, boolean enabled, boolean deletableFromDashboard) {
+        JobDetails jobDetails = jobDetailsGenerator.toJobDetails(job);
+        return scheduleRecurrently(id, jobDetails, new Interval(duration), systemDefault(), enabled, deletableFromDashboard);
+    }
+
+    /**
+     * Creates a new or alters the existing recurring job based on the given id, duration and lambda. The IoC container will be used to resolve {@code MyService}. The first run of this recurring job will happen after the given duration unless your duration is smaller or equal than your backgroundJobServer pollInterval.
+     * <h5>An example:</h5>
+     * <pre>{@code
+     *      BackgroundJob.<MyService>scheduleRecurrently("my-recurring-job", Duration.parse("P5D"), x -> x.doWork());
+     * }</pre>
+     *
+     * @param id       the id of this recurring job which can be used to alter or delete it
+     * @param duration the duration defining the time between each instance of this recurring job
+     * @param iocJob   the lambda which defines the recurring job
+     * @return the id of this recurring job which can be used to alter or delete it
+     */
+    public <S> String scheduleRecurrently(String id, Duration duration, IocJobLambda<S> iocJob) {
+        JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
+        return scheduleRecurrently(id, jobDetails, new Interval(duration), systemDefault());
+    }
+
+    //JobRunrPlus: extra options for recurring jobs
+    public <S> String scheduleRecurrently(String id, Duration duration, IocJobLambda<S> iocJob, boolean enabled, boolean deletableFromDashboard) {
+        JobDetails jobDetails = jobDetailsGenerator.toJobDetails(iocJob);
+        return scheduleRecurrently(id, jobDetails, new Interval(duration), systemDefault(), enabled, deletableFromDashboard);
     }
 }

@@ -4,6 +4,7 @@ import org.jobrunr.jobs.*;
 import org.jobrunr.jobs.mappers.JobMapper;
 import org.jobrunr.jobs.states.ScheduledState;
 import org.jobrunr.jobs.states.StateName;
+import org.jobrunr.storage.StorageProviderUtils.DatabaseOptions;
 import org.jobrunr.utils.resilience.RateLimiter;
 
 import java.time.Instant;
@@ -46,6 +47,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         publishTotalAmountOfSucceededJobs(0);
     }
 
+    //JobRunrPlus: support retrieval of job mapper
     @Override
     public JobMapper getJobMapper() {
         return jobMapper;
@@ -57,12 +59,16 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     }
 
     @Override
+    public void setUpStorageProvider(DatabaseOptions databaseOptions) {}
+
+    @Override
     public void announceBackgroundJobServer(BackgroundJobServerStatus serverStatus) {
         final BackgroundJobServerStatus backgroundJobServerStatus = new BackgroundJobServerStatus(
                 serverStatus.getId(),
                 serverStatus.getWorkerPoolSize(),
                 serverStatus.getPollIntervalInSeconds(),
                 serverStatus.getDeleteSucceededJobsAfter(),
+                //JobRunrPlus: support automatic deletion of failed jobs
                 serverStatus.getDeleteFailedJobsAfter(),
                 serverStatus.getPermanentlyDeleteDeletedJobsAfter(),
                 serverStatus.getFirstHeartbeat(),
@@ -94,6 +100,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         backgroundJobServers.remove(serverStatus.getId());
     }
 
+    //JobRunrPlus: improve sorting of job servers
     @Override
     public List<BackgroundJobServerStatus> getBackgroundJobServers() {
         return backgroundJobServers.values().stream()
@@ -101,6 +108,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
                 .collect(toList());
     }
 
+    //JobRunrPlus: improve sorting of job servers
     @Override
     public UUID getLongestRunningBackgroundJobServerId() {
         return backgroundJobServers.values().stream()
@@ -160,6 +168,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return job;
     }
 
+   //JobRunrPlus: automatic disposal of job resources on deletion
     @Override
     public int deletePermanently(UUID id) {
         Job job = jobQueue.remove(id);
@@ -218,6 +227,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         );
     }
 
+    //JobRunrPlus: automatic disposal of job resources on deletion
     @Override
     public int deleteJobsPermanently(StateName state, Instant updatedBefore) {
         List<Job> jobsToRemove = jobQueue.values().stream()
@@ -252,7 +262,9 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return jobQueue.values().stream()
                 .anyMatch(job ->
                         asList(states).contains(job.getState())
-                                && recurringJobId.equals(job.getRecurringJobId()));
+                                && job.getRecurringJobId()
+                                .map(actualRecurringJobId -> actualRecurringJobId.equals(recurringJobId))
+                                .orElse(false));
     }
 
     @Override
@@ -263,8 +275,20 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
     }
 
     @Override
-    public List<RecurringJob> getRecurringJobs() {
-        return recurringJobs;
+    public RecurringJobsResult getRecurringJobs() {
+        return new RecurringJobsResult(recurringJobs);
+    }
+
+    @Override
+    @Deprecated
+    public long countRecurringJobs() {
+        return recurringJobs.size();
+    }
+
+    @Override
+    public boolean recurringJobsUpdated(Long recurringJobsUpdatedHash) {
+        Long currentResult = recurringJobs.stream().map(rj -> rj.getCreatedAt().toEpochMilli()).reduce(Long::sum).orElse(0L);
+        return !currentResult.equals(recurringJobsUpdatedHash);
     }
 
     @Override
@@ -313,7 +337,7 @@ public class InMemoryStorageProvider extends AbstractStorageProvider {
         return result;
     }
 
-    private void saveJob(Job job) {
+    private synchronized void saveJob(Job job) {
         final Job oldJob = jobQueue.get(job.getId());
         if (oldJob != null && job.getVersion() != oldJob.getVersion()) {
             throw new ConcurrentJobModificationException(job);

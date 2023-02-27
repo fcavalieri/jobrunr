@@ -13,11 +13,15 @@ public class JobRunrConfiguration {
 
     public DatabaseConfiguration database;
 
+    public JobsConfiguration jobs;
+
     public JobSchedulerConfiguration jobScheduler;
 
     public BackgroundJobServerConfiguration backgroundJobServer;
 
     public DashboardConfiguration dashboard;
+
+    public MiscellaneousConfiguration miscellaneous;
 
     /**
      * Whether or not an health check is published in case the smallrye-health extension is present.
@@ -51,6 +55,34 @@ public class JobRunrConfiguration {
          */
         @ConfigItem
         public Optional<String> datasource;
+
+        /**
+         * If multiple types of databases are available in the Spring Context (e.g. a DataSource and an Elastic RestHighLevelClient), this setting allows to specify the type of database for JobRunr to use.
+         * Valid values are 'sql', 'mongodb' and 'elasticsearch'.
+         */
+        public Optional<String> type;
+    }
+
+    @ConfigGroup
+    public static class JobsConfiguration {
+
+        /**
+         * Configures the default amount of retries.
+         */
+        @ConfigItem
+        public Optional<Integer> defaultNumberOfRetries;
+
+        /**
+         * Configures the seed for the exponential back-off when jobs are retried in case of an Exception.
+         */
+        @ConfigItem
+        public Optional<Integer> retryBackOffTimeSeed;
+
+        /**
+         * Configures MicroMeter metrics related to jobs
+         */
+        @ConfigItem
+        public MetricsConfiguration metrics;
     }
 
     @ConfigGroup
@@ -88,6 +120,24 @@ public class JobRunrConfiguration {
         public Optional<Integer> workerCount;
 
         /**
+         * Sets the maximum number of jobs to update from scheduled to enqueued state per polling interval.
+         */
+        @ConfigItem
+        public Optional<Integer> scheduledJobsRequestSize;
+
+        /**
+         * Sets the query size for misfired jobs per polling interval (to retry them).
+         */
+        @ConfigItem
+        public Optional<Integer> orphanedJobsRequestSize;
+
+        /**
+         * Sets the maximum number of jobs to update from succeeded to deleted state per polling interval.
+         */
+        @ConfigItem
+        public Optional<Integer> succeededsJobRequestSize;
+
+        /**
          * Set the pollIntervalInSeconds for the BackgroundJobServer to see whether new jobs need to be processed
          */
         @ConfigItem
@@ -104,6 +154,12 @@ public class JobRunrConfiguration {
          */
         @ConfigItem
         public Optional<Duration> permanentlyDeleteDeletedJobsAfter;
+
+        /**
+         * Configures MicroMeter metrics related to the background job server
+         */
+        @ConfigItem
+        public MetricsConfiguration metrics;
     }
 
     @ConfigGroup
@@ -132,6 +188,27 @@ public class JobRunrConfiguration {
          */
         @ConfigItem
         public Optional<String> password;
+    }
+
+    @ConfigGroup
+    public static class MiscellaneousConfiguration {
+
+        /**
+         * Allows to opt-out of anonymous usage statistics. This setting is true by default and sends only the total amount of succeeded jobs processed
+         * by your cluster per day to show a counter on the JobRunr website for marketing purposes.
+         */
+        @ConfigItem(defaultValue = "true")
+        public boolean allowAnonymousDataUsage;
+    }
+
+    @ConfigGroup
+    public static class MetricsConfiguration {
+
+        /**
+         * Configures whether metrics are reported to MicroMeter.
+         */
+        @ConfigItem(defaultValue = "true")
+        public boolean enabled;
     }
 }
 

@@ -16,20 +16,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.stream.Stream;
 
+import static java.time.Instant.now;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.jobrunr.JobRunrAssertions.failedJob;
-import static org.jobrunr.jobs.JobTestBuilder.aCopyOf;
-import static org.jobrunr.jobs.JobTestBuilder.aJobInProgress;
-import static org.jobrunr.jobs.JobTestBuilder.aScheduledJob;
+import static org.jobrunr.jobs.JobTestBuilder.*;
 import static org.jobrunr.jobs.states.StateName.DELETED;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultConcurrentJobModificationResolverTest {
@@ -47,7 +43,7 @@ class DefaultConcurrentJobModificationResolverTest {
     }
 
     @ParameterizedTest
-    @MethodSource("getJobsInDifferentStates")
+    @MethodSource("getJobsThatWereDeletedInDifferentStates")
     void concurrentStateChangeFromSucceededFailedOrScheduledToDeletedIsAllowed(Job localJob, Job storageProviderJob) {
         final Thread jobThread = mock(Thread.class);
         when(storageProvider.getJobById(localJob.getId())).thenReturn(storageProviderJob);
@@ -56,6 +52,27 @@ class DefaultConcurrentJobModificationResolverTest {
         concurrentJobModificationResolver.resolve(new ConcurrentJobModificationException(localJob));
 
         verifyNoInteractions(jobThread);
+    }
+
+    @ParameterizedTest
+    @MethodSource("getJobsThatAreInProgressInDifferentStates")
+    void concurrentStateChangeWhileProcessingIsAllowedIfJobIsNotProcessingAnymore(Job localJob, Job storageProviderJob) {
+        when(storageProvider.getJobById(localJob.getId())).thenReturn(storageProviderJob);
+        lenient().when(jobZooKeeper.getThreadProcessingJob(localJob)).thenReturn(null);
+
+        assertThatCode(() -> concurrentJobModificationResolver.resolve(new ConcurrentJobModificationException(localJob)))
+                .doesNotThrowAnyException();
+    }
+
+    @ParameterizedTest
+    @MethodSource("getJobsThatAreInProgressInDifferentStates")
+    void concurrentStateChangeWhileProcessingIsNotAllowedIfJobIsProcessing(Job localJob, Job storageProviderJob) {
+        final Thread jobThread = mock(Thread.class);
+        when(storageProvider.getJobById(localJob.getId())).thenReturn(storageProviderJob);
+        lenient().when(jobZooKeeper.getThreadProcessingJob(localJob)).thenReturn(jobThread);
+
+        assertThatCode(() -> concurrentJobModificationResolver.resolve(new ConcurrentJobModificationException(localJob)))
+                .isInstanceOf(UnresolvableConcurrentJobModificationException.class);
     }
 
     @Test
@@ -81,6 +98,21 @@ class DefaultConcurrentJobModificationResolverTest {
     }
 
     @Test
+    void concurrentStateChangeForJobThatIsPerformedOnOtherBackgroundJobServerIsAllowed() {
+        final Job jobInProgress = aJobInProgress().build();
+        Job localJob = aCopyOf(jobInProgress).withVersion(3).build();
+        Job storageProviderJob = aCopyOf(jobInProgress).withVersion(6).withFailedState().withScheduledState().withEnqueuedState(now()).withProcessingState().build();
+
+        final Thread jobThread = mock(Thread.class);
+        when(storageProvider.getJobById(localJob.getId())).thenReturn(storageProviderJob);
+        lenient().when(jobZooKeeper.getThreadProcessingJob(localJob)).thenReturn(jobThread);
+
+        concurrentJobModificationResolver.resolve(new ConcurrentJobModificationException(localJob));
+
+        verify(jobThread).interrupt();
+    }
+
+    @Test
     void concurrentStateChangeFromUnsupportedStateChangeIsNotAllowedAndThrowsException() {
         final Job job1 = aJobInProgress().build();
         final Job job2 = aJobInProgress().build();
@@ -94,7 +126,7 @@ class DefaultConcurrentJobModificationResolverTest {
                 .has(failedJob(job2));
     }
 
-    static Stream<Arguments> getJobsInDifferentStates() {
+    static Stream<Arguments> getJobsThatWereDeletedInDifferentStates() {
         final Job scheduledJob = aScheduledJob().build();
         final Job jobInProgress = aJobInProgress().build();
         return Stream.of(
@@ -102,6 +134,15 @@ class DefaultConcurrentJobModificationResolverTest {
                 arguments(aCopyOf(jobInProgress).withSucceededState().build(), aCopyOf(jobInProgress).withDeletedState().build()),
                 arguments(aCopyOf(jobInProgress).withFailedState().build(), aCopyOf(jobInProgress).withDeletedState().build()),
                 arguments(aCopyOf(jobInProgress).withScheduledState().build(), aCopyOf(jobInProgress).withDeletedState().build())
+        );
+    }
+
+    static Stream<Arguments> getJobsThatAreInProgressInDifferentStates() {
+        final Job jobInProgress = aJobInProgress().withVersion(2).build();
+        return Stream.of(
+                arguments(jobInProgress, aCopyOf(jobInProgress).withVersion(3).withSucceededState().build()),
+                arguments(jobInProgress, aCopyOf(jobInProgress).withVersion(3).withFailedState().build()),
+                arguments(jobInProgress, aCopyOf(jobInProgress).withVersion(3).withScheduledState().build())
         );
     }
 

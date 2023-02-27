@@ -174,6 +174,7 @@ public abstract class AbstractStorageProvider implements StorageProvider, AutoCl
         LOGGER.warn("Error notifying JobStorageChangeListeners", e);
     }
 
+    //JobRunrPlus: disposable job resources
     protected void disposeJobResources(Map<String, Object> jobMetadata) {
         if (jobMetadata != null) {
             for (Object value: jobMetadata.values()) {
@@ -188,6 +189,7 @@ public abstract class AbstractStorageProvider implements StorageProvider, AutoCl
         }
     }
 
+    //JobRunrPlus: support extra recurring job operations
     public RecurringJob getRecurringJobById(String id) {
         return getRecurringJobs()
                 .stream()

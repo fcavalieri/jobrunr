@@ -1,39 +1,48 @@
 package org.jobrunr.scheduling;
 
 import org.jobrunr.jobs.JobDetails;
+import org.jobrunr.jobs.context.JobContext;
 import org.jobrunr.scheduling.cron.CronExpression;
+import org.jobrunr.scheduling.interval.Interval;
 import org.jobrunr.spring.annotations.Recurring;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.time.ZoneId;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.jobrunr.JobRunrAssertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RecurringJobPostProcessorTest {
 
+    @Mock
+    private BeanFactory beanFactory;
     @Mock
     private JobScheduler jobScheduler;
 
     @Captor
     private ArgumentCaptor<JobDetails> jobDetailsArgumentCaptor;
 
+    @BeforeEach
+    void setUpJobSchedulerObjectFactory() {
+        lenient().when(beanFactory.getBean(JobScheduler.class)).thenReturn(jobScheduler);
+    }
+
     @Test
     void beansWithoutMethodsAnnotatedWithRecurringAnnotationWillNotBeHandled() {
         // GIVEN
-        final RecurringJobPostProcessor recurringJobPostProcessor = new RecurringJobPostProcessor(jobScheduler);
-        recurringJobPostProcessor.afterPropertiesSet();
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
 
         // WHEN
         recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithoutRecurringAnnotation(), "not important");
@@ -45,8 +54,7 @@ class RecurringJobPostProcessorTest {
     @Test
     void beansWithMethodsAnnotatedWithRecurringAnnotationWillAutomaticallyBeRegistered() {
         // GIVEN
-        final RecurringJobPostProcessor recurringJobPostProcessor = new RecurringJobPostProcessor(jobScheduler);
-        recurringJobPostProcessor.afterPropertiesSet();
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
 
         // WHEN
         recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringJob(), "not important");
@@ -55,21 +63,106 @@ class RecurringJobPostProcessorTest {
         verify(jobScheduler).scheduleRecurrently(eq("my-recurring-job"), jobDetailsArgumentCaptor.capture(), eq(CronExpression.create("0 0/15 * * *")), any(ZoneId.class));
 
         final JobDetails actualJobDetails = jobDetailsArgumentCaptor.getValue();
-        assertThat(actualJobDetails.getClassName()).isEqualTo(MyServiceWithRecurringJob.class.getName());
-        assertThat(actualJobDetails.getMethodName()).isEqualTo("myRecurringMethod");
-        assertThat(actualJobDetails.getCacheable()).isTrue();
+        assertThat(actualJobDetails)
+                .isCacheable()
+                .hasClassName(MyServiceWithRecurringJob.class.getName())
+                .hasMethodName("myRecurringMethod")
+                .hasNoArgs();
+    }
+
+    @Test
+    void beansWithMethodsUsingJobContextAnnotatedWithRecurringCronAnnotationWillAutomaticallyBeRegistered() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN
+        recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringCronJobUsingJobContext(), "not important");
+
+        // THEN
+        verify(jobScheduler).scheduleRecurrently(eq("my-recurring-job"), jobDetailsArgumentCaptor.capture(), eq(CronExpression.create("0 0/15 * * *")), any(ZoneId.class));
+
+        final JobDetails actualJobDetails = jobDetailsArgumentCaptor.getValue();
+        assertThat(actualJobDetails)
+                .isCacheable()
+                .hasClassName(MyServiceWithRecurringCronJobUsingJobContext.class.getName())
+                .hasMethodName("myRecurringMethod")
+                .hasJobContextArg();
+    }
+
+    @Test
+    void beansWithMethodsUsingJobContextAnnotatedWithRecurringIntervalAnnotationWillAutomaticallyBeRegistered() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN
+        recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringIntervalJobUsingJobContext(), "not important");
+
+        // THEN
+        verify(jobScheduler).scheduleRecurrently(eq("my-recurring-job"), jobDetailsArgumentCaptor.capture(), eq(new Interval("PT10M")), any(ZoneId.class));
+
+        final JobDetails actualJobDetails = jobDetailsArgumentCaptor.getValue();
+        assertThat(actualJobDetails)
+                .isCacheable()
+                .hasClassName(MyServiceWithRecurringIntervalJobUsingJobContext.class.getName())
+                .hasMethodName("myRecurringMethod")
+                .hasJobContextArg();
+    }
+
+    @Test
+    void beansWithMethodsAnnotatedWithRecurringAnnotationCronDisabled() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN
+        recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringCronJobDisabled(), "not important");
+
+        // THEN
+        verify(jobScheduler).delete("my-recurring-job");
+    }
+
+    @Test
+    void beansWithMethodsAnnotatedWithRecurringAnnotationIntervalDisabled() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN
+        recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringIntervalDisabled(), "not important");
+
+        // THEN
+        verify(jobScheduler).delete("my-recurring-job");
+    }
+
+    @Test
+    void beansWithMethodsAnnotatedWithRecurringAnnotationCronAndIntervalWillThrowException() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN & THEN
+        assertThatThrownBy(() -> recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringJobWithCronAndInterval(), "not important"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void beansWithMethodsAnnotatedWithRecurringAnnotationNoCronOrIntervalWillThrowException() {
+        // GIVEN
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
+
+        // WHEN & THEN
+        assertThatThrownBy(() -> recurringJobPostProcessor.postProcessAfterInitialization(new MyServiceWithRecurringJobWithoutCronAndInterval(), "not important"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void beansWithMethodsAnnotatedWithRecurringAnnotationContainingPropertyPlaceholdersWillBeResolved() {
         new ApplicationContextRunner()
-                .withBean(RecurringJobPostProcessor.class, jobScheduler)
+                .withBean(RecurringJobPostProcessor.class)
+                .withBean(JobScheduler.class, () -> jobScheduler)
                 .withPropertyValues("my-job.id=my-recurring-job")
                 .withPropertyValues("my-job.cron=0 0/15 * * *")
                 .withPropertyValues("my-job.zone-id=Asia/Taipei")
                 .run(context -> {
                     context.getBean(RecurringJobPostProcessor.class)
-                    .postProcessAfterInitialization(new MyServiceWithRecurringAnnotationContainingPropertyPlaceholder(), "not important");
+                            .postProcessAfterInitialization(new MyServiceWithRecurringAnnotationContainingPropertyPlaceholder(), "not important");
 
                     verify(jobScheduler).scheduleRecurrently(eq("my-recurring-job"), any(JobDetails.class), eq(CronExpression.create("0 0/15 * * *")), eq(ZoneId.of("Asia/Taipei")));
                 });
@@ -78,7 +171,8 @@ class RecurringJobPostProcessorTest {
     @Test
     void beansWithMethodsAnnotatedWithRecurringAnnotationHasDisabledCronExpressionValueShouldBeDeleted() {
         new ApplicationContextRunner()
-                .withBean(RecurringJobPostProcessor.class, jobScheduler)
+                .withBean(RecurringJobPostProcessor.class)
+                .withBean(JobScheduler.class, () -> jobScheduler)
                 .withPropertyValues("my-job.id=my-recurring-job-to-be-deleted")
                 .withPropertyValues("my-job.cron=-")
                 .withPropertyValues("my-job.zone-id=Asia/Taipei")
@@ -93,7 +187,8 @@ class RecurringJobPostProcessorTest {
     @Test
     void beansWithMethodsAnnotatedWithRecurringAnnotationHasDisabledCronExpressionButNotSpecifiedIdShouldBeOmitted() {
         new ApplicationContextRunner()
-                .withBean(RecurringJobPostProcessor.class, jobScheduler)
+                .withBean(RecurringJobPostProcessor.class)
+                .withBean(JobScheduler.class, () -> jobScheduler)
                 .withPropertyValues("my-job.id=")
                 .withPropertyValues("my-job.cron=-")
                 .withPropertyValues("my-job.zone-id=Asia/Taipei")
@@ -107,12 +202,19 @@ class RecurringJobPostProcessorTest {
 
     @Test
     void beansWithUnsupportedMethodsAnnotatedWithRecurringAnnotationWillThrowException() {
-        final RecurringJobPostProcessor recurringJobPostProcessor = new RecurringJobPostProcessor(jobScheduler);
-        recurringJobPostProcessor.afterPropertiesSet();
+        final RecurringJobPostProcessor recurringJobPostProcessor = getRecurringJobPostProcessor();
 
         assertThatThrownBy(() -> recurringJobPostProcessor.postProcessAfterInitialization(new MyUnsupportedService(), "not important"))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Methods annotated with " + Recurring.class.getName() + " can not have parameters.");
+                .hasMessage("Methods annotated with " + Recurring.class.getName() + " can only have zero parameters or a single parameter of type JobContext.");
+    }
+
+
+    private RecurringJobPostProcessor getRecurringJobPostProcessor() {
+        final RecurringJobPostProcessor recurringJobPostProcessor = new RecurringJobPostProcessor();
+        recurringJobPostProcessor.setBeanFactory(beanFactory);
+        recurringJobPostProcessor.afterPropertiesSet();
+        return recurringJobPostProcessor;
     }
 
     public static class MyServiceWithoutRecurringAnnotation {
@@ -125,6 +227,54 @@ class RecurringJobPostProcessorTest {
     public static class MyServiceWithRecurringJob {
 
         @Recurring(id = "my-recurring-job", cron = "0 0/15 * * *")
+        public void myRecurringMethod() {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringCronJobUsingJobContext {
+
+        @Recurring(id = "my-recurring-job", cron = "0 0/15 * * *")
+        public void myRecurringMethod(JobContext jobContext) {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringIntervalJobUsingJobContext {
+
+        @Recurring(id = "my-recurring-job", interval = "PT10M")
+        public void myRecurringMethod(JobContext jobContext) {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringJobWithoutCronAndInterval {
+
+        @Recurring(id = "my-recurring-job")
+        public void myRecurringMethod(JobContext jobContext) {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringJobWithCronAndInterval {
+
+        @Recurring(id = "my-recurring-job", cron = "0 0/15 * * *", interval = "PT10M")
+        public void myRecurringMethod(JobContext jobContext) {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringCronJobDisabled {
+
+        @Recurring(id = "my-recurring-job", cron = "-")
+        public void myRecurringMethod() {
+            System.out.print("My recurring job method");
+        }
+    }
+
+    public static class MyServiceWithRecurringIntervalDisabled {
+
+        @Recurring(id = "my-recurring-job", interval = "-")
         public void myRecurringMethod() {
             System.out.print("My recurring job method");
         }
